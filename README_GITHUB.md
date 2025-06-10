@@ -1,4 +1,4 @@
-# CV Analyzer Pro 🚀
+# ARmind CVs 🚀
 
 Aplicación web inteligente para análisis de currículums con IA y búsqueda automatizada de empleos.
 
