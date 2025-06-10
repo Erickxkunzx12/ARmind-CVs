@@ -1,0 +1,18 @@
+Flask==2.3.3
+Flask-SQLAlchemy==3.0.5
+Werkzeug==2.3.7
+mysql-connector-python==8.1.0
+openai==0.28.1
+PyPDF2==3.0.1
+python-docx==0.8.11
+WeasyPrint==60.1
+requests==2.31.0
+beautifulsoup4==4.12.2
+psycopg2-binary==2.9.10
+selenium==4.15.2
+plotly==5.17.0
+Pillow==10.0.1
+reportlab==4.0.4
+lxml==4.9.3
+# Email verification dependencies (already included in Python standard library)
+# smtplib, email.mime.text, email.mime.multipart, secrets, uuid

@@ -1,0 +1,3419 @@
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_file, make_response
+from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
+import psycopg2
+from psycopg2.extras import RealDictCursor
+import os
+import openai
+from database_config import DB_CONFIG
+import PyPDF2
+# from docx import Document  # Temporarily disabled
+from datetime import datetime
+import json
+import uuid
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+# Cargar variables de entorno desde .env
+from dotenv import load_dotenv
+load_dotenv()  # Carga las variables de entorno desde .env
+
+# Importar funciones de scraping
+from job_search_service import scrape_linkedin, scrape_computrabajo as scrape_computrabajo_service, scrape_indeed_api
+
+# Configuración de email usando variables de entorno
+import os
+
+EMAIL_CONFIG = {
+    'smtp_server': os.getenv('SMTP_SERVER', 'smtp.gmail.com'),
+    'smtp_port': int(os.getenv('SMTP_PORT', '587')),
+    'email': os.getenv('EMAIL_USER'),
+    'password': os.getenv('EMAIL_PASSWORD'),
+    'use_tls': os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+}
+
+# Verificar si la configuración de email está completa
+if not EMAIL_CONFIG['email'] or not EMAIL_CONFIG['password']:
+    print("ADVERTENCIA: Configuración de email incompleta en variables de entorno")
+# Intentar usar pdfkit como alternativa a WeasyPrint
+try:
+    import pdfkit
+    PDFKIT_AVAILABLE = True
+except ImportError:
+    PDFKIT_AVAILABLE = False
+
+# weasyprint deshabilitado en Windows por problemas de dependencias
+WEASYPRINT_AVAILABLE = False
+
+# Intentar usar reportlab como alternativa
+try:
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import letter, A4
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.units import inch
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
+
+from bs4 import BeautifulSoup  # Uncommented for HTML processing
+import re
+import tempfile  # Added for temporary file handling
+
+app = Flask(__name__)
+app.secret_key = os.getenv('SECRET_KEY', 'fallback_secret_key')
+app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+# Configuracion de OpenAI
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+if OPENAI_API_KEY:
+    openai.api_key = OPENAI_API_KEY
+else:
+    print("Advertencia: OpenAI API Key no configurada en variables de entorno")
+
+# La configuracion de PostgreSQL se importa desde database_config.py
+
+# Crear directorio de uploads si no existe
+if not os.path.exists(app.config['UPLOAD_FOLDER']):
+    os.makedirs(app.config['UPLOAD_FOLDER'])
+
+def generate_pdf_with_reportlab(html_content, title):
+    """Generar PDF usando ReportLab desde contenido HTML"""
+    if not REPORTLAB_AVAILABLE:
+        return None
+    
+    try:
+        from io import BytesIO
+        from reportlab.pdfgen import canvas
+        from reportlab.lib.pagesizes import A4
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        from reportlab.lib.colors import black, blue
+        
+        # Crear buffer para el PDF
+        buffer = BytesIO()
+        
+        # Crear documento
+        doc = SimpleDocTemplate(buffer, pagesize=A4, 
+                              rightMargin=72, leftMargin=72,
+                              topMargin=72, bottomMargin=18)
+        
+        # Obtener estilos
+        styles = getSampleStyleSheet()
+        
+        # Crear estilos personalizados
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=18,
+            spaceAfter=30,
+            alignment=1,  # Centrado
+            textColor=black
+        )
+        
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=14,
+            spaceAfter=12,
+            textColor=blue
+        )
+        
+        # Extraer texto del HTML usando BeautifulSoup
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        # Construir contenido del PDF
+        story = []
+        
+        # Título principal
+        title_text = soup.find('h1')
+        if title_text:
+            story.append(Paragraph(title_text.get_text().strip(), title_style))
+        else:
+            story.append(Paragraph(title, title_style))
+        
+        story.append(Spacer(1, 12))
+        
+        # Procesar el contenido
+        for element in soup.find_all(['h2', 'h3', 'p', 'div']):
+            text = element.get_text().strip()
+            if text:
+                if element.name in ['h2', 'h3']:
+                    story.append(Paragraph(text, heading_style))
+                else:
+                    story.append(Paragraph(text, styles['Normal']))
+                story.append(Spacer(1, 6))
+        
+        # Construir PDF
+        doc.build(story)
+        
+        # Obtener contenido del buffer
+        pdf_content = buffer.getvalue()
+        buffer.close()
+        
+        return pdf_content
+        
+    except Exception as e:
+        print(f"Error en generate_pdf_with_reportlab: {str(e)}")
+        return None
+
+def get_db_connection():
+    """Obtener conexión a la base de datos PostgreSQL con manejo de errores mejorado"""
+    try:
+        # Configuración manual para evitar problemas de codificación
+        db_config = {
+            'host': 'localhost',
+            'database': 'cv_analyzer',
+            'user': 'postgres',
+            'password': 'Solido123',
+            'port': '5432',
+            'cursor_factory': RealDictCursor
+        }
+        
+        # Usar opciones adicionales para manejar problemas de codificación
+        os.environ['PGCLIENTENCODING'] = 'UTF8'
+        
+        connection = psycopg2.connect(
+            host=db_config['host'],
+            database=db_config['database'],
+            user=db_config['user'],
+            password=db_config['password'],
+            port=db_config['port'],
+            cursor_factory=db_config['cursor_factory'],
+            client_encoding='UTF8',
+            options="-c client_encoding=UTF8"
+        )
+        return connection
+    except psycopg2.Error as err:
+        logger.error(f"Error de conexión a la base de datos: {err}")
+        return None
+    except Exception as err:
+        logger.error(f"Error inesperado de base de datos: {err}")
+        return None
+
+def get_db():
+    """Obtener conexión a la base de datos con cursor de diccionario"""
+    return get_db_connection()
+
+def generate_verification_token():
+    """Generar token único para verificación de email"""
+    return str(uuid.uuid4())
+
+def send_verification_email(email, username, token):
+    """Enviar email de verificación"""
+    try:
+        # Crear mensaje
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = 'Verifica tu cuenta de CV Analyzer Pro'
+        msg['From'] = EMAIL_CONFIG['email']
+        msg['To'] = email
+        
+        # Versión texto plano
+        text = f"""Hola {username},
+        
+Gracias por registrarte en CV Analyzer Pro. Para verificar tu cuenta, haz clic en el siguiente enlace:
+        
+http://localhost:5000/verify_email/{token}
+        
+Si no solicitaste esta verificación, puedes ignorar este mensaje.
+        
+Saludos,
+El equipo de CV Analyzer Pro
+        """
+        
+        # Versión HTML
+        html = f"""
+        <html>
+        <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background-color: #4A90E2; color: white; padding: 20px; text-align: center; }}
+                .content {{ padding: 20px; background-color: #f9f9f9; }}
+                .button {{ display: inline-block; background-color: #4A90E2; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; }}
+                .footer {{ text-align: center; margin-top: 20px; font-size: 12px; color: #777; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>CV Analyzer Pro</h1>
+                </div>
+                <div class="content">
+                    <h2>Hola {username},</h2>
+                    <p>Gracias por registrarte en CV Analyzer Pro. Para verificar tu cuenta, haz clic en el siguiente botón:</p>
+                    <p style="text-align: center;">
+                        <a href="http://localhost:5000/verify_email/{token}" class="button">Verificar mi cuenta</a>
+                    </p>
+                    <p>Si el botón no funciona, copia y pega el siguiente enlace en tu navegador:</p>
+                    <p>http://localhost:5000/verify_email/{token}</p>
+                    <p>Si no solicitaste esta verificación, puedes ignorar este mensaje.</p>
+                </div>
+                <div class="footer">
+                    <p>© 2023 CV Analyzer Pro. Todos los derechos reservados.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # Adjuntar partes al mensaje
+        part1 = MIMEText(text, 'plain')
+        part2 = MIMEText(html, 'html')
+        msg.attach(part1)
+        msg.attach(part2)
+        
+        # Conectar al servidor SMTP
+        server = smtplib.SMTP(EMAIL_CONFIG['smtp_server'], EMAIL_CONFIG['smtp_port'])
+        if EMAIL_CONFIG['use_tls']:
+            server.starttls()
+        
+        # Iniciar sesión
+        server.login(EMAIL_CONFIG['email'], EMAIL_CONFIG['password'])
+        
+        # Enviar email
+        server.sendmail(EMAIL_CONFIG['email'], email, msg.as_string())
+        server.quit()
+        
+        print(f"✅ Email de verificación enviado exitosamente a: {email}")
+        print(f"   Usuario: {username}")
+        print(f"   Token: {token}")
+        return True
+    except Exception as e:
+        print(f"Error al enviar email de verificación: {e}")
+        print(f"Email destino: {email}")
+        print(f"Username: {username}")
+        print(f"Token: {token}")
+        print(f"Configuración SMTP: {EMAIL_CONFIG['smtp_server']}:{EMAIL_CONFIG['smtp_port']}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+def init_database():
+    """Inicializar la base de datos y crear las tablas necesarias"""
+    connection = get_db_connection()
+    if not connection:
+        logger.error("No se pudo conectar a la base de datos para inicializar")
+        return False
+        
+    try:
+        cursor = connection.cursor()
+        
+        # Crear tabla de usuarios
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(255) UNIQUE NOT NULL,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                email_verified BOOLEAN DEFAULT FALSE,
+                verification_token VARCHAR(255),
+                role VARCHAR(50) DEFAULT 'user',
+                is_banned BOOLEAN DEFAULT FALSE,
+                ban_until TIMESTAMP NULL,
+                ban_reason TEXT,
+                last_login TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Crear tabla de curriculums
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS resumes (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                filename VARCHAR(255) NOT NULL,
+                file_path VARCHAR(500) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Crear tabla de empleos
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS jobs (
+                id SERIAL PRIMARY KEY,
+                title VARCHAR(500),
+                company VARCHAR(255),
+                location VARCHAR(255),
+                description TEXT,
+                url VARCHAR(1000),
+                source VARCHAR(100),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Crear tabla de feedback de IA
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS feedback (
+                id SERIAL PRIMARY KEY,
+                resume_id INTEGER REFERENCES resumes(id) ON DELETE CASCADE,
+                score INTEGER,
+                strengths TEXT,
+                weaknesses TEXT,
+                recommendations TEXT,
+                keywords TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Crear tabla para guardar información del CV del usuario
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS user_cv_data (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+                personal_info TEXT,
+                professional_summary TEXT,
+                education TEXT,
+                experience TEXT,
+                skills TEXT,
+                languages TEXT,
+                format_options TEXT,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Verificar si la columna professional_summary existe (PostgreSQL)
+        cursor.execute("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name='user_cv_data' AND column_name='professional_summary'
+        """)
+        if not cursor.fetchone():
+            cursor.execute("ALTER TABLE user_cv_data ADD COLUMN professional_summary TEXT")
+        
+        # Verificar y agregar nuevas columnas de administración
+        admin_columns = [
+            ('role', 'VARCHAR(50) DEFAULT \'user\''),
+            ('is_banned', 'BOOLEAN DEFAULT FALSE'),
+            ('ban_until', 'TIMESTAMP NULL'),
+            ('ban_reason', 'TEXT'),
+            ('last_login', 'TIMESTAMP')
+        ]
+        
+        for column_name, column_def in admin_columns:
+            cursor.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name='users' AND column_name=%s
+            """, (column_name,))
+            if not cursor.fetchone():
+                cursor.execute(f"ALTER TABLE users ADD COLUMN {column_name} {column_def}")
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        print("Base de datos inicializada correctamente")
+        return True
+        
+    except psycopg2.Error as e:
+        logger.error(f"Error de PostgreSQL al inicializar la base de datos: {e}")
+        if connection:
+            connection.rollback()
+            connection.close()
+        return False
+    except Exception as e:
+        logger.error(f"Error inesperado al inicializar la base de datos: {e}")
+        if connection:
+            connection.rollback()
+            connection.close()
+        return False
+
+@app.route('/')
+def index():
+    """Página principal"""
+    return render_template('index.html')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    """Registro de usuarios"""
+    if request.method == 'POST':
+        username = request.form['username']
+        email = request.form['email']
+        password = request.form['password']
+        
+        add_console_log('INFO', f'Intento de registro para usuario: {username} ({email})', 'AUTH')
+        
+        # Validaciones básicas
+        if not username or not email or not password:
+            add_console_log('WARNING', f'Registro fallido - campos incompletos para: {username}', 'AUTH')
+            flash('Todos los campos son obligatorios', 'error')
+            return render_template('register.html')
+        
+        # Hash de la contraseña
+        password_hash = generate_password_hash(password)
+        
+        # Generar token de verificación
+        verification_token = generate_verification_token()
+        
+        connection = get_db_connection()
+        if connection:
+            cursor = connection.cursor()
+            try:
+                cursor.execute(
+                    "INSERT INTO users (username, email, password_hash, email_verified, verification_token) VALUES (%s, %s, %s, %s, %s) RETURNING id",
+                    (username, email, password_hash, False, verification_token)
+                )
+                user_id = cursor.fetchone()['id']
+                connection.commit()
+                
+                add_console_log('INFO', f'Usuario registrado exitosamente: {username} (ID: {user_id})', 'AUTH')
+                
+                # Enviar correo de verificación
+                print(f"🔄 Intentando enviar email de verificación...")
+                email_sent = send_verification_email(email, username, verification_token)
+                
+                if email_sent:
+                    add_console_log('INFO', f'Email de verificación enviado a: {email}', 'EMAIL')
+                    print(f"✅ Email de verificación procesado correctamente")
+                    flash('Usuario registrado exitosamente. Por favor, verifica tu correo electrónico para activar tu cuenta.', 'success')
+                else:
+                    add_console_log('ERROR', f'Error al enviar email de verificación a: {email}', 'EMAIL')
+                    print(f"❌ Error al enviar email de verificación")
+                    flash('Usuario registrado, pero hubo un problema al enviar el email de verificación. Contacta al administrador.', 'warning')
+                return redirect(url_for('login'))
+            except Exception as e:
+                add_console_log('ERROR', f'Error al registrar usuario {username}: {str(e)}', 'AUTH')
+                flash(f'Error al registrar usuario: {e}', 'error')
+            finally:
+                cursor.close()
+                connection.close()
+    
+    return render_template('register.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """Inicio de sesión"""
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        
+        add_console_log('INFO', f'Intento de login para usuario: {username}', 'AUTH')
+        
+        connection = get_db_connection()
+        if connection:
+            cursor = connection.cursor()
+            cursor.execute(
+                "SELECT id, username, password_hash, email, email_verified, role, is_banned, ban_until, ban_reason FROM users WHERE username = %s",
+                (username,)
+            )
+            user = cursor.fetchone()
+            
+            if user and check_password_hash(user['password_hash'], password):
+                # Verificar si el correo está verificado
+                if not user['email_verified']:
+                    add_console_log('WARNING', f'Usuario no verificado intentó acceder: {username}', 'AUTH')
+                    cursor.close()
+                    connection.close()
+                    flash('Por favor, verifica tu correo electrónico antes de iniciar sesión. Si no has recibido el correo de verificación, puedes solicitar uno nuevo.', 'warning')
+                    return render_template('login.html', unverified_email=user['email'])
+                
+                # Verificar si el usuario está baneado
+                if user['is_banned']:
+                    ban_message = 'Tu cuenta ha sido suspendida.'
+                    if user['ban_until']:
+                        from datetime import datetime
+                        if datetime.now() < user['ban_until']:
+                            ban_message += f" Suspensión hasta: {user['ban_until'].strftime('%d/%m/%Y %H:%M')}"
+                        else:
+                            # El ban ha expirado, desbanearlo
+                            cursor.execute(
+                                "UPDATE users SET is_banned = FALSE, ban_until = NULL, ban_reason = NULL WHERE id = %s",
+                                (user['id'],)
+                            )
+                            connection.commit()
+                    else:
+                        ban_message += ' Suspensión permanente.'
+                    
+                    if user['ban_reason']:
+                        ban_message += f" Razón: {user['ban_reason']}"
+                    
+                    if user['is_banned'] and (not user['ban_until'] or datetime.now() < user['ban_until']):
+                        add_console_log('WARNING', f'Usuario baneado intentó acceder: {username} - {ban_message}', 'AUTH')
+                        cursor.close()
+                        connection.close()
+                        flash(ban_message, 'error')
+                        return render_template('login.html')
+                
+                # Actualizar último login
+                cursor.execute(
+                    "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = %s",
+                    (user['id'],)
+                )
+                connection.commit()
+                
+                session['user_id'] = user['id']
+                session['username'] = user['username']
+                session['user_role'] = user.get('role', 'user')
+                
+                add_console_log('INFO', f'Login exitoso para {user.get("role", "user")}: {username}', 'AUTH')
+                
+                cursor.close()
+                connection.close()
+                
+                flash('Inicio de sesión exitoso', 'success')
+                
+                # Redirigir según el rol
+                if user.get('role') == 'admin':
+                    return redirect(url_for('admin_dashboard'))
+                else:
+                    return redirect(url_for('dashboard'))
+            else:
+                add_console_log('WARNING', f'Login fallido para usuario: {username}', 'AUTH')
+                cursor.close()
+                connection.close()
+                flash('Credenciales inválidas', 'error')
+    
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    """Cerrar sesión"""
+    username = session.get('username', 'unknown')
+    add_console_log('INFO', f'Usuario cerró sesión: {username}', 'AUTH')
+    session.clear()
+    flash('Sesión cerrada', 'info')
+    return redirect(url_for('index'))
+
+@app.route('/resend_verification', methods=['POST'])
+def resend_verification():
+    """Reenviar correo de verificación"""
+    if request.method == 'POST':
+        email = request.form.get('email')
+        
+        if not email:
+            flash('Por favor, introduce tu correo electrónico', 'danger')
+            return redirect(url_for('login'))
+        
+        # Verificar si el usuario existe y no está verificado
+        conn = get_db_connection()
+        if conn:
+            try:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+                user = cursor.fetchone()
+                
+                if not user:
+                    flash('No existe una cuenta con ese correo electrónico', 'danger')
+                    return redirect(url_for('login'))
+                
+                if user['email_verified']:
+                    flash('Esta cuenta ya está verificada. Puedes iniciar sesión', 'info')
+                    return redirect(url_for('login'))
+                
+                # Generar nuevo token
+                token = generate_verification_token()
+                
+                # Actualizar token en la base de datos
+                cursor.execute(
+                    "UPDATE users SET verification_token = %s WHERE id = %s",
+                    (token, user['id'])
+                )
+                conn.commit()
+                
+                # Enviar correo de verificación
+                if send_verification_email(user['email'], user['username'], token):
+                    flash('Se ha enviado un nuevo correo de verificación. Por favor, revisa tu bandeja de entrada', 'success')
+                else:
+                    flash('Error al enviar el correo de verificación. Por favor, inténtalo de nuevo más tarde', 'danger')
+                
+                return redirect(url_for('login'))
+            
+            except Exception as e:
+                conn.rollback()
+                flash(f'Error: {str(e)}', 'danger')
+                return redirect(url_for('login'))
+            
+            finally:
+                cursor.close()
+                conn.close()
+        
+        flash('Error de conexión a la base de datos', 'danger')
+        return redirect(url_for('login'))
+
+@app.route('/verify_email/<token>')
+def verify_email(token):
+    """Verificar correo electrónico con token"""
+    conn = get_db_connection()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM users WHERE verification_token = %s", (token,))
+            user = cursor.fetchone()
+            
+            if not user:
+                flash('El enlace de verificación no es válido o ha expirado', 'danger')
+                return redirect(url_for('login'))
+            
+            if user['email_verified']:
+                flash('Esta cuenta ya está verificada. Puedes iniciar sesión', 'info')
+                return redirect(url_for('login'))
+            
+            # Marcar la cuenta como verificada
+            cursor.execute(
+                "UPDATE users SET email_verified = TRUE, verification_token = NULL WHERE id = %s",
+                (user['id'],)
+            )
+            conn.commit()
+            
+            flash('¡Tu cuenta ha sido verificada exitosamente! Ahora puedes iniciar sesión', 'success')
+            return redirect(url_for('login'))
+        
+        except Exception as e:
+            conn.rollback()
+            flash(f'Error: {str(e)}', 'danger')
+            return redirect(url_for('login'))
+        
+        finally:
+            cursor.close()
+            conn.close()
+    
+    flash('Error de conexión a la base de datos', 'danger')
+    return redirect(url_for('login'))
+
+@app.route('/dashboard')
+def dashboard():
+    """Panel principal del usuario"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    # Obtener estadísticas del usuario
+    connection = get_db_connection()
+    stats = {
+        'cvs_analyzed': 0,
+        'jobs_found': 0
+    }
+    
+    if connection:
+        cursor = connection.cursor()
+        
+        # Contar CVs analizados
+        cursor.execute(
+            "SELECT COUNT(*) FROM resumes WHERE user_id = %s",
+            (session['user_id'],)
+        )
+        result = cursor.fetchone()
+        stats['cvs_analyzed'] = result['count'] if result else 0
+        
+        # Contar empleos encontrados (esto es un placeholder, ajustar según la lógica de negocio)
+        cursor.execute(
+            "SELECT COUNT(*) FROM jobs"
+        )
+        result = cursor.fetchone()
+        stats['jobs_found'] = result['count'] if result else 0
+        
+        cursor.close()
+        connection.close()
+    
+    return render_template('dashboard.html', stats=stats)
+
+@app.route('/analyze_cv', methods=['GET', 'POST'])
+def analyze_cv():
+    """Analizador de CV con IA"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    username = session.get('username', 'unknown')
+    
+    if request.method == 'POST':
+        add_console_log('INFO', f'Usuario inició análisis de CV: {username}', 'CV')
+        
+        if 'file' not in request.files:
+            add_console_log('WARNING', f'Análisis CV fallido - sin archivo: {username}', 'CV')
+            flash('No se seleccionó ningún archivo', 'error')
+            return redirect(request.url)
+        
+        file = request.files['file']
+        if file.filename == '':
+            add_console_log('WARNING', f'Análisis CV fallido - archivo vacío: {username}', 'CV')
+            flash('No se seleccionó ningún archivo', 'error')
+            return redirect(request.url)
+        
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
+            
+            add_console_log('INFO', f'Archivo CV subido: {filename} por {username}', 'CV')
+            
+            # Extraer texto del archivo
+            text_content = extract_text_from_file(filepath)
+            print(f"Texto extraído (primeros 200 caracteres): {text_content[:200] if text_content else 'None'}")
+            
+            if text_content:
+                # Analizar con OpenAI
+                print("Iniciando análisis con IA...")
+                add_console_log('INFO', f'Iniciando análisis IA para: {filename}', 'CV')
+                analysis = analyze_cv_with_ai(text_content)
+                print(f"Análisis completado: {analysis}")
+                
+                # Guardar en la base de datos
+                save_cv_analysis(session['user_id'], filename, text_content, analysis)
+                add_console_log('INFO', f'Análisis CV completado exitosamente: {filename} por {username}', 'CV')
+                
+                return render_template('cv_analysis_result.html', analysis=analysis)
+            else:
+                add_console_log('ERROR', f'Error extrayendo texto de: {filename} por {username}', 'CV')
+                print("Error: No se pudo extraer texto del archivo")
+                flash('No se pudo extraer texto del archivo', 'error')
+    
+        else:
+            add_console_log('WARNING', f'Archivo no permitido subido: {file.filename} por {username}', 'CV')
+            flash('Tipo de archivo no permitido. Solo se permiten archivos PDF, DOC y DOCX.', 'error')
+    
+    return render_template('analyze_cv.html')
+
+def allowed_file(filename):
+    """Verificar si el archivo tiene una extensión permitida"""
+    ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx'}
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def extract_text_from_file(filepath):
+    """Extraer texto de archivos PDF o Word"""
+    text = ""
+    file_extension = filepath.rsplit('.', 1)[1].lower()
+    
+    try:
+        if file_extension == 'pdf':
+            with open(filepath, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                for page in pdf_reader.pages:
+                    text += page.extract_text()
+        
+        elif file_extension in ['doc', 'docx']:
+            # Temporarily disabled - docx processing not available
+            # doc = Document(filepath)
+            # for paragraph in doc.paragraphs:
+            #     text += paragraph.text + '\n'
+            text = "Word document processing temporarily unavailable. Please use PDF format."
+    
+    except Exception as e:
+        print(f"Error al extraer texto: {e}")
+        return None
+    
+    return text.strip()
+
+def analyze_cv_with_ai(cv_text):
+    """Analizar CV usando OpenAI"""
+    prompt = f"""
+    Actúa como un sistema ATS (Applicant Tracking System) profesional y analiza el siguiente currículum vitae.
+    
+    Evalúa la compatibilidad del CV con los sistemas ATS modernos y proporciona:
+    1. Un puntaje general del 0 al 100 que indique la compatibilidad con sistemas ATS
+    2. Análisis de fortalezas (máximo 5 puntos)
+    3. Análisis de debilidades (máximo 5 puntos)
+    4. Recomendaciones específicas de mejora (máximo 5 puntos)
+    5. Sugerencias para palabras clave que podrían mejorar la visibilidad del CV
+    
+    Responde en formato JSON con la siguiente estructura:
+    {{
+        "score": número,
+        "strengths": ["fortaleza1", "fortaleza2", ...],
+        "weaknesses": ["debilidad1", "debilidad2", ...],
+        "recommendations": ["recomendación1", "recomendación2", ...],
+        "keywords": ["palabra_clave1", "palabra_clave2", ...]
+    }}
+    
+    Currículum a analizar:
+    {cv_text}
+    """
+    
+    try:
+        # Usar la sintaxis de OpenAI v0.28.1
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "Eres un experto en recursos humanos, reclutamiento y sistemas ATS (Applicant Tracking System). Tu objetivo es ayudar a los candidatos a optimizar sus currículums para maximizar sus posibilidades de pasar los filtros ATS y llegar a la entrevista."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=1500,
+            temperature=0.7
+        )
+        
+        analysis_text = response.choices[0].message.content
+        analysis = json.loads(analysis_text)
+        
+        # Asegurarse de que todos los campos requeridos estén presentes
+        if "keywords" not in analysis:
+            analysis["keywords"] = []
+            
+        return analysis
+    
+    except json.JSONDecodeError as e:
+        print(f"Error al decodificar JSON de la respuesta de IA: {e}")
+        print(f"Respuesta recibida: {analysis_text}")
+        return {
+            "score": 0,
+            "strengths": ["Error al procesar el análisis - Respuesta de IA no válida"],
+            "weaknesses": ["No se pudo completar el análisis"],
+            "recommendations": ["Intente nuevamente más tarde"],
+            "keywords": []
+        }
+    except Exception as e:
+        print(f"Error al analizar con IA: {e}")
+        print(f"Tipo de error: {type(e).__name__}")
+        return {
+            "score": 0,
+            "strengths": ["Error al procesar el análisis"],
+            "weaknesses": ["No se pudo completar el análisis"],
+            "recommendations": ["Intente nuevamente más tarde"],
+            "keywords": []
+        }
+
+def save_cv_analysis(user_id, filename, content, analysis):
+    """Guardar análisis de CV en la base de datos"""
+    connection = get_db_connection()
+    if connection:
+        cursor = connection.cursor()
+        
+        # Insertar currículum
+        cursor.execute(
+            "INSERT INTO resumes (user_id, filename, content) VALUES (%s, %s, %s) RETURNING id",
+            (user_id, filename, content)
+        )
+        resume_id = cursor.fetchone()['id']
+        
+        # Insertar feedback
+        cursor.execute(
+            "INSERT INTO feedback (resume_id, score, strengths, weaknesses, recommendations, keywords) VALUES (%s, %s, %s, %s, %s, %s)",
+            (resume_id, analysis['score'], 
+             json.dumps(analysis['strengths']), 
+             json.dumps(analysis['weaknesses']), 
+             json.dumps(analysis['recommendations']),
+             json.dumps(analysis['keywords']))
+        )
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+
+def get_latest_cv_analysis(user_id):
+    """Obtener el análisis de CV más reciente del usuario"""
+    connection = get_db_connection()
+    if connection:
+        cursor = connection.cursor()
+        cursor.execute("""
+            SELECT f.score, f.strengths, f.weaknesses, f.recommendations, f.keywords, r.content
+            FROM feedback f
+            INNER JOIN resumes r ON f.resume_id = r.id
+            WHERE r.user_id = %s
+            ORDER BY f.created_at DESC
+            LIMIT 1
+        """, (user_id,))
+        
+        result = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        
+        if result:
+            return {
+                'score': result['score'],
+                'strengths': json.loads(result['strengths']) if result['strengths'] else [],
+                'weaknesses': json.loads(result['weaknesses']) if result['weaknesses'] else [],
+                'recommendations': json.loads(result['recommendations']) if result['recommendations'] else [],
+                'keywords': json.loads(result['keywords']) if result['keywords'] else [],
+                'content': result['content']
+            }
+    return None
+
+def generate_smart_search_terms(cv_analysis):
+    """Generar términos de búsqueda inteligentes basados en el análisis de CV usando IA"""
+    try:
+        # Combinar información del CV para generar términos de búsqueda
+        cv_info = {
+            'strengths': cv_analysis.get('strengths', []),
+            'keywords': cv_analysis.get('keywords', []),
+            'content_preview': cv_analysis.get('content', '')[:1000]  # Primeros 1000 caracteres
+        }
+        
+        prompt = f"""
+        Basándote en el siguiente análisis de CV, genera términos de búsqueda específicos para encontrar empleos relevantes.
+        
+        Fortalezas del candidato: {cv_info['strengths']}
+        Palabras clave del CV: {cv_info['keywords']}
+        Contenido del CV (muestra): {cv_info['content_preview']}
+        
+        Genera 5 términos de búsqueda específicos y relevantes que ayuden a encontrar empleos compatibles.
+        Los términos deben ser:
+        1. Específicos para el perfil profesional
+        2. Incluir tecnologías, habilidades o roles mencionados
+        3. Ser términos que realmente se usen en ofertas de trabajo
+        
+        Responde SOLO con una lista de términos separados por comas, sin explicaciones adicionales.
+        Ejemplo: "Desarrollador Python, Analista de datos, Machine Learning, Django, SQL"
+        """
+        
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Eres un experto en reclutamiento que ayuda a generar términos de búsqueda efectivos para encontrar empleos relevantes."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=200,
+            temperature=0.7
+        )
+        
+        terms_text = response.choices[0].message.content.strip()
+        search_terms = [term.strip() for term in terms_text.split(',')]
+        
+        # Filtrar términos vacíos y limitar a 5
+        search_terms = [term for term in search_terms if term][:5]
+        
+        return search_terms
+        
+    except Exception as e:
+        print(f"Error generando términos de búsqueda: {e}")
+        # Fallback: usar palabras clave del CV
+        keywords = cv_analysis.get('keywords', [])
+        return keywords[:5] if keywords else ['desarrollador', 'analista', 'programador']
+
+def remove_duplicate_jobs(jobs):
+    """Eliminar trabajos duplicados basándose en título y empresa"""
+    seen = set()
+    unique_jobs = []
+    
+    for job in jobs:
+        # Crear una clave única basada en título y empresa
+        key = f"{job.get('title', '').lower().strip()}_{job.get('company', '').lower().strip()}"
+        
+        if key not in seen:
+            seen.add(key)
+            unique_jobs.append(job)
+    
+    return unique_jobs
+
+def calculate_ai_job_compatibility(job, cv_analysis):
+    """Calcular compatibilidad entre un trabajo y el CV usando IA con ponderación por área de experiencia"""
+    try:
+        # Preparar información del trabajo
+        job_info = {
+            'title': job.get('title', ''),
+            'description': job.get('description', ''),
+            'company': job.get('company', ''),
+            'location': job.get('location', '')
+        }
+        
+        # Preparar información del CV
+        cv_info = {
+            'strengths': cv_analysis.get('strengths', []),
+            'keywords': cv_analysis.get('keywords', []),
+            'score': cv_analysis.get('score', 0),
+            'experience_areas': cv_analysis.get('experience_areas', []),
+            'skill_level': cv_analysis.get('skill_level', 'intermedio')
+        }
+        
+        prompt = f"""
+        Analiza la compatibilidad entre este trabajo y el perfil del candidato, aplicando ponderación según área de experiencia.
+        
+        TRABAJO:
+        Título: {job_info['title']}
+        Empresa: {job_info['company']}
+        Descripción: {job_info['description'][:500]}...
+        
+        PERFIL DEL CANDIDATO:
+        Fortalezas principales: {cv_info['strengths']}
+        Palabras clave del CV: {cv_info['keywords']}
+        Áreas de experiencia: {cv_info['experience_areas']}
+        Nivel de habilidad: {cv_info['skill_level']}
+        Puntuación ATS del CV: {cv_info['score']}/100
+        
+        INSTRUCCIONES DE PONDERACIÓN:
+        - Si el trabajo está en un área donde el candidato NO tiene experiencia: reducir compatibilidad en 20-40%
+        - Si el trabajo requiere habilidades que el candidato no domina: reducir compatibilidad en 15-30%
+        - Si el nivel del puesto es muy superior a la experiencia del candidato: reducir compatibilidad en 10-25%
+        - Si hay coincidencia perfecta de área y habilidades: mantener o aumentar compatibilidad
+        
+        Calcula un porcentaje de compatibilidad del 0 al 100 considerando:
+        1. Coincidencia de área de experiencia (peso: 35%)
+        2. Coincidencia de habilidades técnicas (peso: 30%)
+        3. Nivel del puesto vs experiencia (peso: 20%)
+        4. Palabras clave coincidentes (peso: 15%)
+        
+        IMPORTANTE: No todos los trabajos deben tener alta compatibilidad. Sé realista con las puntuaciones.
+        Responde SOLO con el número del porcentaje (ejemplo: 65)
+        """
+        
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Eres un experto en recursos humanos que evalúa la compatibilidad entre candidatos y ofertas de trabajo. Eres crítico y realista con las puntuaciones, no das puntuaciones altas a menos que haya una excelente coincidencia."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=50,
+            temperature=0.2
+        )
+        
+        compatibility_text = response.choices[0].message.content.strip()
+        
+        # Extraer el número del texto
+        import re
+        numbers = re.findall(r'\d+', compatibility_text)
+        if numbers:
+            compatibility = min(int(numbers[0]), 100)  # Limitar a 100
+            return max(compatibility, 0)  # Asegurar que no sea negativo
+        
+        return 50  # Valor por defecto si no se puede extraer
+        
+    except Exception as e:
+        print(f"Error calculando compatibilidad IA: {e}")
+        # Fallback: usar método básico mejorado
+        return calculate_basic_compatibility(job, cv_analysis)
+
+def calculate_basic_compatibility(job, cv_analysis):
+    """Método básico de compatibilidad sin IA como fallback con ponderación mejorada"""
+    try:
+        compatibility_score = 0
+        
+        # Texto del trabajo en minúsculas
+        job_text = f"{job.get('title', '')} {job.get('description', '')}".lower()
+        
+        # Verificar coincidencias con fortalezas (peso mayor)
+        strengths = cv_analysis.get('strengths', [])
+        strength_matches = 0
+        for strength in strengths:
+            if isinstance(strength, str) and strength.lower() in job_text:
+                strength_matches += 1
+                compatibility_score += 12
+        
+        # Verificar coincidencias con palabras clave
+        keywords = cv_analysis.get('keywords', [])
+        keyword_matches = 0
+        for keyword in keywords:
+            if isinstance(keyword, str) and keyword.lower() in job_text:
+                keyword_matches += 1
+                compatibility_score += 8
+        
+        # Verificar áreas de experiencia
+        experience_areas = cv_analysis.get('experience_areas', [])
+        area_match = False
+        for area in experience_areas:
+            if isinstance(area, str) and area.lower() in job_text:
+                area_match = True
+                compatibility_score += 20
+                break
+        
+        # Puntuación base del CV (reducida)
+        base_score = cv_analysis.get('score', 50)
+        compatibility_score += base_score * 0.2
+        
+        # Penalización si no hay coincidencias importantes
+        if strength_matches == 0:
+            compatibility_score *= 0.7  # Reducir 30%
+        
+        if not area_match and len(experience_areas) > 0:
+            compatibility_score *= 0.8  # Reducir 20% si no coincide área
+        
+        # Asegurar que no todos los trabajos tengan alta compatibilidad
+        if compatibility_score > 85:
+            compatibility_score = 85  # Máximo realista para método básico
+        
+        # Limitar entre 15 y 85 para ser más realista
+        return max(15, min(int(compatibility_score), 85))
+        
+    except Exception as e:
+        print(f"Error en compatibilidad básica: {e}")
+        return 45  # Valor más realista por defecto
+
+@app.route('/cv_builder')
+def cv_builder():
+    """Alias para create_cv - Constructor de CV"""
+    return create_cv()
+
+@app.route('/create_cv')
+def create_cv():
+    """Constructor de CV estilo Harvard"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    return render_template('create_cv.html')
+
+@app.route('/get_user_cv_data', methods=['GET'])
+def get_user_cv_data():
+    """Obtener datos guardados del CV del usuario"""
+    if not session.get('user_id'):
+        return jsonify({'error': 'No autorizado'}), 401
+    
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute(
+            "SELECT personal_info, professional_summary, education, experience, skills, languages, format_options FROM user_cv_data WHERE user_id = %s",
+            (session['user_id'],)
+        )
+        result = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        
+        if result:
+            return jsonify({
+                'success': True,
+                'data': {
+                    'personal_info': result['personal_info'] if result['personal_info'] else {},
+                    'professional_summary': result['professional_summary'] if result['professional_summary'] else '',
+                    'education': result['education'] if result['education'] else [],
+                    'experience': result['experience'] if result['experience'] else [],
+                    'skills': result['skills'] if result['skills'] else [],
+                    'languages': result['languages'] if result['languages'] else [],
+                    'format_options': result['format_options'] if result['format_options'] else {}
+                }
+            })
+        else:
+            return jsonify({'success': True, 'data': None})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+def improve_cv_with_ai(cv_data):
+    """Mejorar el CV usando OpenAI basándose en las metodologías seleccionadas"""
+    if not OPENAI_API_KEY:
+        return cv_data
+    
+    try:
+        format_options = cv_data.get('format_options', {})
+        tech_xyz = format_options.get('tech_xyz', False)
+        tech_start = format_options.get('tech_start', False)
+        selected_skills = cv_data.get('skills', [])
+        
+        # Crear prompt para mejorar resumen profesional
+        professional_summary = cv_data.get('professional_summary', '')
+        experience = cv_data.get('experience', [])
+        
+        # Mejorar resumen profesional usando metodología XYZ
+        if professional_summary:
+            if tech_xyz:
+                summary_methodology = "XYZ (eXperience, Years, Zeal): destaca tu experiencia específica, años de trayectoria y pasión por el área"
+            else:
+                summary_methodology = "metodología estándar profesional"
+                
+            summary_prompt = f"""
+            Mejora este resumen profesional usando la metodología {summary_methodology} e incorporando estas tecnologías: {', '.join(selected_skills)}.
+            
+            Resumen actual: {professional_summary}
+            
+            Instrucciones:
+            - Mantén un tono profesional y conciso
+            - Incorpora las tecnologías mencionadas de manera natural
+            - Si usas XYZ: estructura destacando experiencia específica, años de trayectoria y entusiasmo
+            - Máximo 150 palabras
+            - Responde solo con el resumen mejorado, sin explicaciones adicionales
+            """
+            
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "Eres un experto en recursos humanos especializado en optimización de CVs."},
+                    {"role": "user", "content": summary_prompt}
+                ],
+                max_tokens=300,
+                temperature=0.7
+            )
+            
+            improved_summary = response.choices[0].message.content.strip()
+            cv_data['professional_summary'] = improved_summary
+        
+        # Mejorar experiencia laboral usando metodología STAR
+        if experience:
+            improved_experience = []
+            for exp in experience:
+                if exp.get('description'):
+                    if tech_start:
+                        exp_methodology = "STAR (Situation, Task, Action, Result): describe la situación, tarea asignada, acciones tomadas y resultados obtenidos"
+                    else:
+                        exp_methodology = "metodología estándar profesional orientada a logros"
+                        
+                    exp_prompt = f"""
+                    Mejora esta descripción de experiencia laboral usando la metodología {exp_methodology} e incorporando estas tecnologías cuando sea relevante: {', '.join(selected_skills)}.
+                    
+                    Puesto: {exp.get('position', '')}
+                    Empresa: {exp.get('company', '')}
+                    Descripción actual: {exp.get('description', '')}
+                    
+                    Instrucciones:
+                    - Si usas STAR: estructura cada logro con Situación, Tarea, Acción y Resultado
+                    - Incorpora métricas y resultados cuantificables cuando sea posible
+                    - Menciona tecnologías relevantes de manera natural
+                    - Máximo 200 palabras
+                    - Responde solo con la descripción mejorada, sin explicaciones adicionales
+                    """
+                    
+                    response = openai.ChatCompletion.create(
+                        model="gpt-3.5-turbo",
+                        messages=[
+                            {"role": "system", "content": "Eres un experto en recursos humanos especializado en optimización de CVs."},
+                            {"role": "user", "content": exp_prompt}
+                        ],
+                        max_tokens=400,
+                        temperature=0.7
+                    )
+                    
+                    improved_description = response.choices[0].message.content.strip()
+                    exp['description'] = improved_description
+                
+                improved_experience.append(exp)
+            
+            cv_data['experience'] = improved_experience
+        
+        return cv_data
+        
+    except Exception as e:
+        print(f"Error mejorando CV con IA: {str(e)}")
+        return cv_data
+
+@app.route('/save_cv_draft', methods=['POST'])
+def save_cv_draft():
+    """Guardar borrador de CV sin validación estricta"""
+    if not session.get('user_id'):
+        return jsonify({'error': 'No autorizado'}), 401
+    
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'error': 'No se recibieron datos'}), 400
+    
+    # Validar que las opciones de formato estén presentes
+    if 'format_options' not in data:
+        data['format_options'] = {'format': 'hardware', 'tech_xyz': False, 'tech_start': False}
+    
+    # Guardar en la base de datos sin validación estricta
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        
+        # Guardar/actualizar la información del usuario como borrador
+        cursor.execute(
+            """
+            INSERT INTO user_cv_data (user_id, personal_info, professional_summary, education, experience, skills, languages, format_options, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+            ON CONFLICT (user_id) 
+            DO UPDATE SET 
+                personal_info = EXCLUDED.personal_info,
+                professional_summary = EXCLUDED.professional_summary,
+                education = EXCLUDED.education,
+                experience = EXCLUDED.experience,
+                skills = EXCLUDED.skills,
+                languages = EXCLUDED.languages,
+                format_options = EXCLUDED.format_options,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (
+                session['user_id'],
+                json.dumps(data.get('personal_info', {})),
+                data.get('professional_summary', ''),
+                json.dumps(data.get('education', [])),
+                json.dumps(data.get('experience', [])),
+                json.dumps(data.get('skills', [])),
+                json.dumps(data.get('languages', [])),
+                json.dumps(data.get('format_options', {}))
+            )
+        )
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Borrador guardado exitosamente'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/save_cv', methods=['POST'])
+def save_cv():
+    if not session.get('user_id'):
+        return redirect(url_for('login'))
+    
+    data = request.get_json()
+    
+    # Validar datos requeridos
+    if not data or not all(key in data for key in ['personal_info', 'education', 'experience']):
+        return jsonify({'error': 'Faltan datos requeridos'}), 400
+    
+    # Validar que las opciones de formato estén presentes
+    if 'format_options' not in data:
+        data['format_options'] = {'format': 'hardware', 'tech_xyz': False, 'tech_start': False}
+    
+    # Mejorar CV con IA antes de generar HTML
+    improved_data = improve_cv_with_ai(data)
+    
+    # Generar HTML del CV con los datos mejorados
+    cv_html = generate_cv_html(improved_data)
+    
+    # Guardar en la base de datos
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        
+        # Guardar el CV generado
+        cursor.execute(
+            "INSERT INTO resumes (user_id, filename, content) VALUES (%s, %s, %s) RETURNING id",
+            (session['user_id'], data['personal_info'].get('name', 'Mi CV'), cv_html)
+        )
+        cv_id = cursor.fetchone()['id']
+        
+        # Guardar/actualizar la información del usuario mejorada por IA para uso futuro
+        cursor.execute(
+            """
+            INSERT INTO user_cv_data (user_id, personal_info, professional_summary, education, experience, skills, languages, format_options, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+            ON CONFLICT (user_id) 
+            DO UPDATE SET 
+                personal_info = EXCLUDED.personal_info,
+                professional_summary = EXCLUDED.professional_summary,
+                education = EXCLUDED.education,
+                experience = EXCLUDED.experience,
+                skills = EXCLUDED.skills,
+                languages = EXCLUDED.languages,
+                format_options = EXCLUDED.format_options,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (
+                session['user_id'],
+                json.dumps(improved_data.get('personal_info', {})),
+                improved_data.get('professional_summary', ''),
+                json.dumps(improved_data.get('education', [])),
+                json.dumps(improved_data.get('experience', [])),
+                json.dumps(improved_data.get('skills', [])),
+                json.dumps(improved_data.get('languages', [])),
+                json.dumps(improved_data.get('format_options', {}))
+            )
+        )
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True, 
+            'cv_id': cv_id, 
+            'message': 'CV guardado y mejorado con IA. Datos del usuario actualizados.',
+            'improved_data': improved_data,
+            'cv_html': cv_html
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/export_cv/<int:cv_id>')
+def export_cv(cv_id):
+    if not session.get('user_id'):
+        return redirect(url_for('login'))
+    
+    # Obtener los datos del CV de la base de datos
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        
+        # Primero verificar que el CV existe en la tabla resumes
+        cursor.execute(
+            "SELECT filename FROM resumes WHERE id = %s AND user_id = %s",
+            (cv_id, session['user_id'])
+        )
+        resume_result = cursor.fetchone()
+        
+        if not resume_result:
+            cursor.close()
+            connection.close()
+            return jsonify({'error': 'CV no encontrado'}), 404
+        
+        cv_title = resume_result['filename']
+        
+        # Obtener los datos estructurados del CV desde user_cv_data
+        cursor.execute(
+            "SELECT personal_info, professional_summary, education, experience, skills, languages, format_options FROM user_cv_data WHERE user_id = %s",
+            (session['user_id'],)
+        )
+        result = cursor.fetchone()
+        
+        if not result:
+            cursor.close()
+            connection.close()
+            return jsonify({'error': 'Datos del CV no encontrados'}), 404
+        
+        cursor.close()
+        connection.close()
+        
+        # Reconstruir los datos del CV
+        cv_data = {
+            'personal_info': result['personal_info'] if result['personal_info'] else {},
+            'professional_summary': result['professional_summary'] if result['professional_summary'] else '',
+            'education': result['education'] if result['education'] else [],
+            'experience': result['experience'] if result['experience'] else [],
+            'skills': result['skills'] if result['skills'] else [],
+            'languages': result['languages'] if result['languages'] else [],
+            'format_options': result['format_options'] if result['format_options'] else {'format': 'hardware', 'tech_xyz': False, 'tech_start': False}
+        }
+        
+        # Generar el HTML exactamente igual que en la vista previa
+        cv_html = generate_cv_html(cv_data)
+        
+        # Crear HTML optimizado para PDF con estilos mejorados para impresión
+        pdf_optimized_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>CV</title>
+            <style>
+                @page {{
+                    margin: 0;
+                    size: A4;
+                    /* Eliminar headers y footers del navegador */
+                    @top-left {{ content: ""; }}
+                    @top-center {{ content: ""; }}
+                    @top-right {{ content: ""; }}
+                    @bottom-left {{ content: ""; }}
+                    @bottom-center {{ content: ""; }}
+                    @bottom-right {{ content: ""; }}
+                }}
+                
+                @media print {{
+                    html, body {{
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        width: 210mm !important;
+                        height: 297mm !important;
+                        font-size: 11pt !important;
+                        line-height: 1.3 !important;
+                        -webkit-print-color-adjust: exact !important;
+                        color-adjust: exact !important;
+                    }}
+                    
+                    body {{
+                        padding: 20mm 15mm 15mm 15mm !important;
+                    }}
+                    
+                    .no-print {{ display: none !important; }}
+                    .page-break {{ page-break-before: always; }}
+                    .section-title {{
+                        border-bottom: 1px solid #000 !important;
+                        page-break-after: avoid;
+                    }}
+                    .item {{
+                        page-break-inside: avoid;
+                    }}
+                    
+                    /* Eliminar cualquier contenido generado automáticamente */
+                    *::before, *::after {{
+                        content: none !important;
+                    }}
+                }}
+                
+                @media screen {{
+                    html {{
+                        margin: 0;
+                        padding: 0;
+                    }}
+                    body {{
+                        max-width: 210mm;
+                        margin: 0 auto;
+                        padding: 20px;
+                        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                        background: white;
+                        min-height: 100vh;
+                    }}
+                    .print-instructions {{
+                        position: fixed;
+                        top: 10px;
+                        right: 10px;
+                        background: #007bff;
+                        color: white;
+                        padding: 10px 15px;
+                        border-radius: 5px;
+                        font-family: Arial, sans-serif;
+                        font-size: 14px;
+                        z-index: 1000;
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+                    }}
+                    .print-instructions button {{
+                        background: white;
+                        color: #007bff;
+                        border: none;
+                        padding: 5px 10px;
+                        border-radius: 3px;
+                        cursor: pointer;
+                        margin-left: 10px;
+                        font-weight: bold;
+                    }}
+                }}
+                
+                /* Estilos base del CV */
+                body {{
+                    font-family: 'Times New Roman', serif;
+                    margin: 0;
+                    padding: 20px;
+                    line-height: 1.4;
+                    color: #000;
+                }}
+                
+                .header {{
+                    text-align: center;
+                    border-bottom: 2px solid #000;
+                    padding-bottom: 10px;
+                    margin-bottom: 20px;
+                }}
+                
+                .name {{
+                    font-size: 24px;
+                    font-weight: bold;
+                    margin-bottom: 5px;
+                }}
+                
+                .contact {{
+                    font-size: 12px;
+                }}
+                
+                .section {{
+                    margin-bottom: 20px;
+                }}
+                
+                .section-title {{
+                    font-size: 14px;
+                    font-weight: bold;
+                    border-bottom: 1px solid #000;
+                    margin-bottom: 10px;
+                    padding-bottom: 2px;
+                }}
+                
+                .item {{
+                    margin-bottom: 10px;
+                }}
+                
+                .item-title {{
+                    font-weight: bold;
+                }}
+                
+                .item-subtitle {{
+                    font-style: italic;
+                }}
+                
+                .item-date {{
+                    float: right;
+                }}
+                
+                .skills-list {{
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 10px;
+                }}
+                
+                .skill {{
+                    background: #f0f0f0;
+                    padding: 2px 8px;
+                    border-radius: 3px;
+                    font-size: 12px;
+                }}
+                
+                .skill-xyz {{
+                    background: #d1ecf1;
+                    color: #0c5460;
+                    font-weight: bold;
+                }}
+                
+                .skill-start {{
+                    background: #d4edda;
+                    color: #155724;
+                    font-weight: bold;
+                }}
+            </style>
+            <script>
+                function printPDF() {{
+                    window.print();
+                }}
+                
+                // Auto-abrir diálogo de impresión después de 1 segundo
+                setTimeout(function() {{
+                    if (confirm('¿Deseas abrir el diálogo de impresión para guardar como PDF?')) {{
+                        window.print();
+                    }}
+                }}, 1000);
+            </script>
+        </head>
+        <body>
+            <div class="print-instructions no-print">
+                📄 Presiona Ctrl+P para guardar como PDF
+                <button onclick="printPDF()">Imprimir/PDF</button>
+            </div>
+            
+            {cv_html[cv_html.find('<body>') + 6:cv_html.find('</body>')].strip() if '<body>' in cv_html else cv_html}
+        </body>
+        </html>
+        """
+        
+        # Devolver el HTML optimizado para PDF
+        response = make_response(pdf_optimized_html)
+        response.headers['Content-Type'] = 'text/html; charset=utf-8'
+        
+        return response
+        
+    except Exception as e:
+        # Mejorar el manejo de errores para evitar mensajes confusos
+        error_message = str(e) if str(e) and str(e) != '0' else 'Error desconocido en la exportación del CV'
+        
+        # Log del error para debugging
+        import traceback
+        print(f"Error en export_cv: {error_message}")
+        print(f"Tipo de excepción: {type(e)}")
+        print(f"Traceback: {traceback.format_exc()}")
+        
+        return jsonify({'error': f'Error al obtener CV: {error_message}'}), 500
+
+@app.route('/job_search')
+def job_search():
+    """Motor de búsqueda de empleos"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    return render_template('job_search.html')
+
+@app.route('/search_jobs', methods=['POST'])
+def search_jobs():
+    """Buscar empleos en diferentes portales"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'No autorizado'}), 401
+    
+    query = request.json.get('query', '')
+    location = request.json.get('location', '')
+    source = request.json.get('source', 'all')
+    
+    jobs = []
+    
+    if source == 'all' or source == 'computrabajo':
+        jobs.extend(scrape_computrabajo_service(query, location))
+    
+    if source == 'all' or source == 'indeed':
+        jobs.extend(scrape_indeed_api(query, location))
+    
+    if source == 'all' or source == 'linkedin':
+        jobs.extend(scrape_linkedin(query, location))
+    
+    # Eliminar duplicados
+    unique_jobs = remove_duplicate_jobs(jobs)
+    
+    # Obtener análisis de CV para calcular compatibilidad
+    cv_analysis = get_latest_cv_analysis(session['user_id'])
+    
+    # Calcular compatibilidad con IA si hay análisis de CV
+    if cv_analysis and unique_jobs:
+        for job in unique_jobs:
+            compatibility = calculate_ai_job_compatibility(job, cv_analysis)
+            job['compatibility_score'] = compatibility
+        
+        # Ordenar por compatibilidad (mayor a menor)
+        unique_jobs.sort(key=lambda x: x.get('compatibility_score', 0), reverse=True)
+    
+    # Guardar empleos en la base de datos
+    save_jobs_to_db(unique_jobs)
+    
+    return jsonify({
+        'jobs': unique_jobs,
+        'total_found': len(unique_jobs),
+        'has_ai_scoring': bool(cv_analysis)
+    })
+
+@app.route('/ai_job_search', methods=['POST'])
+def ai_job_search():
+    """Búsqueda inteligente de empleos con IA basada en el CV del usuario"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'No autorizado'}), 401
+    
+    try:
+        # Obtener el análisis de CV más reciente del usuario
+        cv_analysis = get_latest_cv_analysis(session['user_id'])
+        
+        if not cv_analysis:
+            return jsonify({
+                'error': 'No se encontró un análisis de CV. Por favor, sube y analiza tu CV primero.'
+            }), 400
+        
+        # Generar términos de búsqueda inteligentes basados en el CV
+        search_terms = generate_smart_search_terms(cv_analysis)
+        
+        # Buscar empleos en múltiples portales
+        all_jobs = []
+        
+        for term in search_terms[:3]:  # Usar los 3 términos más relevantes
+            # Buscar en LinkedIn
+            linkedin_jobs = scrape_linkedin(term, "")
+            all_jobs.extend(linkedin_jobs)
+            
+            # Buscar en CompuTrabajo
+            computrabajo_jobs = scrape_computrabajo_service(term, "")
+            all_jobs.extend(computrabajo_jobs)
+            
+            # Buscar en Indeed
+            indeed_jobs = scrape_indeed_api(term, "")
+            all_jobs.extend(indeed_jobs)
+        
+        # Eliminar duplicados
+        unique_jobs = remove_duplicate_jobs(all_jobs)
+        
+        # Calcular compatibilidad con IA para cada trabajo
+        jobs_with_compatibility = []
+        for job in unique_jobs:
+            compatibility = calculate_ai_job_compatibility(job, cv_analysis)
+            job['compatibility_score'] = compatibility
+            jobs_with_compatibility.append(job)
+        
+        # Ordenar por compatibilidad (mayor a menor)
+        jobs_with_compatibility.sort(key=lambda x: x['compatibility_score'], reverse=True)
+        
+        # Tomar los mejores 100 empleos
+        top_jobs = jobs_with_compatibility[:100]
+        
+        # Guardar en base de datos
+        if top_jobs:
+            save_jobs_to_db(top_jobs)
+        
+        return jsonify({
+            'jobs': top_jobs,
+            'total_found': len(unique_jobs),
+            'search_terms_used': search_terms[:3]
+        })
+        
+    except Exception as e:
+        print(f"Error en búsqueda IA: {e}")
+        return jsonify({'error': f'Error interno del servidor: {str(e)}'}), 500
+
+@app.route('/my_analyses')
+def my_analyses():
+    """Ver análisis previos del usuario"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    connection = get_db_connection()
+    analyses = []
+    
+    if connection:
+        cursor = connection.cursor()
+        cursor.execute("""
+            SELECT f.id, r.filename, r.created_at, f.score, f.strengths, f.weaknesses, f.recommendations, f.keywords
+            FROM resumes r
+            INNER JOIN feedback f ON r.id = f.resume_id
+            WHERE r.user_id = %s
+            ORDER BY r.created_at DESC
+        """, (session['user_id'],))
+        
+        results = cursor.fetchall()
+        for result in results:
+            analysis = {
+                'id': result['id'],  # Ahora es f.id (feedback ID)
+                'filename': result['filename'],
+                'created_at': result['created_at'],
+                'score': result['score'] if result['score'] else 0,
+                'strengths': json.loads(result['strengths']) if result['strengths'] else [],
+                'weaknesses': json.loads(result['weaknesses']) if result['weaknesses'] else [],
+                'recommendations': json.loads(result['recommendations']) if result['recommendations'] else [],
+                'keywords': json.loads(result['keywords']) if result['keywords'] else []
+            }
+            analyses.append(analysis)
+        
+        cursor.close()
+        connection.close()
+    
+    return render_template('my_analyses.html', analyses=analyses)
+
+def generate_professional_summary_section(professional_summary, use_xyz, use_start):
+    """Generar sección de resumen profesional con metodologías aplicadas"""
+    enhanced_summary = professional_summary
+    
+    if use_xyz or use_start:
+        # Palabras clave y frases para metodología XYZ (enfoque en tecnologías emergentes e innovación)
+        xyz_enhancements = [
+            "con enfoque en tecnologías emergentes",
+            "especializado en soluciones innovadoras",
+            "con experiencia en transformación digital",
+            "orientado a la implementación de nuevas tecnologías",
+            "con visión estratégica en innovación tecnológica"
+        ]
+        
+        # Palabras clave y frases para metodología Start (enfoque en fundamentos sólidos y crecimiento)
+        start_enhancements = [
+            "con sólidos fundamentos técnicos",
+            "enfocado en el crecimiento profesional continuo",
+            "con base sólida en principios fundamentales",
+            "orientado al desarrollo progresivo de competencias",
+            "con enfoque metodológico y estructurado"
+        ]
+        
+        # Aplicar mejoras según las metodologías seleccionadas
+        if use_xyz and use_start:
+            # Combinar ambas metodologías
+            enhanced_summary += f" {xyz_enhancements[0]} y {start_enhancements[0]}."
+        elif use_xyz:
+            # Solo metodología XYZ
+            enhanced_summary += f" {xyz_enhancements[0]}."
+        elif use_start:
+            # Solo metodología Start
+            enhanced_summary += f" {start_enhancements[0]}."
+    
+    return f'<div class="section"><div class="section-title">RESUMEN PROFESIONAL</div><div style="text-align: justify; line-height: 1.4;">{enhanced_summary}</div></div>'
+
+def enhance_experience_description(description, use_xyz, use_start):
+    """Mejorar descripción de experiencia con metodologías aplicadas"""
+    if not description or not description.strip():
+        return description
+    
+    enhanced_description = description
+    
+    if use_xyz or use_start:
+        # Frases para metodología XYZ (enfoque en innovación y tecnologías emergentes)
+        xyz_phrases = [
+            "implementando soluciones innovadoras",
+            "utilizando tecnologías de vanguardia",
+            "desarrollando estrategias disruptivas",
+            "aplicando metodologías ágiles y modernas",
+            "liderando iniciativas de transformación digital"
+        ]
+        
+        # Frases para metodología Start (enfoque en fundamentos y crecimiento estructurado)
+        start_phrases = [
+            "aplicando metodologías estructuradas",
+            "siguiendo mejores prácticas establecidas",
+            "implementando procesos sistemáticos",
+            "desarrollando competencias fundamentales",
+            "estableciendo bases sólidas para el crecimiento"
+        ]
+        
+        # Aplicar mejoras según las metodologías seleccionadas
+        if use_xyz and use_start:
+            # Combinar ambas metodologías
+            enhanced_description += f" Destacando por {xyz_phrases[0]} y {start_phrases[0]}."
+        elif use_xyz:
+            # Solo metodología XYZ
+            enhanced_description += f" Destacando por {xyz_phrases[0]}."
+        elif use_start:
+            # Solo metodología Start
+            enhanced_description += f" Destacando por {start_phrases[0]}."
+    
+    return enhanced_description
+
+def generate_cv_html(cv_data):
+    """Generar HTML del CV según el formato seleccionado"""
+    personal = cv_data.get('personal_info', {})
+    professional_summary = cv_data.get('professional_summary', '')
+    education = cv_data.get('education', [])
+    experience = cv_data.get('experience', [])
+    skills = cv_data.get('skills', [])
+    languages = cv_data.get('languages', [])
+    format_options = cv_data.get('format_options', {'format': 'hardware', 'summary_tech_xyz': False, 'summary_tech_start': False, 'experience_tech_xyz': False, 'experience_tech_start': False})
+    
+    # Determinar el formato seleccionado
+    is_ats_format = format_options.get('format') == 'ats'
+    
+    # Metodologías específicas por sección
+    summary_tech_xyz = format_options.get('summary_tech_xyz', False)
+    summary_tech_start = format_options.get('summary_tech_start', False)
+    experience_tech_xyz = format_options.get('experience_tech_xyz', False)
+    experience_tech_start = format_options.get('experience_tech_start', False)
+    
+    # Estilos base según el formato
+    if is_ats_format:
+        # Estilo ATS: Simple, sin diseño complejo, optimizado para sistemas de seguimiento
+        styles = """
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; line-height: 1.4; }
+            .header { text-align: left; border-bottom: 1px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
+            .name { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+            .contact { font-size: 12px; }
+            .section { margin-bottom: 20px; }
+            .section-title { font-size: 14px; font-weight: bold; text-transform: uppercase; margin-bottom: 10px; }
+            .item { margin-bottom: 10px; }
+            .item-title { font-weight: bold; }
+            .item-subtitle { font-style: italic; }
+            .item-date { float: right; }
+            .skills-list { margin-bottom: 10px; }
+            .skill { margin-right: 5px; }
+        """
+    else:
+        # Estilo Hardware: Formato profesional basado en la imagen de referencia
+        styles = """
+            body { 
+                font-family: 'Times New Roman', serif; 
+                margin: 0; 
+                padding: 20px; 
+                line-height: 1.4; 
+                font-size: 11pt;
+                color: #000;
+            }
+            .header { 
+                text-align: left; 
+                border-bottom: 2px solid #000; 
+                padding-bottom: 15px; 
+                margin-bottom: 25px; 
+            }
+            .name { 
+                font-size: 18pt; 
+                font-weight: bold; 
+                margin-bottom: 8px; 
+                text-align: center;
+            }
+            .contact { 
+                font-size: 10pt; 
+                text-align: center;
+                margin-bottom: 5px;
+            }
+            .section { 
+                margin-bottom: 20px; 
+            }
+            .section-title { 
+                font-size: 12pt; 
+                font-weight: bold; 
+                text-transform: uppercase;
+                border-bottom: 1px solid #000; 
+                margin-bottom: 12px;
+                padding-bottom: 3px;
+            }
+            .item { 
+                margin-bottom: 15px; 
+                position: relative;
+            }
+            .item-title { 
+                font-weight: bold; 
+                font-size: 11pt;
+            }
+            .item-subtitle { 
+                font-style: italic; 
+                font-size: 10pt;
+                margin-bottom: 3px;
+            }
+            .item-date { 
+                float: right; 
+                font-size: 10pt;
+                font-weight: normal;
+            }
+            .item-description {
+                text-align: justify;
+                margin-top: 5px;
+                font-size: 10pt;
+                line-height: 1.3;
+            }
+            .skills-list { 
+                text-align: justify;
+                font-size: 10pt;
+            }
+            .skill { 
+                display: inline;
+                margin-right: 8px;
+            }
+            .languages-section {
+                font-size: 10pt;
+            }
+            .language-item {
+                margin-bottom: 5px;
+            }
+        """
+    
+    # Construir información de contacto
+    contact_info = [personal.get('email', ''), personal.get('phone', ''), personal.get('address', '')]
+    contact_info = [info for info in contact_info if info]  # Filtrar campos vacíos
+    contact_line = ' | '.join(contact_info)
+    
+    # Construir redes sociales
+    social_links = []
+    if personal.get('linkedin'):
+        social_links.append(f"LinkedIn: {personal.get('linkedin')}")
+    if personal.get('github'):
+        social_links.append(f"GitHub: {personal.get('github')}")
+    if personal.get('website'):
+        social_links.append(f"Web: {personal.get('website')}")
+    
+    social_line = ' | '.join(social_links) if social_links else ''
+    
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>CV - {personal.get('name', '')}</title>
+        <style>
+            {styles}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <div class="name">{personal.get('name', '')}</div>
+            <div class="contact">
+                {contact_line}
+            </div>
+            {f'<div class="contact" style="font-size: 11px; margin-top: 5px;">{social_line}</div>' if social_line else ''}
+        </div>
+        
+        {generate_professional_summary_section(professional_summary, summary_tech_xyz, summary_tech_start) if professional_summary and professional_summary.strip() else ''}
+        
+        <div class="section">
+            <div class="section-title">EDUCACIÓN</div>
+    """
+    
+    for edu in education:
+        html += f"""
+            <div class="item">
+                <div class="item-date">{edu.get('end_date', '')}</div>
+                <div class="item-title">{edu.get('degree', '')}</div>
+                <div class="item-subtitle">{edu.get('institution', '')}</div>
+                {f'<div class="item-description">{edu.get("description", "")}</div>' if edu.get('description', '').strip() else ''}
+            </div>
+        """
+    
+    html += """
+        </div>
+        
+        <div class="section">
+            <div class="section-title">EXPERIENCIA PROFESIONAL</div>
+    """
+    
+    for exp in experience:
+        enhanced_description = enhance_experience_description(exp.get('description', ''), experience_tech_xyz, experience_tech_start)
+        html += f"""
+            <div class="item">
+                <div class="item-date">{exp.get('start_date', '')} - {exp.get('end_date', '')}</div>
+                <div class="item-title">{exp.get('position', '')}</div>
+                <div class="item-subtitle">{exp.get('company', '')}</div>
+                {f'<div class="item-description">{enhanced_description}</div>' if enhanced_description.strip() else ''}
+            </div>
+        """
+    
+    if skills:
+        html += """
+        </div>
+        
+        <div class="section">
+            <div class="section-title">HABILIDADES</div>
+        """
+        
+        # Palabras clave para tecnologías XYZ (emergentes)
+        xyz_keywords = ['AI', 'Machine Learning', 'Blockchain', 'IoT', 'Cloud', 'DevOps', 'React', 'Vue', 'Angular', 'Node.js']
+        
+        # Palabras clave para tecnologías Start (fundamentales)
+        start_keywords = ['Java', 'Python', 'C++', 'SQL', 'HTML', 'CSS', 'JavaScript', 'Git', 'Linux', 'Windows']
+        
+        if is_ats_format:
+            # Formato ATS: habilidades con estilos individuales
+            html += '<div class="skills-list">'
+            for skill in skills:
+                skill_class = "skill"
+                if any(keyword.lower() in skill.lower() for keyword in xyz_keywords):
+                    skill_class = "skill skill-xyz"
+                elif any(keyword.lower() in skill.lower() for keyword in start_keywords):
+                    skill_class = "skill skill-start"
+                html += f'<span class="{skill_class}">{skill}</span>'
+            html += '</div>'
+        else:
+            # Formato Hardware: habilidades con estilos individuales
+            html += '<div class="skills-list">'
+            for skill in skills:
+                skill_class = "skill"
+                if any(keyword.lower() in skill.lower() for keyword in xyz_keywords):
+                    skill_class = "skill skill-xyz"
+                elif any(keyword.lower() in skill.lower() for keyword in start_keywords):
+                    skill_class = "skill skill-start"
+                html += f'<span class="{skill_class}">{skill}</span>'
+            html += '</div>'
+    
+    if languages:
+        html += """
+        </div>
+        
+        <div class="section">
+            <div class="section-title">IDIOMAS</div>
+        """
+        
+        for lang in languages:
+            html += f'<div class="language-item">{lang.get("language", "")} - {lang.get("level", "")}</div>'
+    
+    html += """
+        </div>
+    </body>
+    </html>
+    """
+    
+    return html
+
+def scrape_computrabajo(query, location):
+    """Scraping de empleos de CompuTrabajo"""
+    jobs = []
+    
+    try:
+        # Construir URL de búsqueda
+        base_url = "https://www.computrabajo.com"
+        search_url = f"{base_url}/empleos-publicados-en-{location.lower().replace(' ', '-')}?q={query.replace(' ', '+')}"
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+        response = requests.get(search_url, headers=headers, timeout=10)
+        # soup = BeautifulSoup(response.content, 'html.parser')  # Temporarily disabled
+        
+        # Buscar ofertas de empleo
+        # job_listings = soup.find_all('div', class_='box_offer')  # Temporarily disabled
+        job_listings = []  # Empty list when scraping is disabled
+        
+        for listing in job_listings[:10]:  # Limitar a 10 resultados
+            try:
+                title_elem = listing.find('h2', class_='fs18')
+                company_elem = listing.find('p', class_='fs16')
+                location_elem = listing.find('p', class_='fs13')
+                
+                if title_elem and company_elem:
+                    title = title_elem.get_text(strip=True)
+                    company = company_elem.get_text(strip=True)
+                    job_location = location_elem.get_text(strip=True) if location_elem else location
+                    
+                    # Obtener enlace
+                    link_elem = title_elem.find('a')
+                    job_url = base_url + link_elem['href'] if link_elem else ''
+                    
+                    jobs.append({
+                        'title': title,
+                        'company': company,
+                        'location': job_location,
+                        'url': job_url,
+                        'source': 'CompuTrabajo',
+                        'description': ''
+                    })
+            except Exception as e:
+                continue
+                
+    except Exception as e:
+        print(f"Error scraping CompuTrabajo: {e}")
+    
+    return jobs
+
+def scrape_indeed(query, location):
+    """Scraping de empleos de Indeed"""
+    jobs = []
+    
+    try:
+        # Construir URL de búsqueda
+        base_url = "https://www.indeed.com"
+        search_url = f"{base_url}/jobs?q={query.replace(' ', '+')}&l={location.replace(' ', '+')}"
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+        response = requests.get(search_url, headers=headers, timeout=10)
+        # soup = BeautifulSoup(response.content, 'html.parser')  # Temporarily disabled
+        
+        # Buscar ofertas de empleo
+        # job_listings = soup.find_all('div', class_='job_seen_beacon')  # Temporarily disabled
+        job_listings = []  # Empty list when scraping is disabled
+        
+        for listing in job_listings[:10]:  # Limitar a 10 resultados
+            try:
+                title_elem = listing.find('h2', class_='jobTitle')
+                company_elem = listing.find('span', class_='companyName')
+                location_elem = listing.find('div', class_='companyLocation')
+                
+                if title_elem and company_elem:
+                    title_link = title_elem.find('a')
+                    title = title_link.get_text(strip=True) if title_link else title_elem.get_text(strip=True)
+                    company = company_elem.get_text(strip=True)
+                    job_location = location_elem.get_text(strip=True) if location_elem else location
+                    
+                    # Obtener enlace
+                    job_url = base_url + title_link['href'] if title_link and title_link.get('href') else ''
+                    
+                    jobs.append({
+                        'title': title,
+                        'company': company,
+                        'location': job_location,
+                        'url': job_url,
+                        'source': 'Indeed',
+                        'description': ''
+                    })
+            except Exception as e:
+                continue
+                
+    except Exception as e:
+        print(f"Error scraping Indeed: {e}")
+    
+    return jobs
+
+def save_jobs_to_db(jobs):
+    """Guardar empleos en la base de datos"""
+    connection = get_db_connection()
+    if connection:
+        cursor = connection.cursor()
+        
+        for job in jobs:
+            try:
+                # Verificar si el empleo ya existe
+                cursor.execute(
+                    "SELECT id FROM jobs WHERE title = %s AND company = %s AND url = %s",
+                    (job['title'], job['company'], job['url'])
+                )
+                
+                if not cursor.fetchone():
+                    cursor.execute(
+                        "INSERT INTO jobs (title, company, location, description, url, source) VALUES (%s, %s, %s, %s, %s, %s)",
+                        (job['title'], job['company'], job['location'], job['description'], job['url'], job['source'])
+                    )
+            except Exception as e:
+                print(f"Error guardando empleo: {e}")
+                continue
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+
+@app.route('/profile')
+def profile():
+    """Perfil del usuario"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    connection = get_db_connection()
+    user = None
+    analyses_count = 0
+    last_analysis = None
+    
+    if connection:
+        cursor = connection.cursor()
+        cursor.execute(
+            "SELECT id, username, email, created_at FROM users WHERE id = %s",
+            (session['user_id'],)
+        )
+        user = cursor.fetchone()
+        
+        # Obtener estadísticas de análisis
+        cursor.execute(
+            "SELECT COUNT(*) FROM resumes WHERE user_id = %s",
+            (session['user_id'],)
+        )
+        analyses_count = cursor.fetchone()['count']
+        
+        cursor.execute(
+            "SELECT created_at FROM resumes WHERE user_id = %s ORDER BY created_at DESC LIMIT 1",
+            (session['user_id'],)
+        )
+        result = cursor.fetchone()
+        last_analysis = result['created_at'] if result else None
+        
+        cursor.close()
+        connection.close()
+    
+    return render_template('profile.html', user=user, analyses_count=analyses_count, last_analysis=last_analysis)
+
+def generate_professional_summary_section(professional_summary, use_xyz, use_start):
+    """Generar sección de resumen profesional con metodologías aplicadas"""
+    enhanced_summary = professional_summary
+    
+    if use_xyz or use_start:
+        # Palabras clave y frases para metodología XYZ (enfoque en tecnologías emergentes e innovación)
+        xyz_enhancements = [
+            "con enfoque en tecnologías emergentes",
+            "especializado en soluciones innovadoras",
+            "con experiencia en transformación digital",
+            "orientado a la implementación de nuevas tecnologías",
+            "con visión estratégica en innovación tecnológica"
+        ]
+        
+        # Palabras clave y frases para metodología Start (enfoque en fundamentos sólidos y crecimiento)
+        start_enhancements = [
+            "con sólidos fundamentos técnicos",
+            "enfocado en el crecimiento profesional continuo",
+            "con base sólida en principios fundamentales",
+            "orientado al desarrollo progresivo de competencias",
+            "con enfoque metodológico y estructurado"
+        ]
+        
+        # Aplicar mejoras según las metodologías seleccionadas
+        if use_xyz and use_start:
+            # Combinar ambas metodologías
+            enhanced_summary += f" {xyz_enhancements[0]} y {start_enhancements[0]}."
+        elif use_xyz:
+            # Solo metodología XYZ
+            enhanced_summary += f" {xyz_enhancements[0]}."
+        elif use_start:
+            # Solo metodología Start
+            enhanced_summary += f" {start_enhancements[0]}."
+    
+    return f'<div class="section"><div class="section-title">RESUMEN PROFESIONAL</div><div style="text-align: justify; line-height: 1.4;">{enhanced_summary}</div></div>'
+
+def enhance_experience_description(description, use_xyz, use_start):
+    """Mejorar descripción de experiencia con metodologías aplicadas"""
+    if not description or not description.strip():
+        return description
+    
+    enhanced_description = description
+    
+    if use_xyz or use_start:
+        # Frases para metodología XYZ (enfoque en innovación y tecnologías emergentes)
+        xyz_phrases = [
+            "implementando soluciones innovadoras",
+            "utilizando tecnologías de vanguardia",
+            "desarrollando estrategias disruptivas",
+            "aplicando metodologías ágiles y modernas",
+            "liderando iniciativas de transformación digital"
+        ]
+        
+        # Frases para metodología Start (enfoque en fundamentos y crecimiento estructurado)
+        start_phrases = [
+            "aplicando metodologías estructuradas",
+            "siguiendo mejores prácticas establecidas",
+            "implementando procesos sistemáticos",
+            "desarrollando competencias fundamentales",
+            "estableciendo bases sólidas para el crecimiento"
+        ]
+        
+        # Aplicar mejoras según las metodologías seleccionadas
+        if use_xyz and use_start:
+            # Combinar ambas metodologías
+            enhanced_description += f" Destacando por {xyz_phrases[0]} y {start_phrases[0]}."
+        elif use_xyz:
+            # Solo metodología XYZ
+            enhanced_description += f" Destacando por {xyz_phrases[0]}."
+        elif use_start:
+            # Solo metodología Start
+            enhanced_description += f" Destacando por {start_phrases[0]}."
+    
+    return enhanced_description
+
+def generate_cv_html(cv_data):
+    """Generar HTML del CV según el formato seleccionado"""
+    personal = cv_data.get('personal_info', {})
+    professional_summary = cv_data.get('professional_summary', '')
+    education = cv_data.get('education', [])
+    experience = cv_data.get('experience', [])
+    skills = cv_data.get('skills', [])
+    languages = cv_data.get('languages', [])
+    format_options = cv_data.get('format_options', {'format': 'hardware', 'summary_tech_xyz': False, 'summary_tech_start': False, 'experience_tech_xyz': False, 'experience_tech_start': False})
+    
+    # Determinar el formato seleccionado
+    is_ats_format = format_options.get('format') == 'ats'
+    
+    # Metodologías específicas por sección
+    summary_tech_xyz = format_options.get('summary_tech_xyz', False)
+    summary_tech_start = format_options.get('summary_tech_start', False)
+    experience_tech_xyz = format_options.get('experience_tech_xyz', False)
+    experience_tech_start = format_options.get('experience_tech_start', False)
+    
+    # Estilos base según el formato
+    if is_ats_format:
+        # Estilo ATS: Simple, sin diseño complejo, optimizado para sistemas de seguimiento
+        styles = """
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; line-height: 1.4; }
+            .header { text-align: left; border-bottom: 1px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
+            .name { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+            .contact { font-size: 12px; }
+            .section { margin-bottom: 20px; }
+            .section-title { font-size: 14px; font-weight: bold; text-transform: uppercase; margin-bottom: 10px; }
+            .item { margin-bottom: 10px; }
+            .item-title { font-weight: bold; }
+            .item-subtitle { font-style: italic; }
+            .item-date { float: right; }
+            .skills-list { margin-bottom: 10px; }
+            .skill { margin-right: 5px; }
+        """
+    else:
+        # Estilo Hardware: Formato profesional basado en la imagen de referencia
+        styles = """
+            body { 
+                font-family: 'Times New Roman', serif; 
+                margin: 0; 
+                padding: 20px; 
+                line-height: 1.4; 
+                font-size: 11pt;
+                color: #000;
+            }
+            .header { 
+                text-align: left; 
+                border-bottom: 2px solid #000; 
+                padding-bottom: 15px; 
+                margin-bottom: 25px; 
+            }
+            .name { 
+                font-size: 18pt; 
+                font-weight: bold; 
+                margin-bottom: 8px; 
+                text-align: center;
+            }
+            .contact { 
+                font-size: 10pt; 
+                text-align: center;
+                margin-bottom: 5px;
+            }
+            .section { 
+                margin-bottom: 20px; 
+            }
+            .section-title { 
+                font-size: 12pt; 
+                font-weight: bold; 
+                text-transform: uppercase;
+                border-bottom: 1px solid #000; 
+                margin-bottom: 12px;
+                padding-bottom: 3px;
+            }
+            .item { 
+                margin-bottom: 15px; 
+                position: relative;
+            }
+            .item-title { 
+                font-weight: bold; 
+                font-size: 11pt;
+            }
+            .item-subtitle { 
+                font-style: italic; 
+                font-size: 10pt;
+                margin-bottom: 3px;
+            }
+            .item-date { 
+                float: right; 
+                font-size: 10pt;
+                font-weight: normal;
+            }
+            .item-description {
+                text-align: justify;
+                margin-top: 5px;
+                font-size: 10pt;
+                line-height: 1.3;
+            }
+            .skills-list { 
+                text-align: justify;
+                font-size: 10pt;
+            }
+            .skill { 
+                display: inline;
+                margin-right: 8px;
+            }
+            .languages-section {
+                font-size: 10pt;
+            }
+            .language-item {
+                margin-bottom: 5px;
+            }
+        """
+    
+    # Construir información de contacto
+    contact_info = [personal.get('email', ''), personal.get('phone', ''), personal.get('address', '')]
+    contact_info = [info for info in contact_info if info]  # Filtrar campos vacíos
+    contact_line = ' | '.join(contact_info)
+    
+    # Construir redes sociales
+    social_links = []
+    if personal.get('linkedin'):
+        social_links.append(f"LinkedIn: {personal.get('linkedin')}")
+    if personal.get('github'):
+        social_links.append(f"GitHub: {personal.get('github')}")
+    if personal.get('website'):
+        social_links.append(f"Web: {personal.get('website')}")
+    
+    social_line = ' | '.join(social_links) if social_links else ''
+    
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>CV - {personal.get('name', '')}</title>
+        <style>
+            {styles}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <div class="name">{personal.get('name', '')}</div>
+            <div class="contact">
+                {contact_line}
+            </div>
+            {f'<div class="contact" style="font-size: 11px; margin-top: 5px;">{social_line}</div>' if social_line else ''}
+        </div>
+        
+        {generate_professional_summary_section(professional_summary, summary_tech_xyz, summary_tech_start) if professional_summary and professional_summary.strip() else ''}
+        
+        <div class="section">
+            <div class="section-title">EDUCACIÓN</div>
+    """
+    
+    for edu in education:
+        html += f"""
+            <div class="item">
+                <div class="item-date">{edu.get('end_date', '')}</div>
+                <div class="item-title">{edu.get('degree', '')}</div>
+                <div class="item-subtitle">{edu.get('institution', '')}</div>
+                {f'<div class="item-description">{edu.get("description", "")}</div>' if edu.get('description', '').strip() else ''}
+            </div>
+        """
+    
+    html += """
+        </div>
+        
+        <div class="section">
+            <div class="section-title">EXPERIENCIA PROFESIONAL</div>
+    """
+    
+    for exp in experience:
+        enhanced_description = enhance_experience_description(exp.get('description', ''), experience_tech_xyz, experience_tech_start)
+        html += f"""
+            <div class="item">
+                <div class="item-date">{exp.get('start_date', '')} - {exp.get('end_date', '')}</div>
+                <div class="item-title">{exp.get('position', '')}</div>
+                <div class="item-subtitle">{exp.get('company', '')}</div>
+                {f'<div class="item-description">{enhanced_description}</div>' if enhanced_description.strip() else ''}
+            </div>
+        """
+    
+    if skills:
+        html += """
+        </div>
+        
+        <div class="section">
+            <div class="section-title">HABILIDADES</div>
+        """
+        
+        # Palabras clave para tecnologías XYZ (emergentes)
+        xyz_keywords = ['AI', 'Machine Learning', 'Blockchain', 'IoT', 'Cloud', 'DevOps', 'React', 'Vue', 'Angular', 'Node.js']
+        
+        # Palabras clave para tecnologías Start (fundamentales)
+        start_keywords = ['Java', 'Python', 'C++', 'SQL', 'HTML', 'CSS', 'JavaScript', 'Git', 'Linux', 'Windows']
+        
+        if is_ats_format:
+            # Formato ATS: habilidades con estilos individuales
+            html += '<div class="skills-list">'
+            for skill in skills:
+                skill_class = "skill"
+                if any(keyword.lower() in skill.lower() for keyword in xyz_keywords):
+                    skill_class = "skill skill-xyz"
+                elif any(keyword.lower() in skill.lower() for keyword in start_keywords):
+                    skill_class = "skill skill-start"
+                html += f'<span class="{skill_class}">{skill}</span>'
+            html += '</div>'
+        else:
+            # Formato Hardware: habilidades con estilos individuales
+            html += '<div class="skills-list">'
+            for skill in skills:
+                skill_class = "skill"
+                if any(keyword.lower() in skill.lower() for keyword in xyz_keywords):
+                    skill_class = "skill skill-xyz"
+                elif any(keyword.lower() in skill.lower() for keyword in start_keywords):
+                    skill_class = "skill skill-start"
+                html += f'<span class="{skill_class}">{skill}</span>'
+            html += '</div>'
+    
+    if languages:
+        html += """
+        </div>
+        
+        <div class="section">
+            <div class="section-title">IDIOMAS</div>
+        """
+        
+        for lang in languages:
+            html += f'<div class="language-item">{lang.get("language", "")} - {lang.get("level", "")}</div>'
+    
+    html += """
+        </div>
+    </body>
+    </html>
+    """
+    
+    return html
+
+def scrape_computrabajo(query, location):
+    """Scraping de empleos de CompuTrabajo"""
+    jobs = []
+    
+    try:
+        # Construir URL de búsqueda
+        base_url = "https://www.computrabajo.com"
+        search_url = f"{base_url}/empleos-publicados-en-{location.lower().replace(' ', '-')}?q={query.replace(' ', '+')}"
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+        response = requests.get(search_url, headers=headers, timeout=10)
+        # soup = BeautifulSoup(response.content, 'html.parser')  # Temporarily disabled
+        
+        # Buscar ofertas de empleo
+        # job_listings = soup.find_all('div', class_='box_offer')  # Temporarily disabled
+        job_listings = []  # Empty list when scraping is disabled
+        
+        for listing in job_listings[:10]:  # Limitar a 10 resultados
+            try:
+                title_elem = listing.find('h2', class_='fs18')
+                company_elem = listing.find('p', class_='fs16')
+                location_elem = listing.find('p', class_='fs13')
+                
+                if title_elem and company_elem:
+                    title = title_elem.get_text(strip=True)
+                    company = company_elem.get_text(strip=True)
+                    job_location = location_elem.get_text(strip=True) if location_elem else location
+                    
+                    # Obtener enlace
+                    link_elem = title_elem.find('a')
+                    job_url = base_url + link_elem['href'] if link_elem else ''
+                    
+                    jobs.append({
+                        'title': title,
+                        'company': company,
+                        'location': job_location,
+                        'url': job_url,
+                        'source': 'CompuTrabajo',
+                        'description': ''
+                    })
+            except Exception as e:
+                continue
+                
+    except Exception as e:
+        print(f"Error scraping CompuTrabajo: {e}")
+    
+    return jobs
+
+def scrape_indeed(query, location):
+    """Scraping de empleos de Indeed"""
+    jobs = []
+    
+    try:
+        # Construir URL de búsqueda
+        base_url = "https://www.indeed.com"
+        search_url = f"{base_url}/jobs?q={query.replace(' ', '+')}&l={location.replace(' ', '+')}"
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+        response = requests.get(search_url, headers=headers, timeout=10)
+        # soup = BeautifulSoup(response.content, 'html.parser')  # Temporarily disabled
+        
+        # Buscar ofertas de empleo
+        # job_listings = soup.find_all('div', class_='job_seen_beacon')  # Temporarily disabled
+        job_listings = []  # Empty list when scraping is disabled
+        
+        for listing in job_listings[:10]:  # Limitar a 10 resultados
+            try:
+                title_elem = listing.find('h2', class_='jobTitle')
+                company_elem = listing.find('span', class_='companyName')
+                location_elem = listing.find('div', class_='companyLocation')
+                
+                if title_elem and company_elem:
+                    title_link = title_elem.find('a')
+                    title = title_link.get_text(strip=True) if title_link else title_elem.get_text(strip=True)
+                    company = company_elem.get_text(strip=True)
+                    job_location = location_elem.get_text(strip=True) if location_elem else location
+                    
+                    # Obtener enlace
+                    job_url = base_url + title_link['href'] if title_link and title_link.get('href') else ''
+                    
+                    jobs.append({
+                        'title': title,
+                        'company': company,
+                        'location': job_location,
+                        'url': job_url,
+                        'source': 'Indeed',
+                        'description': ''
+                    })
+            except Exception as e:
+                continue
+                
+    except Exception as e:
+        print(f"Error scraping Indeed: {e}")
+    
+    return jobs
+
+def save_jobs_to_db(jobs):
+    """Guardar empleos en la base de datos"""
+    connection = get_db_connection()
+    if connection:
+        cursor = connection.cursor()
+        
+        for job in jobs:
+            try:
+                # Verificar si el empleo ya existe
+                cursor.execute(
+                    "SELECT id FROM jobs WHERE title = %s AND company = %s AND url = %s",
+                    (job['title'], job['company'], job['url'])
+                )
+                
+                if not cursor.fetchone():
+                    cursor.execute(
+                        "INSERT INTO jobs (title, company, location, description, url, source) VALUES (%s, %s, %s, %s, %s, %s)",
+                        (job['title'], job['company'], job['location'], job['description'], job['url'], job['source'])
+                    )
+            except Exception as e:
+                print(f"Error guardando empleo: {e}")
+                continue
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+
+@app.route('/delete_analysis/<int:analysis_id>', methods=['DELETE'])
+def delete_analysis(analysis_id):
+    """Eliminar un análisis específico"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'No autorizado'}), 401
+    
+    connection = get_db_connection()
+    if not connection:
+        return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+    
+    try:
+        cursor = connection.cursor()
+        
+        # Verificar que el análisis pertenece al usuario a través de la tabla resumes
+        cursor.execute(
+            "SELECT f.id FROM feedback f JOIN resumes r ON f.resume_id = r.id WHERE f.id = %s AND r.user_id = %s",
+            (analysis_id, session['user_id'])
+        )
+        
+        if not cursor.fetchone():
+            return jsonify({'success': False, 'message': 'Análisis no encontrado'}), 404
+        
+        # Eliminar el análisis de la tabla feedback
+        cursor.execute(
+            "DELETE FROM feedback WHERE id = %s AND resume_id IN (SELECT id FROM resumes WHERE user_id = %s)",
+            (analysis_id, session['user_id'])
+        )
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        return jsonify({'success': True, 'message': 'Análisis eliminado correctamente'})
+        
+    except Exception as e:
+        print(f"Error eliminando análisis: {e}")
+        return jsonify({'success': False, 'message': 'Error interno del servidor'}), 500
+
+@app.route('/delete_account', methods=['DELETE'])
+def delete_account():
+    """Eliminar cuenta de usuario"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'No autorizado'}), 401
+    
+    connection = get_db_connection()
+    if not connection:
+        return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+    
+    try:
+        cursor = connection.cursor()
+        user_id = session['user_id']
+        
+        # Eliminar todos los análisis del usuario
+        cursor.execute("DELETE FROM feedback WHERE resume_id IN (SELECT id FROM resumes WHERE user_id = %s)", (user_id,))
+        
+        # Eliminar la cuenta del usuario
+        cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        # Limpiar la sesión
+        session.clear()
+        
+        return jsonify({'success': True, 'message': 'Cuenta eliminada correctamente'})
+        
+    except Exception as e:
+        print(f"Error eliminando cuenta: {e}")
+        return jsonify({'success': False, 'message': 'Error interno del servidor'}), 500
+
+@app.route('/change_password', methods=['POST'])
+def change_password():
+    """Cambiar contraseña del usuario"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'No autorizado'}), 401
+    
+    data = request.get_json()
+    current_password = data.get('current_password')
+    new_password = data.get('new_password')
+    
+    if not current_password or not new_password:
+        return jsonify({'success': False, 'message': 'Faltan datos requeridos'}), 400
+    
+    if len(new_password) < 6:
+        return jsonify({'success': False, 'message': 'La nueva contraseña debe tener al menos 6 caracteres'}), 400
+    
+    connection = get_db_connection()
+    if not connection:
+        return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+    
+    try:
+        cursor = connection.cursor()
+        
+        # Verificar contraseña actual
+        cursor.execute(
+            "SELECT password FROM users WHERE id = %s",
+            (session['user_id'],)
+        )
+        
+        user_data = cursor.fetchone()
+        if not user_data or not check_password_hash(user_data[0], current_password):
+            return jsonify({'success': False, 'message': 'Contraseña actual incorrecta'}), 400
+        
+        # Actualizar contraseña
+        hashed_password = generate_password_hash(new_password)
+        cursor.execute(
+            "UPDATE users SET password = %s WHERE id = %s",
+            (hashed_password, session['user_id'])
+        )
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        return jsonify({'success': True, 'message': 'Contraseña cambiada correctamente'})
+        
+    except Exception as e:
+        print(f"Error cambiando contraseña: {e}")
+        return jsonify({'success': False, 'message': 'Error interno del servidor'}), 500
+
+# ==================== RUTAS DE ADMINISTRACIÓN ====================
+
+def admin_required(f):
+    """Decorador para verificar que el usuario sea administrador"""
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Debes iniciar sesión para acceder a esta página', 'error')
+            return redirect(url_for('login'))
+        if session.get('user_role') != 'admin':
+            flash('No tienes permisos para acceder a esta página', 'error')
+            return redirect(url_for('dashboard'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/admin')
+@admin_required
+def admin_dashboard():
+    """Panel principal de administración"""
+    username = session.get('username', 'unknown')
+    add_console_log('INFO', f'Admin accedió al panel principal: {username}', 'ADMIN')
+    return render_template('admin/dashboard.html')
+
+@app.route('/admin/console')
+@admin_required
+def admin_console():
+    """Consola en tiempo real del servidor"""
+    username = session.get('username', 'unknown')
+    add_console_log('INFO', f'Admin accedió a la consola del servidor: {username}', 'ADMIN')
+    return render_template('admin/console.html')
+
+@app.route('/admin/stats')
+@admin_required
+def admin_stats():
+    """Estadísticas de usuarios"""
+    username = session.get('username', 'unknown')
+    add_console_log('INFO', f'Admin accedió a estadísticas: {username}', 'ADMIN')
+    
+    connection = get_db_connection()
+    if not connection:
+        flash('Error de conexión a la base de datos', 'error')
+        return redirect(url_for('admin_dashboard'))
+    
+    try:
+        cursor = connection.cursor()
+        
+        # Usuarios en tiempo real (últimos 5 minutos)
+        cursor.execute("""
+            SELECT COUNT(*) as active_users 
+            FROM users 
+            WHERE last_login >= NOW() - INTERVAL '5 minutes'
+        """)
+        active_users = cursor.fetchone()['active_users']
+        
+        # Usuarios conectados hoy
+        cursor.execute("""
+            SELECT COUNT(*) as daily_users 
+            FROM users 
+            WHERE DATE(last_login) = CURRENT_DATE
+        """)
+        daily_users = cursor.fetchone()['daily_users']
+        
+        # Usuarios conectados esta semana
+        cursor.execute("""
+            SELECT COUNT(*) as weekly_users 
+            FROM users 
+            WHERE last_login >= DATE_TRUNC('week', NOW())
+        """)
+        weekly_users = cursor.fetchone()['weekly_users']
+        
+        # Usuarios conectados este mes
+        cursor.execute("""
+            SELECT COUNT(*) as monthly_users 
+            FROM users 
+            WHERE last_login >= DATE_TRUNC('month', NOW())
+        """)
+        monthly_users = cursor.fetchone()['monthly_users']
+        
+        # Total de usuarios registrados
+        cursor.execute("SELECT COUNT(*) as total_users FROM users")
+        total_users = cursor.fetchone()['total_users']
+        
+        cursor.close()
+        connection.close()
+        
+        stats = {
+            'active_users': active_users,
+            'daily_users': daily_users,
+            'weekly_users': weekly_users,
+            'monthly_users': monthly_users,
+            'total_users': total_users
+        }
+        
+        return render_template('admin/stats.html', stats=stats)
+        
+    except Exception as e:
+        print(f"Error obteniendo estadísticas: {e}")
+        flash('Error obteniendo estadísticas', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/database')
+@admin_required
+def admin_database():
+    """Interfaz de consultas a la base de datos"""
+    return render_template('admin/database.html')
+
+@app.route('/admin/search_users', methods=['POST'])
+@admin_required
+def admin_search_users():
+    """Buscar usuarios por título profesional"""
+    search_term = request.form.get('search_term', '').strip()
+    
+    if not search_term:
+        flash('Por favor, introduce un término de búsqueda', 'warning')
+        return redirect(url_for('admin_database'))
+    
+    connection = get_db_connection()
+    if not connection:
+        flash('Error de conexión a la base de datos', 'error')
+        return redirect(url_for('admin_database'))
+    
+    try:
+        cursor = connection.cursor()
+        
+        # Buscar en los datos de CV de usuarios
+        cursor.execute("""
+            SELECT u.id, u.username, u.email, u.created_at, u.last_login,
+                   cv.personal_info, cv.professional_summary, cv.education, 
+                   cv.experience, cv.skills
+            FROM users u
+            LEFT JOIN user_cv_data cv ON u.id = cv.user_id
+            WHERE cv.personal_info ILIKE %s 
+               OR cv.professional_summary ILIKE %s
+               OR cv.education ILIKE %s
+               OR cv.experience ILIKE %s
+               OR cv.skills ILIKE %s
+        """, (f'%{search_term}%', f'%{search_term}%', f'%{search_term}%', f'%{search_term}%', f'%{search_term}%'))
+        
+        results = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        
+        return render_template('admin/search_results.html', results=results, search_term=search_term)
+        
+    except Exception as e:
+        print(f"Error en búsqueda de usuarios: {e}")
+        flash('Error realizando la búsqueda', 'error')
+        return redirect(url_for('admin_database'))
+
+@app.route('/admin/export_users')
+@admin_required
+def admin_export_users():
+    """Exportar usuarios a Excel"""
+    search_term = request.args.get('search_term', '')
+    
+    connection = get_db_connection()
+    if not connection:
+        flash('Error de conexión a la base de datos', 'error')
+        return redirect(url_for('admin_database'))
+    
+    try:
+        import pandas as pd
+        from io import BytesIO
+        
+        cursor = connection.cursor()
+        
+        if search_term:
+            cursor.execute("""
+                SELECT u.id, u.username, u.email, u.created_at, u.last_login,
+                       cv.personal_info, cv.professional_summary, cv.education, 
+                       cv.experience, cv.skills
+                FROM users u
+                LEFT JOIN user_cv_data cv ON u.id = cv.user_id
+                WHERE cv.personal_info ILIKE %s 
+                   OR cv.professional_summary ILIKE %s
+                   OR cv.education ILIKE %s
+                   OR cv.experience ILIKE %s
+                   OR cv.skills ILIKE %s
+            """, (f'%{search_term}%', f'%{search_term}%', f'%{search_term}%', f'%{search_term}%', f'%{search_term}%'))
+        else:
+            cursor.execute("""
+                SELECT u.id, u.username, u.email, u.created_at, u.last_login,
+                       cv.personal_info, cv.professional_summary, cv.education, 
+                       cv.experience, cv.skills
+                FROM users u
+                LEFT JOIN user_cv_data cv ON u.id = cv.user_id
+            """)
+        
+        results = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        
+        # Crear DataFrame
+        df = pd.DataFrame(results, columns=['ID', 'Usuario', 'Email', 'Fecha Registro', 'Último Login', 
+                                          'Info Personal', 'Resumen Profesional', 'Educación', 'Experiencia', 'Habilidades'])
+        
+        # Crear archivo Excel en memoria
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Usuarios', index=False)
+        
+        output.seek(0)
+        
+        filename = f"usuarios_{search_term}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx" if search_term else f"todos_usuarios_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename
+        )
+        
+    except ImportError:
+        flash('pandas no está instalado. No se puede exportar a Excel.', 'error')
+        return redirect(url_for('admin_database'))
+    except Exception as e:
+        print(f"Error exportando usuarios: {e}")
+        flash('Error exportando usuarios', 'error')
+        return redirect(url_for('admin_database'))
+
+@app.route('/admin/users')
+@admin_required
+def admin_users():
+    """Gestión de usuarios"""
+    search = request.args.get('search', '')
+    page = int(request.args.get('page', 1))
+    per_page = 20
+    
+    connection = get_db_connection()
+    if not connection:
+        flash('Error de conexión a la base de datos', 'error')
+        return redirect(url_for('admin_dashboard'))
+    
+    try:
+        cursor = connection.cursor()
+        
+        # Construir consulta con búsqueda
+        base_query = """
+            SELECT id, username, email, role, is_banned, ban_until, ban_reason, 
+                   last_login, created_at, email_verified
+            FROM users
+        """
+        
+        if search:
+            base_query += " WHERE username ILIKE %s OR email ILIKE %s"
+            search_param = f"%{search}%"
+            cursor.execute(base_query + " ORDER BY created_at DESC LIMIT %s OFFSET %s", 
+                         (search_param, search_param, per_page, (page-1)*per_page))
+        else:
+            cursor.execute(base_query + " ORDER BY created_at DESC LIMIT %s OFFSET %s", 
+                         (per_page, (page-1)*per_page))
+        
+        users = cursor.fetchall()
+        
+        # Contar total para paginación
+        if search:
+            cursor.execute("SELECT COUNT(*) FROM users WHERE username ILIKE %s OR email ILIKE %s", 
+                         (search_param, search_param))
+        else:
+            cursor.execute("SELECT COUNT(*) FROM users")
+        
+        total_users = cursor.fetchone()['count']
+        total_pages = (total_users + per_page - 1) // per_page
+        
+        cursor.close()
+        connection.close()
+        
+        return render_template('admin/users.html', 
+                             users=users, 
+                             search=search, 
+                             page=page, 
+                             total_pages=total_pages)
+        
+    except Exception as e:
+        print(f"Error obteniendo usuarios: {e}")
+        flash('Error obteniendo usuarios', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/ban_user', methods=['POST'])
+@admin_required
+def admin_ban_user():
+    """Banear usuario"""
+    data = request.get_json()
+    user_id = data.get('user_id')
+    ban_type = data.get('ban_type')  # 'permanent' o 'temporary'
+    ban_duration = data.get('ban_duration')  # en días para bans temporales
+    ban_reason = data.get('ban_reason', '')
+    
+    if not user_id:
+        return jsonify({'success': False, 'message': 'ID de usuario requerido'})
+    
+    connection = get_db_connection()
+    if not connection:
+        return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'})
+    
+    try:
+        cursor = connection.cursor()
+        
+        if ban_type == 'permanent':
+            cursor.execute("""
+                UPDATE users 
+                SET is_banned = TRUE, ban_until = NULL, ban_reason = %s
+                WHERE id = %s
+            """, (ban_reason, user_id))
+        else:  # temporary
+            from datetime import datetime, timedelta
+            ban_until = datetime.now() + timedelta(days=int(ban_duration))
+            cursor.execute("""
+                UPDATE users 
+                SET is_banned = TRUE, ban_until = %s, ban_reason = %s
+                WHERE id = %s
+            """, (ban_until, ban_reason, user_id))
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        return jsonify({'success': True, 'message': 'Usuario baneado correctamente'})
+        
+    except Exception as e:
+        print(f"Error baneando usuario: {e}")
+        return jsonify({'success': False, 'message': 'Error interno del servidor'})
+
+@app.route('/admin/unban_user', methods=['POST'])
+@admin_required
+def admin_unban_user():
+    """Desbanear usuario"""
+    data = request.get_json()
+    user_id = data.get('user_id')
+    
+    if not user_id:
+        return jsonify({'success': False, 'message': 'ID de usuario requerido'})
+    
+    connection = get_db_connection()
+    if not connection:
+        return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'})
+    
+    try:
+        cursor = connection.cursor()
+        
+        cursor.execute("""
+            UPDATE users 
+            SET is_banned = FALSE, ban_until = NULL, ban_reason = NULL
+            WHERE id = %s
+        """, (user_id,))
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        return jsonify({'success': True, 'message': 'Usuario desbaneado correctamente'})
+        
+    except Exception as e:
+        print(f"Error desbaneando usuario: {e}")
+        return jsonify({'success': False, 'message': 'Error interno del servidor'})
+
+@app.route('/admin/delete_user', methods=['POST'])
+@admin_required
+def admin_delete_user():
+    """Eliminar usuario"""
+    data = request.get_json()
+    user_id = data.get('user_id')
+    
+    if not user_id:
+        return jsonify({'success': False, 'message': 'ID de usuario requerido'})
+    
+    # Prevenir que el admin se elimine a sí mismo
+    if int(user_id) == session['user_id']:
+        return jsonify({'success': False, 'message': 'No puedes eliminar tu propia cuenta'})
+    
+    connection = get_db_connection()
+    if not connection:
+        return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'})
+    
+    try:
+        cursor = connection.cursor()
+        
+        # Eliminar usuario (las relaciones se eliminan en cascada)
+        cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        return jsonify({'success': True, 'message': 'Usuario eliminado correctamente'})
+        
+    except Exception as e:
+        print(f"Error eliminando usuario: {e}")
+        return jsonify({'success': False, 'message': 'Error interno del servidor'})
+
+# Sistema de logs global para la consola de administrador
+import logging
+from collections import deque
+from datetime import datetime
+import threading
+
+# Cola de logs para la consola (máximo 1000 entradas)
+console_logs = deque(maxlen=1000)
+logs_lock = threading.Lock()
+
+def add_console_log(level, message, source='SYSTEM'):
+    """Agregar un log a la consola de administrador"""
+    with logs_lock:
+        log_entry = {
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'level': level,
+            'source': source,
+            'message': str(message)
+        }
+        console_logs.append(log_entry)
+
+# Configurar logging personalizado
+class ConsoleLogHandler(logging.Handler):
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            level = record.levelname
+            add_console_log(level, msg, 'APP')
+        except Exception:
+            pass
+
+# Configurar el handler personalizado
+console_handler = ConsoleLogHandler()
+console_handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(name)s - %(message)s')
+console_handler.setFormatter(formatter)
+
+# Agregar el handler al logger de Flask
+app.logger.addHandler(console_handler)
+app.logger.setLevel(logging.INFO)
+
+# Manejador de errores global para capturar errores sin que sean fatales
+@app.errorhandler(Exception)
+def handle_exception(e):
+    """Manejador global de excepciones para evitar errores fatales"""
+    import traceback
+    
+    # Log del error en la consola de administrador
+    error_msg = f"Error en {request.endpoint or 'unknown'}: {str(e)}"
+    add_console_log('ERROR', error_msg, 'APP')
+    
+    # Log detallado para debugging
+    app.logger.error(f"Excepción no manejada: {str(e)}")
+    app.logger.error(f"Traceback: {traceback.format_exc()}")
+    
+    # Si es una petición AJAX, devolver JSON
+    if request.is_json or 'application/json' in request.headers.get('Accept', ''):
+        return jsonify({
+            'success': False,
+            'error': 'Error interno del servidor',
+            'message': str(e) if app.debug else 'Ha ocurrido un error inesperado'
+        }), 500
+    
+    # Para peticiones normales, mostrar página de error
+    flash(f'Ha ocurrido un error: {str(e)}', 'error')
+    return redirect(request.referrer or url_for('index'))
+
+# Manejador específico para errores 404
+@app.errorhandler(404)
+def not_found_error(error):
+    add_console_log('WARNING', f'Página no encontrada: {request.url}', 'APP')
+    flash('Página no encontrada', 'error')
+    return redirect(url_for('index'))
+
+# Manejador específico para errores 500
+@app.errorhandler(500)
+def internal_error(error):
+    add_console_log('ERROR', f'Error interno del servidor: {str(error)}', 'APP')
+    flash('Error interno del servidor', 'error')
+    return redirect(url_for('index'))
+
+@app.route('/admin/console_logs')
+@admin_required
+def admin_console_logs():
+    """API para obtener logs del servidor en tiempo real"""
+    try:
+        import psutil
+        current_time = datetime.now()
+        
+        # Información del sistema en tiempo real
+        try:
+            cpu_percent = psutil.cpu_percent(interval=0.1)
+            memory = psutil.virtual_memory()
+            disk = psutil.disk_usage('/')
+            
+            # Agregar logs de sistema si no hay logs recientes
+            if not console_logs or (current_time - datetime.strptime(console_logs[-1]['timestamp'], '%Y-%m-%d %H:%M:%S')).seconds > 5:
+                add_console_log('INFO', f'Sistema - CPU: {cpu_percent:.1f}%, RAM: {memory.percent:.1f}%, Disco: {disk.percent:.1f}%', 'SYSTEM')
+        except Exception as e:
+            add_console_log('WARNING', f'Error obteniendo métricas del sistema: {str(e)}', 'SYSTEM')
+        
+        # Logs de actividad de base de datos
+        try:
+            conn = get_db_connection()
+            if conn:
+                cursor = conn.cursor()
+            
+                # Contar usuarios activos (últimos 5 minutos)
+                cursor.execute("""
+                    SELECT COUNT(*) as active_count FROM users 
+                    WHERE last_login >= NOW() - INTERVAL '5 minutes'
+                """)
+                result = cursor.fetchone()
+                active_users = result['active_count'] if result else 0
+                
+                # Últimos logins
+                cursor.execute("""
+                    SELECT email, last_login 
+                    FROM users 
+                    WHERE last_login IS NOT NULL 
+                    ORDER BY last_login DESC 
+                    LIMIT 5
+                """)
+                recent_logins = cursor.fetchall()
+                
+                add_console_log('INFO', f'Base de datos conectada - {active_users} usuarios activos', 'DATABASE')
+                
+                for login in recent_logins:
+                    if login['last_login']:
+                        add_console_log('INFO', f'Login de usuario: {login["email"]}', 'AUTH')
+                
+                cursor.close()
+                conn.close()
+                
+        except Exception as db_error:
+            add_console_log('ERROR', f'Error de base de datos: {str(db_error)}', 'DATABASE')
+        
+        # Logs de advertencias del sistema
+        try:
+            if 'memory' in locals() and memory.percent > 80:
+                add_console_log('WARNING', f'Uso alto de memoria detectado: {memory.percent:.1f}%', 'SYSTEM')
+            
+            if 'cpu_percent' in locals() and cpu_percent > 80:
+                add_console_log('WARNING', f'Uso alto de CPU detectado: {cpu_percent:.1f}%', 'SYSTEM')
+        except Exception:
+            pass
+        
+        # Convertir deque a lista para JSON
+        with logs_lock:
+            logs_list = list(console_logs)
+        
+        return jsonify({
+            'success': True,
+            'logs': logs_list[-50:],  # Últimos 50 logs
+            'timestamp': current_time.strftime('%Y-%m-%d %H:%M:%S')
+        })
+        
+    except Exception as e:
+        add_console_log('ERROR', f'Error en consola de administrador: {str(e)}', 'ADMIN')
+        return jsonify({
+             'success': False,
+             'error': str(e),
+             'logs': []
+         })
+
+if __name__ == '__main__':
+    init_database()
+    app.run(debug=True)

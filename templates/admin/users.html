@@ -1,0 +1,389 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Usuarios{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0 text-gray-800">
+                    <i class="fas fa-users-cog"></i> Gestión de Usuarios
+                </h1>
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Volver al Panel
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros y búsqueda -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-filter"></i> Filtros y Búsqueda
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form method="GET" action="{{ url_for('admin_users') }}">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="search">Buscar Usuario:</label>
+                                    <input type="text" class="form-control" id="search" name="search" 
+                                           placeholder="Nombre de usuario, email..." 
+                                           value="{{ request.args.get('search', '') }}">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="status">Estado:</label>
+                                    <select class="form-control" id="status" name="status">
+                                        <option value="">Todos</option>
+                                        <option value="active" {{ 'selected' if request.args.get('status') == 'active' }}>Activos</option>
+                                        <option value="banned" {{ 'selected' if request.args.get('status') == 'banned' }}>Baneados</option>
+                                        <option value="temp_banned" {{ 'selected' if request.args.get('status') == 'temp_banned' }}>Ban Temporal</option>
+                                        <option value="perm_banned" {{ 'selected' if request.args.get('status') == 'perm_banned' }}>Ban Permanente</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="role">Rol:</label>
+                                    <select class="form-control" id="role" name="role">
+                                        <option value="">Todos</option>
+                                        <option value="user" {{ 'selected' if request.args.get('role') == 'user' }}>Usuario</option>
+                                        <option value="admin" {{ 'selected' if request.args.get('role') == 'admin' }}>Administrador</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-group">
+                                    <label>&nbsp;</label>
+                                    <div>
+                                        <button type="submit" class="btn btn-primary btn-block">
+                                            <i class="fas fa-search"></i> Buscar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de usuarios -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-list"></i> Lista de Usuarios
+                    </h6>
+                    <span class="badge badge-primary badge-pill">{{ users|length }} usuarios</span>
+                </div>
+                <div class="card-body">
+                    {% if users %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Usuario</th>
+                                    <th>Email</th>
+                                    <th>Rol</th>
+                                    <th>Registro</th>
+                                    <th>Último Acceso</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in users %}
+                                <tr>
+                                    <td>{{ user.id }}</td>
+                                    <td>
+                                        <strong>{{ user.username }}</strong>
+                                        {% if user.role == 'admin' %}
+                                            <br><span class="badge badge-warning">Admin</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ user.email }}</td>
+                                    <td>
+                                        {% if user.role == 'admin' %}
+                                            <span class="badge badge-warning">Administrador</span>
+                                        {% else %}
+                                            <span class="badge badge-info">Usuario</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ user.created_at.strftime('%d/%m/%Y') if user.created_at else 'N/A' }}</td>
+                                    <td>{{ user.last_login.strftime('%d/%m/%Y %H:%M') if user.last_login else 'Nunca' }}</td>
+                                    <td>
+                                        {% if user.is_banned %}
+                                            {% if user.ban_until %}
+                                                <span class="badge badge-warning">Ban Temporal</span>
+                                                <br><small>Hasta: {{ user.ban_until.strftime('%d/%m/%Y') }}</small>
+                                                {% if user.ban_reason %}
+                                                    <br><small class="text-muted">{{ user.ban_reason[:30] }}...</small>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="badge badge-danger">Ban Permanente</span>
+                                                {% if user.ban_reason %}
+                                                    <br><small class="text-muted">{{ user.ban_reason[:30] }}...</small>
+                                                {% endif %}
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="badge badge-success">Activo</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group-vertical btn-group-sm" role="group">
+                                            {% if user.role != 'admin' %}
+                                                {% if user.is_banned %}
+                                                    <button class="btn btn-success btn-sm" onclick="unbanUser({{ user.id }}, '{{ user.username }}')"
+                                                            title="Desbanear usuario">
+                                                        <i class="fas fa-unlock"></i>
+                                                    </button>
+                                                {% else %}
+                                                    <button class="btn btn-warning btn-sm" onclick="banUser({{ user.id }}, '{{ user.username }}')"
+                                                            title="Banear usuario">
+                                                        <i class="fas fa-ban"></i>
+                                                    </button>
+                                                {% endif %}
+                                                <button class="btn btn-danger btn-sm" onclick="deleteUser({{ user.id }}, '{{ user.username }}')"
+                                                        title="Eliminar usuario">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            {% else %}
+                                                <span class="badge badge-secondary">Admin</span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Paginación -->
+                    {% if pagination %}
+                    <nav aria-label="Paginación de usuarios">
+                        <ul class="pagination justify-content-center">
+                            {% if pagination.has_prev %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('admin_users', page=pagination.prev_num, search=request.args.get('search', ''), status=request.args.get('status', ''), role=request.args.get('role', '')) }}">
+                                        Anterior
+                                    </a>
+                                </li>
+                            {% endif %}
+                            
+                            {% for page_num in pagination.iter_pages() %}
+                                {% if page_num %}
+                                    {% if page_num != pagination.page %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="{{ url_for('admin_users', page=page_num, search=request.args.get('search', ''), status=request.args.get('status', ''), role=request.args.get('role', '')) }}">
+                                                {{ page_num }}
+                                            </a>
+                                        </li>
+                                    {% else %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ page_num }}</span>
+                                        </li>
+                                    {% endif %}
+                                {% else %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">...</span>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if pagination.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('admin_users', page=pagination.next_num, search=request.args.get('search', ''), status=request.args.get('status', ''), role=request.args.get('role', '')) }}">
+                                        Siguiente
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-users fa-3x text-gray-300 mb-3"></i>
+                        <h5 class="text-gray-600">No se encontraron usuarios</h5>
+                        <p class="text-muted">No hay usuarios que coincidan con los filtros aplicados.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para banear usuario -->
+<div class="modal fade" id="banModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-ban text-warning"></i> Banear Usuario
+                </h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <form id="banForm" method="POST" action="{{ url_for('admin_ban_user') }}">
+                <div class="modal-body">
+                    <input type="hidden" id="banUserId" name="user_id">
+                    <p>¿Estás seguro de que quieres banear al usuario <strong id="banUsername"></strong>?</p>
+                    
+                    <div class="form-group">
+                        <label for="banType">Tipo de Ban:</label>
+                        <select class="form-control" id="banType" name="ban_type" required>
+                            <option value="">Seleccionar tipo</option>
+                            <option value="permanent">Permanente</option>
+                            <option value="1">1 mes</option>
+                            <option value="2">2 meses</option>
+                            <option value="3">3 meses</option>
+                            <option value="4">4 meses</option>
+                            <option value="6">6 meses</option>
+                            <option value="12">1 año</option>
+                            <option value="24">2 años</option>
+                            <option value="120">10 años</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="banReason">Razón del Ban:</label>
+                        <textarea class="form-control" id="banReason" name="ban_reason" rows="3" 
+                                  placeholder="Describe la razón del ban..." required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-ban"></i> Banear Usuario
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para confirmar eliminación -->
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-trash text-danger"></i> Eliminar Usuario
+                </h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <form id="deleteForm" method="POST" action="{{ url_for('admin_delete_user') }}">
+                <div class="modal-body">
+                    <input type="hidden" id="deleteUserId" name="user_id">
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>¡Advertencia!</strong> Esta acción no se puede deshacer.
+                    </div>
+                    <p>¿Estás seguro de que quieres eliminar permanentemente al usuario <strong id="deleteUsername"></strong>?</p>
+                    <p class="text-muted">Se eliminarán todos los datos asociados al usuario, incluyendo su currículum y análisis.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash"></i> Eliminar Usuario
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.text-gray-800 {
+    color: #5a5c69 !important;
+}
+
+.text-gray-600 {
+    color: #858796 !important;
+}
+
+.text-gray-300 {
+    color: #dddfeb !important;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+}
+
+.btn-group-vertical .btn {
+    margin-bottom: 2px;
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+
+.modal-header {
+    border-bottom: 1px solid #e3e6f0;
+}
+
+.modal-footer {
+    border-top: 1px solid #e3e6f0;
+}
+</style>
+
+<script>
+function banUser(userId, username) {
+    document.getElementById('banUserId').value = userId;
+    document.getElementById('banUsername').textContent = username;
+    $('#banModal').modal('show');
+}
+
+function unbanUser(userId, username) {
+    if (confirm(`¿Estás seguro de que quieres desbanear al usuario ${username}?`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{{ url_for("admin_unban_user") }}';
+        
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'user_id';
+        input.value = userId;
+        
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+function deleteUser(userId, username) {
+    document.getElementById('deleteUserId').value = userId;
+    document.getElementById('deleteUsername').textContent = username;
+    $('#deleteModal').modal('show');
+}
+
+// Auto-submit form when filters change
+document.addEventListener('DOMContentLoaded', function() {
+    const statusSelect = document.getElementById('status');
+    const roleSelect = document.getElementById('role');
+    
+    statusSelect.addEventListener('change', function() {
+        this.form.submit();
+    });
+    
+    roleSelect.addEventListener('change', function() {
+        this.form.submit();
+    });
+});
+</script>
+{% endblock %}

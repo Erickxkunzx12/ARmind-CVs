@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+
+{% block title %}Registro - CV Analyzer Pro{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-6 col-md-8">
+            <div class="card shadow-lg">
+                <div class="card-header bg-primary text-white text-center py-4">
+                    <h2 class="mb-0">
+                        <i class="fas fa-user-plus me-2"></i>Crear Cuenta
+                    </h2>
+                    <p class="mb-0 mt-2">Únete a CV Analyzer Pro</p>
+                </div>
+                
+                <div class="card-body p-5">
+                    <form method="POST" id="registerForm">
+                        <div class="mb-4">
+                            <label for="username" class="form-label">
+                                <i class="fas fa-user me-2"></i>Nombre de Usuario
+                            </label>
+                            <input type="text" 
+                                   class="form-control form-control-lg" 
+                                   id="username" 
+                                   name="username" 
+                                   required 
+                                   minlength="3"
+                                   maxlength="20"
+                                   pattern="[a-zA-Z0-9_]+"
+                                   placeholder="Ingresa tu nombre de usuario">
+                            <div class="form-text">
+                                Solo letras, números y guiones bajos. Mínimo 3 caracteres.
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="email" class="form-label">
+                                <i class="fas fa-envelope me-2"></i>Correo Electrónico
+                            </label>
+                            <input type="email" 
+                                   class="form-control form-control-lg" 
+                                   id="email" 
+                                   name="email" 
+                                   required 
+                                   placeholder="tu@email.com">
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="password" class="form-label">
+                                <i class="fas fa-lock me-2"></i>Contraseña
+                            </label>
+                            <div class="input-group">
+                                <input type="password" 
+                                       class="form-control form-control-lg" 
+                                       id="password" 
+                                       name="password" 
+                                       required 
+                                       minlength="6"
+                                       placeholder="Mínimo 6 caracteres">
+                                <button class="btn btn-outline-secondary" 
+                                        type="button" 
+                                        id="togglePassword">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                            <div class="password-strength mt-2">
+                                <div class="progress" style="height: 5px;">
+                                    <div class="progress-bar" 
+                                         role="progressbar" 
+                                         id="passwordStrength" 
+                                         style="width: 0%"></div>
+                                </div>
+                                <small class="form-text" id="passwordHelp">Ingresa una contraseña</small>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="confirmPassword" class="form-label">
+                                <i class="fas fa-lock me-2"></i>Confirmar Contraseña
+                            </label>
+                            <input type="password" 
+                                   class="form-control form-control-lg" 
+                                   id="confirmPassword" 
+                                   name="confirmPassword" 
+                                   required 
+                                   placeholder="Repite tu contraseña">
+                            <div class="invalid-feedback" id="passwordMismatch">
+                                Las contraseñas no coinciden
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <div class="form-check">
+                                <input class="form-check-input" 
+                                       type="checkbox" 
+                                       id="terms" 
+                                       name="terms" 
+                                       required>
+                                <label class="form-check-label" for="terms">
+                                    Acepto los <a href="#" class="text-primary">Términos y Condiciones</a> 
+                                    y la <a href="#" class="text-primary">Política de Privacidad</a>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <span class="spinner-border spinner-border-sm me-2 d-none" id="loadingSpinner"></span>
+                                <i class="fas fa-user-plus me-2"></i>Crear Cuenta
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <hr class="my-4">
+                    
+                    <div class="text-center">
+                        <p class="mb-0">¿Ya tienes una cuenta?</p>
+                        <a href="{{ url_for('login') }}" class="btn btn-outline-primary mt-2">
+                            <i class="fas fa-sign-in-alt me-2"></i>Iniciar Sesión
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Benefits Section -->
+            <div class="row mt-5">
+                <div class="col-12">
+                    <h4 class="text-center mb-4">¿Por qué registrarte?</h4>
+                </div>
+                <div class="col-md-4 text-center mb-3">
+                    <div class="text-primary mb-2">
+                        <i class="fas fa-robot fa-2x"></i>
+                    </div>
+                    <h6>Análisis con IA</h6>
+                    <small class="text-muted">Evaluación profesional de tu CV</small>
+                </div>
+                <div class="col-md-4 text-center mb-3">
+                    <div class="text-primary mb-2">
+                        <i class="fas fa-file-alt fa-2x"></i>
+                    </div>
+                    <h6>Constructor de CV</h6>
+                    <small class="text-muted">Plantillas profesionales</small>
+                </div>
+                <div class="col-md-4 text-center mb-3">
+                    <div class="text-primary mb-2">
+                        <i class="fas fa-search fa-2x"></i>
+                    </div>
+                    <h6>Búsqueda de Empleos</h6>
+                    <small class="text-muted">Oportunidades personalizadas</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('registerForm');
+        const password = document.getElementById('password');
+        const confirmPassword = document.getElementById('confirmPassword');
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordStrength = document.getElementById('passwordStrength');
+        const passwordHelp = document.getElementById('passwordHelp');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        
+        // Toggle password visibility
+        togglePassword.addEventListener('click', function() {
+            const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+            password.setAttribute('type', type);
+            this.querySelector('i').classList.toggle('fa-eye');
+            this.querySelector('i').classList.toggle('fa-eye-slash');
+        });
+        
+        // Password strength checker
+        password.addEventListener('input', function() {
+            const value = this.value;
+            let strength = 0;
+            let feedback = '';
+            
+            if (value.length >= 6) strength += 20;
+            if (value.match(/[a-z]/)) strength += 20;
+            if (value.match(/[A-Z]/)) strength += 20;
+            if (value.match(/[0-9]/)) strength += 20;
+            if (value.match(/[^a-zA-Z0-9]/)) strength += 20;
+            
+            passwordStrength.style.width = strength + '%';
+            
+            if (strength < 40) {
+                passwordStrength.className = 'progress-bar bg-danger';
+                feedback = 'Contraseña débil';
+            } else if (strength < 80) {
+                passwordStrength.className = 'progress-bar bg-warning';
+                feedback = 'Contraseña moderada';
+            } else {
+                passwordStrength.className = 'progress-bar bg-success';
+                feedback = 'Contraseña fuerte';
+            }
+            
+            passwordHelp.textContent = feedback;
+            passwordHelp.className = strength < 40 ? 'form-text text-danger' : 
+                                   strength < 80 ? 'form-text text-warning' : 
+                                   'form-text text-success';
+        });
+        
+        // Confirm password validation
+        function validatePasswordMatch() {
+            if (confirmPassword.value && password.value !== confirmPassword.value) {
+                confirmPassword.classList.add('is-invalid');
+                return false;
+            } else {
+                confirmPassword.classList.remove('is-invalid');
+                return true;
+            }
+        }
+        
+        confirmPassword.addEventListener('input', validatePasswordMatch);
+        password.addEventListener('input', function() {
+            if (confirmPassword.value) {
+                validatePasswordMatch();
+            }
+        });
+        
+        // Form submission
+        form.addEventListener('submit', function(e) {
+            if (!validatePasswordMatch()) {
+                e.preventDefault();
+                return;
+            }
+            
+            // Show loading spinner
+            loadingSpinner.classList.remove('d-none');
+            this.querySelector('button[type="submit"]').disabled = true;
+        });
+        
+        // Username validation
+        const username = document.getElementById('username');
+        username.addEventListener('input', function() {
+            const value = this.value;
+            const isValid = /^[a-zA-Z0-9_]{3,20}$/.test(value);
+            
+            if (value && !isValid) {
+                this.classList.add('is-invalid');
+            } else {
+                this.classList.remove('is-invalid');
+            }
+        });
+        
+        // Email validation
+        const email = document.getElementById('email');
+        email.addEventListener('input', function() {
+            const value = this.value;
+            const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+            
+            if (value && !isValid) {
+                this.classList.add('is-invalid');
+            } else {
+                this.classList.remove('is-invalid');
+            }
+        });
+    });
+</script>
+{% endblock %}

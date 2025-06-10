@@ -1,0 +1,1455 @@
+{% extends "base.html" %}
+
+{% block title %}Crear CV - CV Analyzer{% endblock %}
+
+{% block content %}
+<style>
+    /* Estilos mejorados para formularios */
+    .form-control {
+        border: 2px solid #e3e6f0;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 14px;
+        transition: all 0.3s ease;
+        background-color: #ffffff;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .form-control:focus {
+        border-color: #4e73df;
+        box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25);
+        background-color: #ffffff;
+        outline: none;
+    }
+    
+    .form-control:hover {
+        border-color: #5a6c7d;
+        box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 8px;
+        font-size: 14px;
+        display: block;
+    }
+    
+    /* Estilos para selectores */
+    select.form-control {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+        background-position: right 12px center;
+        background-repeat: no-repeat;
+        background-size: 16px 12px;
+        padding-right: 40px;
+        appearance: none;
+        cursor: pointer;
+    }
+    
+    select.form-control:focus {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%234e73df' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+    }
+    
+    /* Estilos para checkboxes y radios */
+    .form-check-input {
+        width: 18px;
+        height: 18px;
+        margin-top: 0.25em;
+        border: 2px solid #d1d3e2;
+        border-radius: 4px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .form-check-input:checked {
+        background-color: #4e73df;
+        border-color: #4e73df;
+        box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25);
+    }
+    
+    .form-check-input:focus {
+        border-color: #4e73df;
+        box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25);
+    }
+    
+    .form-check-input[type="radio"] {
+        border-radius: 50%;
+    }
+    
+    .form-check-label {
+        font-weight: 500;
+        color: #2c3e50;
+        cursor: pointer;
+        margin-left: 8px;
+    }
+    
+    /* Estilos para textareas */
+    textarea.form-control {
+        resize: vertical;
+        min-height: 100px;
+    }
+    
+    /* Estilos para contenedores de secciones */
+    .education-item, .experience-item, .language-item {
+        background-color: #f8f9fc;
+        border: 2px solid #e3e6f0 !important;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 16px;
+        transition: all 0.3s ease;
+        position: relative;
+    }
+    
+    .education-item:hover, .experience-item:hover, .language-item:hover {
+        border-color: #4e73df !important;
+        box-shadow: 0 4px 12px rgba(78, 115, 223, 0.15);
+        transform: translateY(-2px);
+    }
+    
+    /* Estilos para botones */
+    .btn {
+        border-radius: 8px;
+        font-weight: 600;
+        padding: 10px 20px;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+    }
+    
+    .btn-outline-primary {
+        border-color: #4e73df;
+        color: #4e73df;
+    }
+    
+    .btn-outline-primary:hover {
+        background-color: #4e73df;
+        border-color: #4e73df;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(78, 115, 223, 0.3);
+    }
+    
+    .btn-danger {
+        background-color: #e74a3b;
+        border-color: #e74a3b;
+    }
+    
+    .btn-danger:hover {
+        background-color: #c0392b;
+        border-color: #c0392b;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(231, 74, 59, 0.3);
+    }
+    
+    /* Estilos para el input group */
+    .input-group .form-control {
+        border-right: none;
+    }
+    
+    .input-group .btn {
+        border-left: none;
+        border-color: #e3e6f0;
+    }
+    
+    .input-group:focus-within .form-control,
+    .input-group:focus-within .btn {
+        border-color: #4e73df;
+        box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25);
+    }
+    
+    /* Estilos para las secciones */
+    .section {
+        background-color: #ffffff;
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 24px;
+        border: 1px solid #e3e6f0;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    
+    .section h5 {
+        color: #2c3e50;
+        font-weight: 700;
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid #4e73df;
+    }
+    
+    /* Estilos para skills tags */
+    .skill-tag {
+        background-color: #4e73df;
+        color: white;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+        margin: 4px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.3s ease;
+    }
+    
+    .skill-tag:hover {
+        background-color: #3d5af1;
+        transform: scale(1.05);
+    }
+    
+    /* Mejorar visibilidad de placeholders */
+    .form-control::placeholder {
+        color: #8898aa;
+        font-style: italic;
+    }
+    
+    /* Estilos para tooltips */
+    .fas.fa-info-circle {
+        cursor: help;
+        transition: color 0.3s ease;
+    }
+    
+    .fas.fa-info-circle:hover {
+        color: #4e73df;
+    }
+    
+    /* Responsive improvements */
+    @media (max-width: 768px) {
+        .form-control {
+            padding: 10px 14px;
+            font-size: 16px; /* Evita zoom en iOS */
+        }
+        
+        .section {
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        
+        .education-item, .experience-item, .language-item {
+            padding: 16px;
+        }
+    }
+</style>
+<div class="container mt-4">
+    <!-- Header con opciones de formato -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <div class="row align-items-center">
+                        <div class="col-md-4">
+                            <h4 class="mb-0"><i class="fas fa-file-alt"></i> Constructor de CV</h4>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex gap-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="cv-format" id="format-ats" value="ats">
+                                    <label class="form-check-label text-white" for="format-ats">
+                                        Formato ATS <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Optimizado para sistemas de seguimiento de aplicaciones"></i>
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="cv-format" id="format-hardware" value="hardware" checked>
+                                    <label class="form-check-label text-white" for="format-hardware">
+                                        Formato Harvard <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Diseño profesional para roles técnicos"></i>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <button type="button" class="btn btn-success" id="generateCV">
+                                <i class="fas fa-save"></i> Generar CV
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-edit"></i> Información del CV</h5>
+                </div>
+                <div class="card-body">
+                    <form id="cvForm">
+                        <!-- Información Personal -->
+                        <div class="section mb-4">
+                            <h5 class="text-primary border-bottom pb-2">Información Personal</h5>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Nombre Completo *</label>
+                                    <input type="text" class="form-control" id="name" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Email *</label>
+                                    <input type="email" class="form-control" id="email" required>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Teléfono</label>
+                                    <input type="tel" class="form-control" id="phone">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Dirección</label>
+                                    <input type="text" class="form-control" id="address">
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">LinkedIn</label>
+                                    <input type="url" class="form-control" id="linkedin" placeholder="https://linkedin.com/in/tu-perfil">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">GitHub</label>
+                                    <input type="url" class="form-control" id="github" placeholder="https://github.com/tu-usuario">
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-12 mb-3">
+                                    <label class="form-label">Portafolio/Sitio Web</label>
+                                    <input type="url" class="form-control" id="website" placeholder="https://tu-sitio-web.com">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Resumen Profesional -->
+                        <div class="section mb-4">
+                            <h5 class="text-primary border-bottom pb-2">Resumen Profesional</h5>
+                            <div class="mb-3">
+                                <label class="form-label">Metodologías a destacar en el resumen</label>
+                                <div class="d-flex gap-3 mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="summary-tech-xyz" value="xyz">
+                                        <label class="form-check-label" for="summary-tech-xyz">
+                                            Metodología XYZ <i class="fas fa-info-circle text-muted" data-bs-toggle="tooltip" title="Enfatiza tecnologías emergentes y de vanguardia en el resumen"></i>
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="summary-tech-start" value="start">
+                                        <label class="form-check-label" for="summary-tech-start">
+                                            Metodología Start <i class="fas fa-info-circle text-muted" data-bs-toggle="tooltip" title="Enfatiza tecnologías fundamentales en el resumen"></i>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Resumen Profesional</label>
+                                <textarea class="form-control" id="professionalSummary" rows="4" placeholder="Describe brevemente tu experiencia, habilidades clave y objetivos profesionales..."></textarea>
+                                <div class="form-text">Un resumen conciso de 2-3 líneas que destaque tu experiencia y valor único.</div>
+                            </div>
+                        </div>
+
+                        <!-- Educación -->
+                        <div class="section mb-4">
+                            <h5 class="text-primary border-bottom pb-2">Educación</h5>
+                            <div id="educationContainer">
+                                <div class="education-item border p-3 mb-3 rounded">
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Título/Grado *</label>
+                                            <input type="text" class="form-control education-degree" required>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Institución *</label>
+                                            <input type="text" class="form-control education-institution" required>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Fecha de Finalización</label>
+                                            <input type="month" class="form-control education-end-date">
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Descripción</label>
+                                            <textarea class="form-control education-description" rows="2"></textarea>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-danger remove-education" style="display: none;">Eliminar</button>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="addEducation">
+                                <i class="fas fa-plus"></i> Agregar Educación
+                            </button>
+                        </div>
+
+                        <!-- Experiencia -->
+                        <div class="section mb-4">
+                            <h5 class="text-primary border-bottom pb-2">Experiencia Profesional</h5>
+                            <div class="mb-3">
+                                <label class="form-label">Metodologías a destacar en la experiencia</label>
+                                <div class="d-flex gap-3 mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="experience-tech-xyz" value="xyz">
+                                        <label class="form-check-label" for="experience-tech-xyz">
+                                            Metodología XYZ <i class="fas fa-info-circle text-muted" data-bs-toggle="tooltip" title="Enfatiza tecnologías emergentes y de vanguardia en la experiencia"></i>
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="experience-tech-start" value="start">
+                                        <label class="form-check-label" for="experience-tech-start">
+                                            Metodología Start <i class="fas fa-info-circle text-muted" data-bs-toggle="tooltip" title="Enfatiza tecnologías fundamentales en la experiencia"></i>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="experienceContainer">
+                                <div class="experience-item border p-3 mb-3 rounded">
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Cargo *</label>
+                                            <input type="text" class="form-control experience-position" required>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Empresa *</label>
+                                            <input type="text" class="form-control experience-company" required>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Fecha de Inicio</label>
+                                            <input type="month" class="form-control experience-start-date">
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Fecha de Fin</label>
+                                            <input type="month" class="form-control experience-end-date">
+                                            <div class="form-check mt-2">
+                                                <input class="form-check-input experience-current" type="checkbox">
+                                                <label class="form-check-label">Trabajo actual</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Descripción</label>
+                                        <textarea class="form-control experience-description" rows="3"></textarea>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-danger remove-experience" style="display: none;">Eliminar</button>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="addExperience">
+                                <i class="fas fa-plus"></i> Agregar Experiencia
+                            </button>
+                        </div>
+
+                        <!-- Habilidades -->
+                        <div class="section mb-4">
+                            <h5 class="text-primary border-bottom pb-2">Habilidades</h5>
+                            <div class="mb-3">
+                                <label class="form-label">Agregar Habilidad</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="skillInput" placeholder="Ej: JavaScript, Liderazgo, etc.">
+                                    <button type="button" class="btn btn-outline-primary" id="addSkill">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="skillsContainer" class="d-flex flex-wrap gap-2"></div>
+                        </div>
+
+                        <!-- Idiomas -->
+                        <div class="section mb-4">
+                            <h5 class="text-primary border-bottom pb-2">Idiomas</h5>
+                            <div id="languagesContainer">
+                                <div class="language-item border p-3 mb-3 rounded">
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Idioma</label>
+                                            <input type="text" class="form-control language-name" placeholder="Ej: Inglés">
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Nivel</label>
+                                            <select class="form-control language-level">
+                                                <option value="">Seleccionar nivel</option>
+                                                <option value="Básico">Básico</option>
+                                                <option value="Intermedio">Intermedio</option>
+                                                <option value="Avanzado">Avanzado</option>
+                                                <option value="Nativo">Nativo</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-danger remove-language" style="display: none;">Eliminar</button>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="addLanguage">
+                                <i class="fas fa-plus"></i> Agregar Idioma
+                            </button>
+                        </div>
+
+                        <!-- Botón de guardar datos -->
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-outline-primary btn-lg" id="saveData">
+                                <i class="fas fa-save"></i> Guardar Datos
+                            </button>
+                            <small id="saveIndicator" class="text-muted text-center"></small>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vista Previa -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0"><i class="fas fa-eye"></i> Vista Previa</h4>
+                </div>
+                <div class="card-body">
+                    <div id="cvPreview" class="border p-3" style="min-height: 600px; background: white; font-family: 'Times New Roman', serif;">
+                        <div class="text-center text-muted">
+                            <i class="fas fa-file-alt fa-3x mb-3"></i>
+                            <p>La vista previa aparecerá aquí mientras completas el formulario</p>
+                        </div>
+                    </div>
+                    <div class="mt-3 d-grid">
+                        <button type="button" class="btn btn-outline-success" id="exportPdf" disabled>
+                            <i class="fas fa-download"></i> Descargar PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let cvId = null;
+let skills = [];
+
+// Cargar datos guardados del usuario al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    loadUserData();
+    
+    // Event listeners para actualizar vista previa en tiempo real
+    document.querySelectorAll('input[name="cv-format"]').forEach(radio => {
+        radio.addEventListener('change', updatePreview);
+    });
+    
+    document.getElementById('summary-tech-xyz').addEventListener('change', updatePreview);
+    document.getElementById('summary-tech-start').addEventListener('change', updatePreview);
+    document.getElementById('experience-tech-xyz').addEventListener('change', updatePreview);
+    document.getElementById('experience-tech-start').addEventListener('change', updatePreview);
+});
+
+// Función para actualizar vista previa cuando cambien los campos
+function setupPreviewUpdaters() {
+    // Actualizar vista previa cuando cambien los campos de texto
+    document.querySelectorAll('input, textarea, select').forEach(element => {
+        element.addEventListener('input', updatePreview);
+        element.addEventListener('change', updatePreview);
+    });
+}
+
+// Función para cargar datos guardados del usuario
+function loadUserData() {
+    fetch('/get_user_cv_data')
+    .then(response => response.json())
+    .then(result => {
+        if (result.success && result.data) {
+            const data = result.data;
+            
+            // Cargar información personal
+            if (data.personal_info) {
+                document.getElementById('name').value = data.personal_info.name || '';
+                document.getElementById('email').value = data.personal_info.email || '';
+                document.getElementById('phone').value = data.personal_info.phone || '';
+                document.getElementById('address').value = data.personal_info.address || '';
+                document.getElementById('linkedin').value = data.personal_info.linkedin || '';
+                document.getElementById('github').value = data.personal_info.github || '';
+                document.getElementById('website').value = data.personal_info.website || '';
+            }
+            
+            // Cargar resumen profesional
+            if (data.professional_summary) {
+                document.getElementById('professionalSummary').value = data.professional_summary;
+            }
+            
+            // Cargar educación
+            if (data.education && data.education.length > 0) {
+                loadEducationData(data.education);
+            }
+            
+            // Cargar experiencia
+            if (data.experience && data.experience.length > 0) {
+                loadExperienceData(data.experience);
+            }
+            
+            // Cargar habilidades
+            if (data.skills && data.skills.length > 0) {
+                skills = data.skills;
+                updateSkillsDisplay();
+            }
+            
+            // Cargar idiomas
+            if (data.languages && data.languages.length > 0) {
+                loadLanguagesData(data.languages);
+            }
+            
+            // Cargar opciones de formato
+            if (data.format_options) {
+                if (data.format_options.format) {
+                    const formatRadio = document.querySelector(`input[name="cv-format"][value="${data.format_options.format}"]`);
+                    if (formatRadio) formatRadio.checked = true;
+                }
+                if (data.format_options.tech_xyz) {
+                    document.getElementById('tech-xyz').checked = data.format_options.tech_xyz;
+                }
+                if (data.format_options.tech_start) {
+                    document.getElementById('tech-start').checked = data.format_options.tech_start;
+                }
+            }
+            
+            // Actualizar vista previa
+            updatePreview();
+            
+            console.log('Datos del usuario cargados exitosamente');
+        }
+    })
+    .catch(error => {
+        console.error('Error al cargar datos del usuario:', error);
+    });
+}
+
+// Función para cargar datos de educación
+function loadEducationData(educationData) {
+    const container = document.getElementById('educationContainer');
+    
+    // Limpiar contenedor excepto el primer elemento
+    while (container.children.length > 1) {
+        container.removeChild(container.lastChild);
+    }
+    
+    educationData.forEach((edu, index) => {
+        let educationItem;
+        if (index === 0) {
+            educationItem = container.children[0];
+        } else {
+            educationItem = container.children[0].cloneNode(true);
+            educationItem.querySelector('.remove-education').style.display = 'inline-block';
+            container.appendChild(educationItem);
+        }
+        
+        educationItem.querySelector('.education-degree').value = edu.degree || '';
+        educationItem.querySelector('.education-institution').value = edu.institution || '';
+        educationItem.querySelector('.education-end-date').value = edu.end_date || '';
+        educationItem.querySelector('.education-description').value = edu.description || '';
+    });
+    
+    updateRemoveButtons();
+}
+
+// Función para cargar datos de experiencia
+function loadExperienceData(experienceData) {
+    const container = document.getElementById('experienceContainer');
+    
+    // Limpiar contenedor excepto el primer elemento
+    while (container.children.length > 1) {
+        container.removeChild(container.lastChild);
+    }
+    
+    experienceData.forEach((exp, index) => {
+        let experienceItem;
+        if (index === 0) {
+            experienceItem = container.children[0];
+        } else {
+            experienceItem = container.children[0].cloneNode(true);
+            experienceItem.querySelector('.remove-experience').style.display = 'inline-block';
+            container.appendChild(experienceItem);
+        }
+        
+        experienceItem.querySelector('.experience-position').value = exp.position || '';
+        experienceItem.querySelector('.experience-company').value = exp.company || '';
+        experienceItem.querySelector('.experience-start-date').value = exp.start_date || '';
+        experienceItem.querySelector('.experience-end-date').value = exp.end_date || '';
+        experienceItem.querySelector('.experience-description').value = exp.description || '';
+        
+        const currentCheckbox = experienceItem.querySelector('.experience-current');
+        if (exp.current) {
+            currentCheckbox.checked = true;
+            experienceItem.querySelector('.experience-end-date').disabled = true;
+        }
+    });
+    
+    updateRemoveButtons();
+}
+
+// Función para cargar datos de idiomas
+function loadLanguagesData(languagesData) {
+    const container = document.getElementById('languagesContainer');
+    
+    // Limpiar contenedor excepto el primer elemento
+    while (container.children.length > 1) {
+        container.removeChild(container.lastChild);
+    }
+    
+    languagesData.forEach((lang, index) => {
+        let languageItem;
+        if (index === 0) {
+            languageItem = container.children[0];
+        } else {
+            languageItem = container.children[0].cloneNode(true);
+            languageItem.querySelector('.remove-language').style.display = 'inline-block';
+            container.appendChild(languageItem);
+        }
+        
+        languageItem.querySelector('.language-name').value = lang.language || '';
+        languageItem.querySelector('.language-level').value = lang.level || '';
+    });
+    
+    updateRemoveButtons();
+}
+
+// Agregar educación
+document.getElementById('addEducation').addEventListener('click', function() {
+    const container = document.getElementById('educationContainer');
+    const newItem = container.children[0].cloneNode(true);
+    
+    // Limpiar valores
+    newItem.querySelectorAll('input, textarea').forEach(input => input.value = '');
+    newItem.querySelector('.remove-education').style.display = 'inline-block';
+    
+    container.appendChild(newItem);
+    updateRemoveButtons();
+});
+
+// Agregar experiencia
+document.getElementById('addExperience').addEventListener('click', function() {
+    const container = document.getElementById('experienceContainer');
+    const newItem = container.children[0].cloneNode(true);
+    
+    // Limpiar valores
+    newItem.querySelectorAll('input, textarea').forEach(input => {
+        if (input.type === 'checkbox') {
+            input.checked = false;
+        } else {
+            input.value = '';
+        }
+    });
+    newItem.querySelector('.remove-experience').style.display = 'inline-block';
+    
+    container.appendChild(newItem);
+    updateRemoveButtons();
+});
+
+// Agregar idioma
+document.getElementById('addLanguage').addEventListener('click', function() {
+    const container = document.getElementById('languagesContainer');
+    const newItem = container.children[0].cloneNode(true);
+    
+    // Limpiar valores
+    newItem.querySelectorAll('input, select').forEach(input => input.value = '');
+    newItem.querySelector('.remove-language').style.display = 'inline-block';
+    
+    container.appendChild(newItem);
+    updateRemoveButtons();
+});
+
+// Agregar habilidad
+document.getElementById('addSkill').addEventListener('click', function() {
+    const input = document.getElementById('skillInput');
+    const skill = input.value.trim();
+    
+    if (skill && !skills.includes(skill)) {
+        skills.push(skill);
+        updateSkillsDisplay();
+        input.value = '';
+        updatePreview();
+    }
+});
+
+// Enter en input de habilidades
+document.getElementById('skillInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('addSkill').click();
+    }
+});
+
+// Actualizar botones de eliminar
+function updateRemoveButtons() {
+    // Educación
+    const educationItems = document.querySelectorAll('.education-item');
+    educationItems.forEach((item, index) => {
+        const removeBtn = item.querySelector('.remove-education');
+        if (educationItems.length > 1) {
+            removeBtn.style.display = 'inline-block';
+            removeBtn.onclick = () => {
+                item.remove();
+                updateRemoveButtons();
+                updatePreview();
+            };
+        } else {
+            removeBtn.style.display = 'none';
+        }
+    });
+    
+    // Experiencia
+    const experienceItems = document.querySelectorAll('.experience-item');
+    experienceItems.forEach((item, index) => {
+        const removeBtn = item.querySelector('.remove-experience');
+        if (experienceItems.length > 1) {
+            removeBtn.style.display = 'inline-block';
+            removeBtn.onclick = () => {
+                item.remove();
+                updateRemoveButtons();
+                updatePreview();
+            };
+        } else {
+            removeBtn.style.display = 'none';
+        }
+    });
+    
+    // Idiomas
+    const languageItems = document.querySelectorAll('.language-item');
+    languageItems.forEach((item, index) => {
+        const removeBtn = item.querySelector('.remove-language');
+        if (languageItems.length > 1) {
+            removeBtn.style.display = 'inline-block';
+            removeBtn.onclick = () => {
+                item.remove();
+                updateRemoveButtons();
+                updatePreview();
+            };
+        } else {
+            removeBtn.style.display = 'none';
+        }
+    });
+}
+
+// Actualizar display de habilidades
+function updateSkillsDisplay() {
+    const container = document.getElementById('skillsContainer');
+    container.innerHTML = '';
+    
+    skills.forEach((skill, index) => {
+        const badge = document.createElement('span');
+        badge.className = 'badge bg-primary';
+        badge.innerHTML = `${skill} <button type="button" class="btn-close btn-close-white btn-sm ms-1" onclick="removeSkill(${index})"></button>`;
+        container.appendChild(badge);
+    });
+}
+
+// Eliminar habilidad
+function removeSkill(index) {
+    skills.splice(index, 1);
+    updateSkillsDisplay();
+    updatePreview();
+}
+
+// Actualizar vista previa
+function updatePreview() {
+    const cvData = collectFormData();
+    const preview = document.getElementById('cvPreview');
+    
+    if (!cvData.personal_info.name) {
+        preview.innerHTML = `
+            <div class="text-center text-muted">
+                <i class="fas fa-file-alt fa-3x mb-3"></i>
+                <p>La vista previa aparecerá aquí mientras completas el formulario</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Determinar el formato seleccionado
+    const format = cvData.format_options.format;
+    const isAtsFormat = format === 'ats';
+    
+    // Estilos específicos según el formato
+    const headerStyle = isAtsFormat 
+        ? 'text-align: left; border-bottom: 1px solid #000; padding-bottom: 10px; margin-bottom: 20px;' 
+        : 'text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px;';
+    
+    const nameStyle = isAtsFormat 
+        ? 'font-size: 18px; font-weight: bold; margin-bottom: 5px;' 
+        : 'font-size: 24px; font-weight: bold; margin-bottom: 5px;';
+    
+    const sectionTitleStyle = isAtsFormat 
+        ? 'font-size: 14px; font-weight: bold; text-transform: uppercase; margin-bottom: 10px;' 
+        : 'font-size: 14px; font-weight: bold; border-bottom: 1px solid #000; margin-bottom: 10px;';
+    
+    // Construir información de contacto
+    let contactInfo = [cvData.personal_info.email, cvData.personal_info.phone, cvData.personal_info.address].filter(Boolean).join(' | ');
+    
+    // Agregar redes sociales si existen
+    let socialLinks = [];
+    if (cvData.personal_info.linkedin) socialLinks.push(`LinkedIn: ${cvData.personal_info.linkedin}`);
+    if (cvData.personal_info.github) socialLinks.push(`GitHub: ${cvData.personal_info.github}`);
+    if (cvData.personal_info.website) socialLinks.push(`Web: ${cvData.personal_info.website}`);
+    
+    let html = `
+        <div style="${headerStyle}">
+            <div style="${nameStyle}">${cvData.personal_info.name}</div>
+            <div style="font-size: 12px;">
+                ${contactInfo}
+            </div>
+            ${socialLinks.length > 0 ? `<div style="font-size: 11px; margin-top: 5px;">${socialLinks.join(' | ')}</div>` : ''}
+        </div>
+    `;
+    
+    // Agregar resumen profesional si existe
+    if (cvData.professional_summary && cvData.professional_summary.trim()) {
+        html += `
+            <div style="margin-bottom: 20px;">
+                <div style="${sectionTitleStyle}">RESUMEN PROFESIONAL</div>
+                <div style="text-align: justify; line-height: 1.4;">${cvData.professional_summary}</div>
+            </div>
+        `;
+    }
+    
+    if (cvData.education.length > 0) {
+        html += `
+            <div style="margin-bottom: 20px;">
+                <div style="${sectionTitleStyle}">EDUCACIÓN</div>
+        `;
+        cvData.education.forEach(edu => {
+            html += `
+                <div style="margin-bottom: 10px;">
+                    <div style="float: right;">${edu.end_date}</div>
+                    <div style="font-weight: bold;">${edu.degree}</div>
+                    <div style="font-style: italic;">${edu.institution}</div>
+                    <div>${edu.description}</div>
+                </div>
+            `;
+        });
+        html += `</div>`;
+    }
+    
+    if (cvData.experience.length > 0) {
+        html += `
+            <div style="margin-bottom: 20px;">
+                <div style="${sectionTitleStyle}">EXPERIENCIA PROFESIONAL</div>
+        `;
+        cvData.experience.forEach(exp => {
+            html += `
+                <div style="margin-bottom: 10px;">
+                    <div style="float: right;">${exp.start_date} - ${exp.end_date}</div>
+                    <div style="font-weight: bold;">${exp.position}</div>
+                    <div style="font-style: italic;">${exp.company}</div>
+                    <div>${exp.description}</div>
+                </div>
+            `;
+        });
+        html += `</div>`;
+    }
+    
+    if (skills.length > 0) {
+        html += `
+            <div style="margin-bottom: 20px;">
+                <div style="${sectionTitleStyle}">HABILIDADES</div>
+        `;
+        
+        // Destacar tecnologías según las opciones seleccionadas
+        if (isAtsFormat) {
+            // Formato ATS: lista simple de habilidades
+            html += `<div>${skills.join(', ')}</div>`;
+        } else {
+            // Formato Hardware: badges para habilidades
+            html += `<div style="display: flex; flex-wrap: wrap; gap: 10px;">`;
+            
+            skills.forEach(skill => {
+                // Destacar tecnologías XYZ o Start si están seleccionadas
+                let badgeStyle = 'background: #f0f0f0; padding: 2px 8px; border-radius: 3px; font-size: 12px;';
+                
+                // Palabras clave para tecnologías XYZ (emergentes)
+                const xyzKeywords = ['AI', 'Machine Learning', 'Blockchain', 'IoT', 'Cloud', 'DevOps', 'React', 'Vue', 'Angular', 'Node.js'];
+                
+                // Palabras clave para tecnologías Start (fundamentales)
+                const startKeywords = ['Java', 'Python', 'C++', 'SQL', 'HTML', 'CSS', 'JavaScript', 'Git', 'Linux', 'Windows'];
+                
+                if (cvData.format_options.tech_xyz && xyzKeywords.some(keyword => skill.toLowerCase().includes(keyword.toLowerCase()))) {
+                    badgeStyle = 'background: #d1ecf1; color: #0c5460; padding: 2px 8px; border-radius: 3px; font-size: 12px; font-weight: bold;';
+                } else if (cvData.format_options.tech_start && startKeywords.some(keyword => skill.toLowerCase().includes(keyword.toLowerCase()))) {
+                    badgeStyle = 'background: #d4edda; color: #155724; padding: 2px 8px; border-radius: 3px; font-size: 12px; font-weight: bold;';
+                }
+                
+                html += `<span style="${badgeStyle}">${skill}</span>`;
+            });
+            
+            html += `</div>`;
+        }
+        
+        html += `</div>`;
+    }
+    
+    if (cvData.languages.length > 0) {
+        html += `
+            <div style="margin-bottom: 20px;">
+                <div style="${sectionTitleStyle}">IDIOMAS</div>
+        `;
+        cvData.languages.forEach(lang => {
+            if (lang.language) {
+                html += `<div>${lang.language} - ${lang.level}</div>`;
+            }
+        });
+        html += `</div>`;
+    }
+    
+    preview.innerHTML = html;
+}
+
+// Recopilar datos del formulario
+function collectFormData() {
+    const data = {
+        personal_info: {
+            name: document.getElementById('name').value,
+            email: document.getElementById('email').value,
+            phone: document.getElementById('phone').value,
+            address: document.getElementById('address').value,
+            linkedin: document.getElementById('linkedin').value,
+            github: document.getElementById('github').value,
+            website: document.getElementById('website').value
+        },
+        professional_summary: document.getElementById('professionalSummary').value,
+        education: [],
+        experience: [],
+        skills: skills,
+        languages: [],
+        format_options: {
+            format: document.querySelector('input[name="cv-format"]:checked').value,
+            summary_tech_xyz: document.getElementById('summary-tech-xyz').checked,
+            summary_tech_start: document.getElementById('summary-tech-start').checked,
+            experience_tech_xyz: document.getElementById('experience-tech-xyz').checked,
+            experience_tech_start: document.getElementById('experience-tech-start').checked
+        }
+    };
+    
+    // Educación
+    document.querySelectorAll('.education-item').forEach(item => {
+        const degree = item.querySelector('.education-degree').value;
+        const institution = item.querySelector('.education-institution').value;
+        if (degree && institution) {
+            data.education.push({
+                degree: degree,
+                institution: institution,
+                end_date: item.querySelector('.education-end-date').value,
+                description: item.querySelector('.education-description').value
+            });
+        }
+    });
+    
+    // Experiencia
+    document.querySelectorAll('.experience-item').forEach(item => {
+        const position = item.querySelector('.experience-position').value;
+        const company = item.querySelector('.experience-company').value;
+        if (position && company) {
+            const isCurrent = item.querySelector('.experience-current').checked;
+            data.experience.push({
+                position: position,
+                company: company,
+                start_date: item.querySelector('.experience-start-date').value,
+                end_date: isCurrent ? 'Presente' : item.querySelector('.experience-end-date').value,
+                description: item.querySelector('.experience-description').value
+            });
+        }
+    });
+    
+    // Idiomas
+    document.querySelectorAll('.language-item').forEach(item => {
+        const language = item.querySelector('.language-name').value;
+        const level = item.querySelector('.language-level').value;
+        if (language) {
+            data.languages.push({
+                language: language,
+                level: level
+            });
+        }
+    });
+    
+    return data;
+}
+
+// Event listener para el botón de generar CV en el header
+document.getElementById('generateCV').addEventListener('click', function() {
+    const cvData = collectFormData();
+    
+    // Validar datos requeridos
+    if (!cvData.personal_info.name || !cvData.personal_info.email) {
+        alert('Por favor completa al menos el nombre y email.');
+        return;
+    }
+    
+    if (cvData.education.length === 0) {
+        alert('Por favor agrega al menos una educación.');
+        return;
+    }
+    
+    if (cvData.experience.length === 0) {
+        alert('Por favor agrega al menos una experiencia.');
+        return;
+    }
+    
+    // Enviar datos
+    fetch('/save_cv', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(cvData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            cvId = data.cv_id;
+            document.getElementById('exportPdf').disabled = false;
+            
+            // Mostrar mensaje de éxito con información sobre la mejora de IA
+            alert(data.message || 'CV guardado exitosamente!');
+            
+            // Actualizar campos con los datos mejorados por IA
+            if (data.improved_data) {
+                // Actualizar resumen profesional si fue mejorado
+                if (data.improved_data.professional_summary) {
+                    document.getElementById('professionalSummary').value = data.improved_data.professional_summary;
+                }
+                
+                // Actualizar experiencias si fueron mejoradas
+                if (data.improved_data.experience) {
+                    const experienceItems = document.querySelectorAll('.experience-item');
+                    data.improved_data.experience.forEach((exp, index) => {
+                        if (experienceItems[index] && exp.description) {
+                            const descriptionField = experienceItems[index].querySelector('.experience-description');
+                            if (descriptionField) {
+                                descriptionField.value = exp.description;
+                            }
+                        }
+                    });
+                }
+                
+                // Actualizar vista previa con los datos mejorados
+                updatePreview();
+            }
+            
+            // Mostrar vista previa actualizada si está disponible
+            if (data.cv_html) {
+                document.getElementById('cvPreview').innerHTML = data.cv_html;
+            }
+        } else {
+            alert('Error al guardar CV: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al guardar CV');
+    });
+});
+
+// Event listener para el botón de guardar datos
+document.getElementById('saveData').addEventListener('click', function() {
+    const cvData = collectFormData();
+    
+    // Guardar datos sin validación estricta
+    fetch('/save_cv_draft', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(cvData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Datos guardados como borrador exitosamente!');
+        } else {
+            alert('Error al guardar datos: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al guardar datos');
+    });
+});
+
+// Enviar formulario (mantener para compatibilidad)
+document.getElementById('cvForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    // Redirigir al botón de generar CV
+    document.getElementById('generateCV').click();
+    
+    const cvData = collectFormData();
+    
+    // Validar datos requeridos
+    if (!cvData.personal_info.name || !cvData.personal_info.email) {
+        alert('Por favor completa al menos el nombre y email.');
+        return;
+    }
+    
+    if (cvData.education.length === 0) {
+        alert('Por favor agrega al menos una educación.');
+        return;
+    }
+    
+    if (cvData.experience.length === 0) {
+        alert('Por favor agrega al menos una experiencia.');
+        return;
+    }
+    
+    // Enviar datos
+    fetch('/save_cv', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(cvData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            cvId = data.cv_id;
+            document.getElementById('exportPdf').disabled = false;
+            
+            // Mostrar mensaje de éxito con información sobre la mejora de IA
+            alert(data.message || 'CV guardado exitosamente!');
+            
+            // Actualizar campos con los datos mejorados por IA
+            if (data.improved_data) {
+                // Actualizar resumen profesional si fue mejorado
+                if (data.improved_data.professional_summary) {
+                    document.getElementById('professionalSummary').value = data.improved_data.professional_summary;
+                }
+                
+                // Actualizar experiencias si fueron mejoradas
+                if (data.improved_data.experience) {
+                    const experienceItems = document.querySelectorAll('.experience-item');
+                    data.improved_data.experience.forEach((exp, index) => {
+                        if (experienceItems[index] && exp.description) {
+                            const descriptionField = experienceItems[index].querySelector('.experience-description');
+                            if (descriptionField) {
+                                descriptionField.value = exp.description;
+                            }
+                        }
+                    });
+                }
+                
+                // Actualizar vista previa con los datos mejorados
+                updatePreview();
+            }
+            
+            // Mostrar vista previa actualizada si está disponible
+            if (data.cv_html) {
+                document.getElementById('cv-preview').innerHTML = data.cv_html;
+            }
+        } else {
+            alert('Error al guardar CV: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al guardar CV');
+    });
+});
+
+// Exportar PDF
+document.getElementById('exportPdf').addEventListener('click', function() {
+    if (cvId) {
+        window.open(`/export_cv/${cvId}`, '_blank');
+    }
+});
+
+// Variables para guardado automático
+let autoSaveTimeout;
+let lastSaveData = '';
+
+// Función para guardar automáticamente
+function autoSave() {
+    const currentData = JSON.stringify(collectFormData());
+    
+    // Solo guardar si los datos han cambiado
+    if (currentData !== lastSaveData) {
+        lastSaveData = currentData;
+        
+        fetch('/save_cv_draft', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: currentData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Mostrar indicador visual de guardado (opcional)
+                const saveIndicator = document.getElementById('saveIndicator');
+                if (saveIndicator) {
+                    saveIndicator.textContent = 'Guardado automáticamente';
+                    saveIndicator.style.color = '#28a745';
+                    setTimeout(() => {
+                        saveIndicator.textContent = '';
+                    }, 2000);
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error en guardado automático:', error);
+        });
+    }
+}
+
+// Función para cargar datos guardados
+function loadSavedData() {
+    fetch('/get_user_cv_data')
+        .then(response => response.json())
+        .then(result => {
+            if (result.success && result.data) {
+                const data = result.data;
+                
+                // Cargar información personal
+                if (data.personal_info) {
+                    const personalInfo = data.personal_info;
+                    if (personalInfo.name) document.getElementById('name').value = personalInfo.name;
+                    if (personalInfo.email) document.getElementById('email').value = personalInfo.email;
+                    if (personalInfo.phone) document.getElementById('phone').value = personalInfo.phone;
+                    if (personalInfo.location) document.getElementById('location').value = personalInfo.location;
+                    if (personalInfo.linkedin) document.getElementById('linkedin').value = personalInfo.linkedin;
+                    if (personalInfo.github) document.getElementById('github').value = personalInfo.github;
+                    if (personalInfo.website) document.getElementById('website').value = personalInfo.website;
+                }
+                
+                // Cargar resumen profesional
+                if (data.professional_summary) {
+                    document.getElementById('professionalSummary').value = data.professional_summary;
+                }
+                
+                // Cargar opciones de formato
+                if (data.format_options) {
+                    const formatOptions = data.format_options;
+                    if (formatOptions.format) {
+                        const formatRadio = document.querySelector(`input[name="format"][value="${formatOptions.format}"]`);
+                        if (formatRadio) formatRadio.checked = true;
+                    }
+                    if (formatOptions.tech_xyz) {
+                        const techXyzCheckbox = document.getElementById('techXyz');
+                        if (techXyzCheckbox) techXyzCheckbox.checked = true;
+                    }
+                    if (formatOptions.tech_start) {
+                        const techStartCheckbox = document.getElementById('techStart');
+                        if (techStartCheckbox) techStartCheckbox.checked = true;
+                    }
+                }
+                
+                // Cargar educación
+                if (data.education && data.education.length > 0) {
+                    // Limpiar educación existente
+                    const educationContainer = document.getElementById('educationContainer');
+                    educationContainer.innerHTML = '';
+                    
+                    data.education.forEach(edu => {
+                        addEducation();
+                        const lastEducationItem = educationContainer.lastElementChild;
+                        if (edu.degree) lastEducationItem.querySelector('.education-degree').value = edu.degree;
+                        if (edu.institution) lastEducationItem.querySelector('.education-institution').value = edu.institution;
+                        if (edu.start_date) lastEducationItem.querySelector('.education-start-date').value = edu.start_date;
+                        if (edu.end_date) lastEducationItem.querySelector('.education-end-date').value = edu.end_date;
+                        if (edu.description) lastEducationItem.querySelector('.education-description').value = edu.description;
+                    });
+                }
+                
+                // Cargar experiencia
+                if (data.experience && data.experience.length > 0) {
+                    // Limpiar experiencia existente
+                    const experienceContainer = document.getElementById('experienceContainer');
+                    experienceContainer.innerHTML = '';
+                    
+                    data.experience.forEach(exp => {
+                        addExperience();
+                        const lastExperienceItem = experienceContainer.lastElementChild;
+                        if (exp.position) lastExperienceItem.querySelector('.experience-position').value = exp.position;
+                        if (exp.company) lastExperienceItem.querySelector('.experience-company').value = exp.company;
+                        if (exp.start_date) lastExperienceItem.querySelector('.experience-start-date').value = exp.start_date;
+                        if (exp.end_date) lastExperienceItem.querySelector('.experience-end-date').value = exp.end_date;
+                        if (exp.current) {
+                            const currentCheckbox = lastExperienceItem.querySelector('.experience-current');
+                            if (currentCheckbox) {
+                                currentCheckbox.checked = true;
+                                const endDateInput = lastExperienceItem.querySelector('.experience-end-date');
+                                if (endDateInput) {
+                                    endDateInput.disabled = true;
+                                    endDateInput.value = '';
+                                }
+                            }
+                        }
+                        if (exp.description) lastExperienceItem.querySelector('.experience-description').value = exp.description;
+                    });
+                }
+                
+                // Cargar habilidades
+                if (data.skills && data.skills.length > 0) {
+                    const skillsContainer = document.getElementById('skillsContainer');
+                    skillsContainer.innerHTML = '';
+                    
+                    data.skills.forEach(skill => {
+                        addSkill();
+                        const lastSkillInput = skillsContainer.lastElementChild.querySelector('.skill-input');
+                        if (lastSkillInput) lastSkillInput.value = skill;
+                    });
+                }
+                
+                // Cargar idiomas
+                if (data.languages && data.languages.length > 0) {
+                    const languagesContainer = document.getElementById('languagesContainer');
+                    languagesContainer.innerHTML = '';
+                    
+                    data.languages.forEach(lang => {
+                        addLanguage();
+                        const lastLanguageItem = languagesContainer.lastElementChild;
+                        if (lang.language) lastLanguageItem.querySelector('.language-name').value = lang.language;
+                        if (lang.level) lastLanguageItem.querySelector('.language-level').value = lang.level;
+                    });
+                }
+                
+                // Actualizar vista previa después de cargar los datos
+                updatePreview();
+                
+                // Establecer datos iniciales para comparación
+                lastSaveData = JSON.stringify(collectFormData());
+            }
+        })
+        .catch(error => {
+            console.error('Error al cargar datos guardados:', error);
+        });
+}
+
+// Cargar datos guardados al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    loadSavedData();
+});
+
+// Actualizar vista previa en tiempo real y configurar guardado automático
+document.addEventListener('input', function(e) {
+    updatePreview();
+    
+    // Configurar guardado automático (esperar 2 segundos después del último cambio)
+    clearTimeout(autoSaveTimeout);
+    autoSaveTimeout = setTimeout(autoSave, 2000);
+});
+
+document.addEventListener('change', function(e) {
+    updatePreview();
+    
+    // Configurar guardado automático inmediato para cambios en select/checkbox
+    clearTimeout(autoSaveTimeout);
+    autoSaveTimeout = setTimeout(autoSave, 500);
+});
+
+// Manejar checkbox de trabajo actual
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('experience-current')) {
+        const endDateInput = e.target.closest('.experience-item').querySelector('.experience-end-date');
+        if (e.target.checked) {
+            endDateInput.disabled = true;
+            endDateInput.value = '';
+        } else {
+            endDateInput.disabled = false;
+        }
+        updatePreview();
+    }
+});
+
+// Guardar antes de cerrar la página
+window.addEventListener('beforeunload', function(e) {
+    const currentData = JSON.stringify(collectFormData());
+    if (currentData !== lastSaveData) {
+        // Intentar guardar de forma síncrona
+        navigator.sendBeacon('/save_cv_draft', new Blob([currentData], {type: 'application/json'}));
+    }
+});
+</script>
+{% endblock %}

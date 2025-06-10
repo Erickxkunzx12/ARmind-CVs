@@ -1,0 +1,377 @@
+{% extends "base.html" %}
+
+{% block title %}Analizar CV - CV Analyzer Pro{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="fw-bold mb-2">
+                        <i class="fas fa-robot me-2 text-primary"></i>Analizador de CV con IA
+                    </h2>
+                    <p class="text-muted mb-0">
+                        Sube tu currículum y obtén un análisis profesional como lo haría un sistema ATS
+                    </p>
+                </div>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Volver al Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Upload Section -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-upload me-2"></i>Subir Currículum
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data" id="uploadForm">
+                        <div class="file-upload-area" id="fileUploadArea">
+                            <div class="text-center py-4">
+                                <i class="fas fa-cloud-upload-alt fa-4x text-primary mb-3"></i>
+                                <h5>Arrastra tu CV aquí o haz clic para seleccionar</h5>
+                                <p class="text-muted mb-3" id="supportedFormats">
+                                    Formatos soportados: PDF, DOC, DOCX (Máximo 16MB)
+                                </p>
+                                <input type="file" 
+                                       class="form-control d-none" 
+                                       id="fileInput" 
+                                       name="file" 
+                                       accept=".pdf,.doc,.docx" 
+                                       required>
+                                <button type="button" class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                                    <i class="fas fa-folder-open me-2"></i>Seleccionar Archivo
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div id="fileInfo" class="mt-3 d-none">
+                            <div class="alert alert-info">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="fas fa-file-alt me-2"></i>
+                                        <span id="fileName"></span>
+                                        <small class="text-muted ms-2" id="fileSize"></small>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearFile()">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+
+                        
+                        <div class="mt-4 text-center">
+                            <button type="submit" class="btn btn-primary btn-lg" id="analyzeBtn" disabled>
+                                <span class="spinner-border spinner-border-sm me-2 d-none" id="loadingSpinner"></span>
+                                <i class="fas fa-robot me-2"></i>Analizar con IA
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Analysis Progress -->
+            <div class="card d-none" id="analysisProgress">
+                <div class="card-body text-center py-5">
+                    <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;"></div>
+                    <h5>Analizando tu currículum...</h5>
+                    <p class="text-muted mb-4">Nuestro sistema de IA está evaluando tu CV. Esto puede tomar unos momentos.</p>
+                    
+                    <div class="progress mb-3" style="height: 10px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             id="progressBar" 
+                             style="width: 0%"></div>
+                    </div>
+                    
+                    <div id="progressSteps">
+                        <div class="step" id="step1">
+                            <i class="fas fa-file-text me-2"></i>Extrayendo texto del documento...
+                        </div>
+                        <div class="step d-none" id="step2">
+                            <i class="fas fa-brain me-2"></i>Analizando contenido con IA...
+                        </div>
+                        <div class="step d-none" id="step3">
+                            <i class="fas fa-chart-line me-2"></i>Generando reporte de análisis...
+                        </div>
+                        <div class="step d-none" id="step4">
+                            <i class="fas fa-check-circle me-2 text-success"></i>¡Análisis completado!
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <!-- Tips Section -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-lightbulb me-2 text-warning"></i>Consejos para un Mejor Análisis
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="tip-item mb-3">
+                        <div class="d-flex">
+                            <div class="tip-icon me-3">
+                                <i class="fas fa-check-circle text-success"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-1">Formato Claro</h6>
+                                <small class="text-muted">
+                                    Asegúrate de que tu CV tenga un formato limpio y sea fácil de leer.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="tip-item mb-3">
+                        <div class="d-flex">
+                            <div class="tip-icon me-3">
+                                <i class="fas fa-keywords text-primary"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-1">Palabras Clave</h6>
+                                <small class="text-muted">
+                                    Incluye palabras clave relevantes para tu industria y puesto objetivo.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="tip-item mb-3">
+                        <div class="d-flex">
+                            <div class="tip-icon me-3">
+                                <i class="fas fa-chart-bar text-info"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-1">Logros Cuantificados</h6>
+                                <small class="text-muted">
+                                    Usa números y porcentajes para demostrar tus logros.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="tip-item">
+                        <div class="d-flex">
+                            <div class="tip-icon me-3">
+                                <i class="fas fa-spell-check text-warning"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-1">Sin Errores</h6>
+                                <small class="text-muted">
+                                    Revisa la ortografía y gramática antes de subir tu CV.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sample Analysis -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-eye me-2 text-info"></i>Ejemplo de Análisis
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <div class="score-circle bg-success d-inline-flex align-items-center justify-content-center" 
+                             style="width: 80px; height: 80px; font-size: 1.2rem;">
+                            85%
+                        </div>
+                    </div>
+                    
+                    <h6 class="text-success mb-2">
+                        <i class="fas fa-thumbs-up me-2"></i>Fortalezas
+                    </h6>
+                    <ul class="list-unstyled small mb-3">
+                        <li class="mb-1">• Experiencia relevante bien detallada</li>
+                        <li class="mb-1">• Habilidades técnicas actualizadas</li>
+                        <li>• Formato profesional y limpio</li>
+                    </ul>
+                    
+                    <h6 class="text-warning mb-2">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Áreas de Mejora
+                    </h6>
+                    <ul class="list-unstyled small mb-3">
+                        <li class="mb-1">• Agregar más palabras clave</li>
+                        <li>• Cuantificar logros específicos</li>
+                    </ul>
+                    
+                    <div class="text-center">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Este es un ejemplo del tipo de análisis que recibirás
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const fileInput = document.getElementById('fileInput');
+        const fileUploadArea = document.getElementById('fileUploadArea');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const uploadForm = document.getElementById('uploadForm');
+        const analysisProgress = document.getElementById('analysisProgress');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        
+        // Drag and drop functionality
+        fileUploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.classList.add('border-primary', 'bg-light');
+        });
+        
+        fileUploadArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            this.classList.remove('border-primary', 'bg-light');
+        });
+        
+        fileUploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.classList.remove('border-primary', 'bg-light');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                handleFileSelect(files[0]);
+            }
+        });
+        
+        // Click to upload
+        fileUploadArea.addEventListener('click', function() {
+            fileInput.click();
+        });
+        
+        // File input change
+        fileInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                handleFileSelect(this.files[0]);
+            }
+        });
+        
+        function handleFileSelect(file) {
+            // Validate file type
+            const allowedTypes = ['application/pdf', 'application/msword', 
+                                'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+            
+            if (!allowedTypes.includes(file.type)) {
+                alert('Solo se permiten archivos PDF, DOC y DOCX');
+                clearFile();
+                return;
+            }
+            
+            // Validate file size (16MB)
+            if (file.size > 16 * 1024 * 1024) {
+                alert('El archivo no puede ser mayor a 16MB');
+                clearFile();
+                return;
+            }
+            
+            // Show file info
+            fileName.textContent = file.name;
+            fileSize.textContent = formatFileSize(file.size);
+            fileInfo.classList.remove('d-none');
+            analyzeBtn.disabled = false;
+            
+            // Update upload area
+            fileUploadArea.classList.add('border-success');
+            fileUploadArea.querySelector('h5').textContent = 'Archivo seleccionado correctamente';
+            
+            // Change supported formats text to filename
+            const supportedFormatsElement = document.getElementById('supportedFormats');
+            supportedFormatsElement.textContent = `Archivo: ${file.name}`;
+        }
+        
+        function clearFile() {
+            fileInput.value = '';
+            fileInfo.classList.add('d-none');
+            analyzeBtn.disabled = true;
+            
+            // Reset upload area
+            fileUploadArea.classList.remove('border-success', 'border-primary', 'bg-light');
+            fileUploadArea.querySelector('h5').textContent = 'Arrastra tu CV aquí o haz clic para seleccionar';
+            
+            // Reset supported formats text
+            const supportedFormatsElement = document.getElementById('supportedFormats');
+            supportedFormatsElement.textContent = 'Formatos soportados: PDF, DOC, DOCX (Máximo 16MB)';
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        // Form submission with progress simulation
+        uploadForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Show loading state
+            loadingSpinner.classList.remove('d-none');
+            analyzeBtn.disabled = true;
+            
+            // Hide upload form and show progress
+            this.closest('.card').classList.add('d-none');
+            analysisProgress.classList.remove('d-none');
+            
+            // Simulate analysis progress
+            simulateAnalysisProgress();
+            
+            // Submit form after delay
+            setTimeout(() => {
+                this.submit();
+            }, 8000);
+        });
+        
+        function simulateAnalysisProgress() {
+            const progressBar = document.getElementById('progressBar');
+            const steps = ['step1', 'step2', 'step3', 'step4'];
+            let currentStep = 0;
+            let progress = 0;
+            
+            const interval = setInterval(() => {
+                progress += Math.random() * 15 + 5;
+                
+                if (progress > 100) progress = 100;
+                progressBar.style.width = progress + '%';
+                
+                // Show next step
+                if (progress > (currentStep + 1) * 25 && currentStep < steps.length - 1) {
+                    document.getElementById(steps[currentStep]).classList.add('d-none');
+                    currentStep++;
+                    document.getElementById(steps[currentStep]).classList.remove('d-none');
+                }
+                
+                if (progress >= 100) {
+                    clearInterval(interval);
+                }
+            }, 500);
+        }
+        
+        // Global function for clear file button
+        window.clearFile = clearFile;
+    });
+</script>
+{% endblock %}

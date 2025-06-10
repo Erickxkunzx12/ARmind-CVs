@@ -1,0 +1,433 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - CV Analyzer Pro{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Welcome Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-gradient-primary text-white">
+                <div class="card-body py-4">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h2 class="mb-2">
+                                <i class="fas fa-tachometer-alt me-2"></i>
+                                ¡Bienvenido, {{ session.username }}!
+                            </h2>
+                            <p class="mb-0 lead">
+                                Optimiza tu carrera profesional con nuestras herramientas de IA
+                            </p>
+                        </div>
+                        <div class="col-md-4 text-md-end">
+                            <div class="d-flex justify-content-md-end justify-content-center">
+                                <div class="text-center me-3">
+                                    <h4 class="mb-0">{{ stats.cvs_analyzed or 0 }}</h4>
+                                    <small>CVs Analizados</small>
+                                </div>
+                                <div class="text-center">
+                                    <h4 class="mb-0">{{ stats.jobs_found or 0 }}</h4>
+                                    <small>Empleos Encontrados</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Actions -->
+    <div class="row mb-5">
+        <div class="col-12 mb-3">
+            <h3 class="fw-bold">
+                <i class="fas fa-bolt me-2 text-warning"></i>Acciones Rápidas
+            </h3>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card h-100 border-0 shadow-sm hover-card">
+                <div class="card-body text-center p-4">
+                    <div class="feature-icon bg-primary mb-3">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <h5 class="card-title">Analizar CV</h5>
+                    <p class="card-text text-muted">
+                        Sube tu currículum y obtén un análisis detallado con IA
+                    </p>
+                    <a href="{{ url_for('analyze_cv') }}" class="btn btn-primary">
+                        <i class="fas fa-upload me-2"></i>Subir CV
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card h-100 border-0 shadow-sm hover-card">
+                <div class="card-body text-center p-4">
+                    <div class="feature-icon bg-success mb-3">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                    <h5 class="card-title">Crear CV</h5>
+                    <p class="card-text text-muted">
+                        Construye un currículum profesional en formato Harvard
+                    </p>
+                    <a href="{{ url_for('cv_builder') }}" class="btn btn-success">
+                        <i class="fas fa-plus me-2"></i>Nuevo CV
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card h-100 border-0 shadow-sm hover-card">
+                <div class="card-body text-center p-4">
+                    <div class="feature-icon bg-info mb-3">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <h5 class="card-title">Buscar Empleos</h5>
+                    <p class="card-text text-muted">
+                        Encuentra oportunidades laborales personalizadas
+                    </p>
+                    <a href="{{ url_for('job_search') }}" class="btn btn-info">
+                        <i class="fas fa-search me-2"></i>Buscar
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card h-100 border-0 shadow-sm hover-card">
+                <div class="card-body text-center p-4">
+                    <div class="feature-icon bg-warning mb-3">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <h5 class="card-title">Mis Análisis</h5>
+                    <p class="card-text text-muted">
+                        Revisa tus análisis anteriores y progreso
+                    </p>
+                    <a href="{{ url_for('my_analyses') }}" class="btn btn-warning">
+                        <i class="fas fa-history me-2"></i>Ver Historial
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Activity -->
+    <div class="row mb-5">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-clock me-2"></i>Actividad Reciente
+                    </h5>
+                    <a href="{{ url_for('my_analyses') }}" class="btn btn-sm btn-outline-primary">
+                        Ver Todo
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if recent_activities %}
+                        <div class="timeline">
+                            {% for activity in recent_activities %}
+                            <div class="timeline-item">
+                                <div class="timeline-marker bg-{{ activity.type_color }}"></div>
+                                <div class="timeline-content">
+                                    <h6 class="mb-1">{{ activity.title }}</h6>
+                                    <p class="text-muted mb-1">{{ activity.description }}</p>
+                                    <small class="text-muted">
+                                        <i class="fas fa-calendar me-1"></i>
+                                        {{ activity.created_at.strftime('%d/%m/%Y %H:%M') }}
+                                    </small>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                            <h6 class="text-muted">No hay actividad reciente</h6>
+                            <p class="text-muted">Comienza analizando tu CV o creando uno nuevo</p>
+                            <a href="{{ url_for('analyze_cv') }}" class="btn btn-primary">
+                                <i class="fas fa-rocket me-2"></i>Comenzar Ahora
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <!-- Tips Section -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-lightbulb me-2 text-warning"></i>Consejos del Día
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="tipsCarousel" class="carousel slide" data-bs-ride="carousel">
+                        <div class="carousel-inner">
+                            <div class="carousel-item active">
+                                <div class="text-center">
+                                    <i class="fas fa-keywords fa-2x text-primary mb-3"></i>
+                                    <h6>Palabras Clave</h6>
+                                    <p class="small text-muted">
+                                        Incluye palabras clave relevantes del sector en tu CV para mejorar tu puntuación ATS.
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="carousel-item">
+                                <div class="text-center">
+                                    <i class="fas fa-chart-bar fa-2x text-success mb-3"></i>
+                                    <h6>Cuantifica Logros</h6>
+                                    <p class="small text-muted">
+                                        Usa números y porcentajes para demostrar el impacto de tus logros profesionales.
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="carousel-item">
+                                <div class="text-center">
+                                    <i class="fas fa-format-align-left fa-2x text-info mb-3"></i>
+                                    <h6>Formato Limpio</h6>
+                                    <p class="small text-muted">
+                                        Mantén un diseño limpio y profesional. Evita fuentes decorativas y colores excesivos.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Progress Section -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-trophy me-2 text-warning"></i>Tu Progreso
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small fw-bold">Perfil Completado</span>
+                            <span class="small text-muted">75%</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-primary" style="width: 75%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small fw-bold">CVs Analizados</span>
+                            <span class="small text-muted">{{ stats.cvs_analyzed or 0 }}/5</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-success" style="width: {{ ((stats.cvs_analyzed or 0) / 5 * 100) | round | default(0) }}%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small fw-bold">Búsquedas de Empleo</span>
+                            <span class="small text-muted">{{ stats.job_searches or 0 }}/10</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-info" style="width: {{ ((stats.job_searches or 0) / 10 * 100) | round | default(0) }}%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-star text-warning me-1"></i>
+                            ¡Sigue así para desbloquear nuevas funciones!
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Stats -->
+    <div class="row">
+        <div class="col-12 mb-3">
+            <h3 class="fw-bold">
+                <i class="fas fa-chart-pie me-2 text-info"></i>Estadísticas Rápidas
+            </h3>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card bg-primary text-white shadow-lg border-0" style="box-shadow: 0 10px 30px rgba(0,0,0,0.2) !important; border-radius: 15px !important; border: 3px solid rgba(255,255,255,0.1) !important;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0 fw-bold text-white">{{ stats.avg_score or 0 }}%</h4>
+                            <p class="mb-0 text-white-50">Puntuación Promedio</p>
+                        </div>
+                        <div class="position-relative">
+                            <i class="fas fa-percentage fa-2x opacity-75"></i>
+                            <!-- Porcentaje adicional en cuadrito rojo -->
+                            <div class="position-absolute top-0 start-100 translate-middle">
+                                <span class="badge bg-danger rounded-pill fs-6 fw-bold shadow-lg" style="padding: 8px 12px; font-size: 14px; border: 2px solid #ffffff;">{{ stats.avg_score or 0 }}%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card bg-success text-white shadow-lg border-0" style="box-shadow: 0 10px 30px rgba(0,0,0,0.2) !important; border-radius: 15px !important; border: 3px solid rgba(255,255,255,0.1) !important;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0 fw-bold text-white">{{ stats.cvs_created or 0 }}</h4>
+                            <p class="mb-0 text-white-50">CVs Creados</p>
+                        </div>
+                        <i class="fas fa-file-alt fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card bg-info text-white shadow-lg border-0" style="box-shadow: 0 10px 30px rgba(0,0,0,0.2) !important; border-radius: 15px !important; border: 3px solid rgba(255,255,255,0.1) !important;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0 fw-bold text-white">{{ stats.jobs_applied or 0 }}</h4>
+                            <p class="mb-0 text-white-50">Empleos Aplicados</p>
+                        </div>
+                        <i class="fas fa-briefcase fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card bg-warning text-white shadow-lg border-0" style="box-shadow: 0 10px 30px rgba(0,0,0,0.2) !important; border-radius: 15px !important; border: 3px solid rgba(255,255,255,0.1) !important;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0 fw-bold text-white">{{ stats.days_active or 0 }}</h4>
+                            <p class="mb-0 text-white-50">Días Activo</p>
+                        </div>
+                        <i class="fas fa-calendar fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .hover-card {
+        transition: all 0.3s ease;
+    }
+    
+    .hover-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.15) !important;
+    }
+    
+    .timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+    
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 15px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #e9ecef;
+    }
+    
+    .timeline-item {
+        position: relative;
+        margin-bottom: 20px;
+    }
+    
+    .timeline-marker {
+        position: absolute;
+        left: -22px;
+        top: 5px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 2px solid #fff;
+        box-shadow: 0 0 0 2px #e9ecef;
+    }
+    
+    .timeline-content {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        border-left: 3px solid var(--bs-primary);
+    }
+    
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, var(--bs-primary), var(--bs-info)) !important;
+    }
+    
+    .opacity-75 {
+        opacity: 0.75;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Auto-rotate tips carousel
+        const tipsCarousel = new bootstrap.Carousel(document.getElementById('tipsCarousel'), {
+            interval: 5000,
+            wrap: true
+        });
+        
+        // Add hover effects to cards
+        const cards = document.querySelectorAll('.hover-card');
+        cards.forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-5px)';
+            });
+            
+            card.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0)';
+            });
+        });
+        
+        // Animate progress bars on scroll
+        const progressBars = document.querySelectorAll('.progress-bar');
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const progressBar = entry.target;
+                    const width = progressBar.style.width;
+                    progressBar.style.width = '0%';
+                    setTimeout(() => {
+                        progressBar.style.transition = 'width 1s ease-in-out';
+                        progressBar.style.width = width;
+                    }, 100);
+                }
+            });
+        });
+        
+        progressBars.forEach(bar => observer.observe(bar));
+        
+        // Add click tracking for analytics
+        document.querySelectorAll('a[href]').forEach(link => {
+            link.addEventListener('click', function() {
+                const action = this.textContent.trim();
+                console.log('User clicked:', action);
+                // Here you could send analytics data
+            });
+        });
+    });
+</script>
+{% endblock %}
