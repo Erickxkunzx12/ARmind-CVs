@@ -1,4 +1,4 @@
-# CV Analyzer Pro
+# ARmind CVs
 
 Aplicación web para análisis de currículums y búsqueda de empleos compatible.
 
