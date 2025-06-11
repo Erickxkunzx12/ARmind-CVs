@@ -1,6 +1,6 @@
-# Guía de Contribución - CV Analyzer Pro
+# Guía de Contribución - ARMind CVs
 
-¡Gracias por tu interés en contribuir a CV Analyzer Pro! 🎉
+¡Gracias por tu interés en contribuir a ARMind CVs! 🎉
 
 ## 🚀 Cómo Contribuir
 
@@ -153,4 +153,4 @@ Si tienes preguntas sobre contribuciones:
 
 ---
 
-¡Gracias por hacer CV Analyzer Pro mejor para todos! 🚀
+¡Gracias por hacer ARMind CVs mejor para todos! 🚀

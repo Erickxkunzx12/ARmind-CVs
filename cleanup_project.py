@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Script de limpieza y organización del proyecto CV Analyzer Pro
+Script de limpieza y organización del proyecto ARMind CVs
 Este script ayuda a organizar el proyecto y eliminar archivos duplicados
 """
 
@@ -143,7 +143,7 @@ backup_old_files/
 
 def create_readme():
     """Crear README actualizado para el proyecto"""
-    readme_content = """# CV Analyzer Pro
+    readme_content = """# ARMind CVs
 
 Aplicación web para análisis de currículums y búsqueda de empleos compatible.
 
@@ -357,7 +357,7 @@ python-dotenv==1.0.0
 
 def main():
     """Función principal del script de limpieza"""
-    print("🧹 Iniciando limpieza del proyecto CV Analyzer Pro...\n")
+    print("🧹 Iniciando limpieza del proyecto ARMind CVs...\n")
     
     # Crear respaldo de archivos antiguos
     moved_files = move_old_files()

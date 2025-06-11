@@ -1,4 +1,4 @@
-# Configuración de Email para CV Analyzer Pro
+# Configuración de Email para ARMind CVs
 # Copia este archivo como 'email_config.py' y configura tus credenciales
 
 # Configuración para Gmail

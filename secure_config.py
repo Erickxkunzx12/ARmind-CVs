@@ -1,4 +1,4 @@
-# Configuración segura para CV Analyzer Pro
+# Configuración segura para ARMind CVs
 # Este archivo debe ser usado para configurar variables de entorno
 
 import os

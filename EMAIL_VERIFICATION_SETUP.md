@@ -1,6 +1,6 @@
 # Configuración de Verificación por Email
 
-Este documento explica cómo configurar el sistema de verificación por email en CV Analyzer Pro.
+Este documento explica cómo configurar el sistema de verificación por email en ARMind CVs.
 
 ## Características Implementadas
 

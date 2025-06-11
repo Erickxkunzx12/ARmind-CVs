@@ -1,4 +1,4 @@
-# 🔧 Solución de Problemas - CV Analyzer Pro
+# 🔧 Solución de Problemas - ARMind CVs
 
 ## 📋 Resumen de Problemas Identificados
 

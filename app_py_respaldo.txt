@@ -207,21 +207,21 @@ def send_verification_email(email, username, token):
     try:
         # Crear mensaje
         msg = MIMEMultipart('alternative')
-        msg['Subject'] = 'Verifica tu cuenta de CV Analyzer Pro'
+        msg['Subject'] = 'Verifica tu cuenta de ARMind CVs'
         msg['From'] = EMAIL_CONFIG['email']
         msg['To'] = email
         
         # Versión texto plano
         text = f"""Hola {username},
         
-Gracias por registrarte en CV Analyzer Pro. Para verificar tu cuenta, haz clic en el siguiente enlace:
+Gracias por registrarte en ARMind CVs. Para verificar tu cuenta, haz clic en el siguiente enlace:
         
 http://localhost:5000/verify_email/{token}
         
 Si no solicitaste esta verificación, puedes ignorar este mensaje.
         
 Saludos,
-El equipo de CV Analyzer Pro
+El equipo de ARMind CVs
         """
         
         # Versión HTML
@@ -240,11 +240,11 @@ El equipo de CV Analyzer Pro
         <body>
             <div class="container">
                 <div class="header">
-                    <h1>CV Analyzer Pro</h1>
+                    <h1>ARMind CVs</h1>
                 </div>
                 <div class="content">
                     <h2>Hola {username},</h2>
-                    <p>Gracias por registrarte en CV Analyzer Pro. Para verificar tu cuenta, haz clic en el siguiente botón:</p>
+                    <p>Gracias por registrarte en ARMind CVs. Para verificar tu cuenta, haz clic en el siguiente botón:</p>
                     <p style="text-align: center;">
                         <a href="http://localhost:5000/verify_email/{token}" class="button">Verificar mi cuenta</a>
                     </p>
@@ -253,7 +253,7 @@ El equipo de CV Analyzer Pro
                     <p>Si no solicitaste esta verificación, puedes ignorar este mensaje.</p>
                 </div>
                 <div class="footer">
-                    <p>© 2023 CV Analyzer Pro. Todos los derechos reservados.</p>
+                    <p>© 2023 ARMind CVs. Todos los derechos reservados.</p>
                 </div>
             </div>
         </body>
