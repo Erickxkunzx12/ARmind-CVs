@@ -5,26 +5,25 @@
 {% block content %}
 <div class="container">
     <!-- Hero Section -->
-    <div class="row align-items-center mb-5">
+    <div class="row align-items-center mb-5" style="min-height: 70vh;">
         <div class="col-lg-6">
-            <h1 class="display-4 fw-bold text-primary mb-4">
-                Optimiza tu <span class="text-secondary">Currículum</span> con Inteligencia Artificial
+            <h1 class="display-3 fw-bold mb-4" style="color: #1a365d; line-height: 1.2; font-weight: 700;">
+                Optimiza tu Currículum con <span style="color: #00d4ff;">Inteligencia Artificial</span>
             </h1>
-            <p class="lead mb-4">
-                Analiza tu CV como lo haría un sistema ATS, construye currículums profesionales 
-                y encuentra las mejores oportunidades laborales, todo en una sola plataforma.
+            <p class="lead mb-5" style="color: #4a5568; font-size: 1.25rem; line-height: 1.6;">
+                ARMind CVs es una plataforma de análisis de currículums impulsada por IA para equipos de desarrollo ocupados.
             </p>
             <div class="d-flex gap-3">
                 {% if not session.user_id %}
                 <a href="{{ url_for('register') }}" class="btn btn-primary btn-lg">
-                    <i class="fas fa-rocket me-2"></i>Comenzar Gratis
+                    COMENZAR
                 </a>
                 <a href="{{ url_for('login') }}" class="btn btn-outline-primary btn-lg">
-                    <i class="fas fa-sign-in-alt me-2"></i>Iniciar Sesión
+                    DOCUMENTACIÓN
                 </a>
                 {% else %}
                 <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg">
-                    <i class="fas fa-tachometer-alt me-2"></i>Ir al Dashboard
+                    IR AL DASHBOARD
                 </a>
                 {% endif %}
             </div>
@@ -61,20 +60,20 @@
     </div>
     
     <!-- Features Section -->
-    <div class="row mb-5">
+    <div class="row mb-5" style="margin-top: 8rem;">
         <div class="col-12 text-center mb-5">
-            <h2 class="display-5 fw-bold">¿Por qué elegir ARMind CVs?</h2>
-            <p class="lead text-muted">Herramientas profesionales para impulsar tu carrera</p>
+            <h2 class="fw-bold mb-3" style="color: #1a365d; font-size: 2.5rem;">¿Por qué elegir ARMind CVs?</h2>
+            <p class="text-muted" style="font-size: 1.1rem; color: #718096;">Herramientas profesionales para impulsar tu carrera</p>
         </div>
         
-        <div class="col-lg-3 col-md-6 mb-4">
-            <div class="card h-100 text-center">
-                <div class="card-body">
-                    <div class="feature-icon">
-                        <i class="fas fa-robot"></i>
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card h-100 border-0" style="padding: 2rem;">
+                <div class="card-body text-center">
+                    <div class="mb-4">
+                        <i class="fas fa-robot" style="font-size: 3rem; color: #00d4ff;"></i>
                     </div>
-                    <h5 class="card-title">Análisis con IA</h5>
-                    <p class="card-text">
+                    <h5 class="card-title fw-bold mb-3" style="color: #1a365d;">Análisis con IA</h5>
+                    <p class="card-text" style="color: #718096; line-height: 1.6;">
                         Nuestro sistema de IA analiza tu CV como lo haría un ATS real, 
                         proporcionando puntuaciones y recomendaciones precisas.
                     </p>
@@ -82,14 +81,14 @@
             </div>
         </div>
         
-        <div class="col-lg-3 col-md-6 mb-4">
-            <div class="card h-100 text-center">
-                <div class="card-body">
-                    <div class="feature-icon">
-                        <i class="fas fa-file-alt"></i>
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card h-100 border-0" style="padding: 2rem;">
+                <div class="card-body text-center">
+                    <div class="mb-4">
+                        <i class="fas fa-file-alt" style="font-size: 3rem; color: #00d4ff;"></i>
                     </div>
-                    <h5 class="card-title">Constructor de CV</h5>
-                    <p class="card-text">
+                    <h5 class="card-title fw-bold mb-3" style="color: #1a365d;">Constructor de CV</h5>
+                    <p class="card-text" style="color: #718096; line-height: 1.6;">
                         Crea currículums profesionales en formato Harvard con nuestro 
                         constructor guiado paso a paso.
                     </p>
@@ -97,31 +96,16 @@
             </div>
         </div>
         
-        <div class="col-lg-3 col-md-6 mb-4">
-            <div class="card h-100 text-center">
-                <div class="card-body">
-                    <div class="feature-icon">
-                        <i class="fas fa-search"></i>
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card h-100 border-0" style="padding: 2rem;">
+                <div class="card-body text-center">
+                    <div class="mb-4">
+                        <i class="fas fa-search" style="font-size: 3rem; color: #00d4ff;"></i>
                     </div>
-                    <h5 class="card-title">Búsqueda de Empleos</h5>
-                    <p class="card-text">
-                        Encuentra oportunidades laborales de múltiples portales de empleo 
-                        con filtros avanzados y alertas personalizadas.
-                    </p>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-lg-3 col-md-6 mb-4">
-            <div class="card h-100 text-center">
-                <div class="card-body">
-                    <div class="feature-icon">
-                        <i class="fas fa-chart-line"></i>
-                    </div>
-                    <h5 class="card-title">Análisis Detallado</h5>
-                    <p class="card-text">
-                        Obtén reportes visuales con gráficos, fortalezas, debilidades 
-                        y recomendaciones específicas para mejorar.
+                    <h5 class="card-title fw-bold mb-3" style="color: #1a365d;">Búsqueda de Empleos</h5>
+                    <p class="card-text" style="color: #718096; line-height: 1.6;">
+                        Encuentra oportunidades laborales relevantes en múltiples 
+                        plataformas con nuestro motor de búsqueda inteligente.
                     </p>
                 </div>
             </div>
@@ -172,55 +156,63 @@
         </div>
     </div>
     
-    <!-- Statistics Section -->
-    <div class="row mb-5">
-        <div class="col-12">
-            <div class="card bg-primary text-white">
-                <div class="card-body py-5">
-                    <div class="row text-center">
-                        <div class="col-md-3 mb-3">
-                            <h2 class="display-4 fw-bold">10K+</h2>
-                            <p class="mb-0">CVs Analizados</p>
-                        </div>
-                        <div class="col-md-3 mb-3">
-                            <h2 class="display-4 fw-bold">95%</h2>
-                            <p class="mb-0">Precisión ATS</p>
-                        </div>
-                        <div class="col-md-3 mb-3">
-                            <h2 class="display-4 fw-bold">5K+</h2>
-                            <p class="mb-0">Usuarios Activos</p>
-                        </div>
-                        <div class="col-md-3 mb-3">
-                            <h2 class="display-4 fw-bold">24/7</h2>
-                            <p class="mb-0">Disponibilidad</p>
-                        </div>
-                    </div>
-                </div>
+    <!-- Stats Section -->
+    <div class="row text-center mb-5" style="margin-top: 8rem; padding: 4rem 0; background: rgba(230, 243, 255, 0.3); border-radius: 16px;">
+        <div class="col-12 mb-5">
+            <h2 class="fw-bold" style="color: #1a365d; font-size: 2.5rem;">Resultados que Hablan por Sí Solos</h2>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="text-center">
+                <h3 class="fw-bold mb-2" style="color: #00d4ff; font-size: 3rem;">95%</h3>
+                <p style="color: #718096; font-size: 1rem;">Precisión en análisis ATS</p>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="text-center">
+                <h3 class="fw-bold mb-2" style="color: #00d4ff; font-size: 3rem;">10K+</h3>
+                <p style="color: #718096; font-size: 1rem;">CVs analizados</p>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="text-center">
+                <h3 class="fw-bold mb-2" style="color: #00d4ff; font-size: 3rem;">85%</h3>
+                <p style="color: #718096; font-size: 1rem;">Mejora en entrevistas</p>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="text-center">
+                <h3 class="fw-bold mb-2" style="color: #00d4ff; font-size: 3rem;">24/7</h3>
+                <p style="color: #718096; font-size: 1rem;">Disponibilidad</p>
             </div>
         </div>
     </div>
     
     <!-- CTA Section -->
-    {% if not session.user_id %}
-    <div class="row">
+    <div class="row" style="margin-top: 8rem;">
         <div class="col-12 text-center">
-            <div class="card bg-light">
-                <div class="card-body py-5">
-                    <h2 class="display-5 fw-bold mb-4">¿Listo para optimizar tu currículum?</h2>
-                    <p class="lead mb-4">
-                        Únete a miles de profesionales que ya han mejorado sus oportunidades laborales
-                    </p>
-                    <a href="{{ url_for('register') }}" class="btn btn-primary btn-lg me-3">
-                        <i class="fas fa-rocket me-2"></i>Comenzar Ahora - Gratis
+            <div style="padding: 4rem 2rem; background: rgba(26, 54, 93, 0.05); border-radius: 16px;">
+                <h2 class="fw-bold mb-4" style="color: #1a365d; font-size: 2.5rem;">¿Listo para Optimizar tu Carrera?</h2>
+                <p class="mb-5" style="color: #718096; font-size: 1.25rem; line-height: 1.6;">
+                    Únete a miles de profesionales que ya están usando ARMind CVs 
+                    para mejorar sus oportunidades laborales.
+                </p>
+                {% if not session.user_id %}
+                <div class="d-flex gap-3 justify-content-center">
+                    <a href="{{ url_for('register') }}" class="btn btn-primary btn-lg">
+                        CREAR CUENTA GRATIS
                     </a>
-                    <a href="#features" class="btn btn-outline-primary btn-lg">
-                        <i class="fas fa-info-circle me-2"></i>Saber Más
+                    <a href="{{ url_for('analyze_cv') }}" class="btn btn-outline-primary btn-lg">
+                        PROBAR DEMO
                     </a>
                 </div>
+                {% else %}
+                <a href="{{ url_for('analyze_cv') }}" class="btn btn-primary btn-lg">
+                    ANALIZAR NUEVO CV
+                </a>
+                {% endif %}
             </div>
         </div>
     </div>
-    {% endif %}
 </div>
 {% endblock %}
 

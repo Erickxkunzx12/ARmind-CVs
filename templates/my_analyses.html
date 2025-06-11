@@ -190,11 +190,49 @@
 .analysis-card {
     transition: transform 0.2s ease, box-shadow 0.2s ease;
     cursor: pointer;
+    position: relative;
+    z-index: 1;
 }
 
 .analysis-card:hover {
     transform: translateY(-5px);
     box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    z-index: 999;
+}
+
+/* Estilos específicos para dropdowns en tarjetas de análisis */
+.analysis-card .dropdown {
+    position: relative;
+    z-index: 1000;
+}
+
+.analysis-card .dropdown.show {
+    z-index: 1001;
+}
+
+.analysis-card .dropdown-menu {
+    z-index: 999999 !important;
+    position: absolute !important;
+    background-color: white !important;
+    border: 1px solid #dee2e6 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25) !important;
+    min-width: 160px !important;
+    transform: none !important;
+}
+
+.analysis-card .dropdown-menu.show {
+    display: block !important;
+    z-index: 999999 !important;
+}
+
+.analysis-card .dropdown-toggle {
+    z-index: 1000;
+}
+
+.analysis-card .dropdown:hover .dropdown-menu,
+.analysis-card .dropdown.show .dropdown-menu {
+    z-index: 999999 !important;
 }
 
 .score-circle {
