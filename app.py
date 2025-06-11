@@ -7,7 +7,7 @@ import os
 import openai
 from database_config import DB_CONFIG
 import PyPDF2
-# from docx import Document  # Temporarily disabled
+from docx import Document
 from datetime import datetime
 import json
 import uuid
@@ -711,7 +711,7 @@ def dashboard():
 
 @app.route('/analyze_cv', methods=['GET', 'POST'])
 def analyze_cv():
-    """Analizador de CV con IA"""
+    """Analizador de CV con IA - Paso 1: Subir archivo"""
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
@@ -743,17 +743,12 @@ def analyze_cv():
             print(f"Texto extraído (primeros 200 caracteres): {text_content[:200] if text_content else 'None'}")
             
             if text_content:
-                # Analizar con OpenAI
-                print("Iniciando análisis con IA...")
-                add_console_log('INFO', f'Iniciando análisis IA para: {filename}', 'CV')
-                analysis = analyze_cv_with_ai(text_content)
-                print(f"Análisis completado: {analysis}")
+                # Guardar el contenido del CV en la sesión para el siguiente paso
+                session['cv_content'] = text_content
+                session['cv_filename'] = filename
                 
-                # Guardar en la base de datos
-                save_cv_analysis(session['user_id'], filename, text_content, analysis)
-                add_console_log('INFO', f'Análisis CV completado exitosamente: {filename} por {username}', 'CV')
-                
-                return render_template('cv_analysis_result.html', analysis=analysis)
+                # Redirigir a la selección de IA
+                return redirect(url_for('select_ai_provider'))
             else:
                 add_console_log('ERROR', f'Error extrayendo texto de: {filename} por {username}', 'CV')
                 print("Error: No se pudo extraer texto del archivo")
@@ -764,6 +759,93 @@ def analyze_cv():
             flash('Tipo de archivo no permitido. Solo se permiten archivos PDF, DOC y DOCX.', 'error')
     
     return render_template('analyze_cv.html')
+
+@app.route('/select_ai_provider')
+def select_ai_provider():
+    """Paso 2: Seleccionar proveedor de IA"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    if 'cv_content' not in session:
+        flash('Primero debes subir un CV', 'error')
+        return redirect(url_for('analyze_cv'))
+    
+    return render_template('select_ai_provider.html')
+
+@app.route('/select_analysis_type/<ai_provider>')
+def select_analysis_type(ai_provider):
+    """Paso 3: Seleccionar tipo de análisis"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    if 'cv_content' not in session:
+        flash('Primero debes subir un CV', 'error')
+        return redirect(url_for('analyze_cv'))
+    
+    # Validar proveedor de IA
+    valid_providers = ['openai', 'anthropic', 'gemini']
+    if ai_provider not in valid_providers:
+        flash('Proveedor de IA no válido', 'error')
+        return redirect(url_for('select_ai_provider'))
+    
+    session['selected_ai'] = ai_provider
+    
+    return render_template('select_analysis_type.html', ai_provider=ai_provider)
+
+@app.route('/perform_analysis/<analysis_type>')
+def perform_analysis(analysis_type):
+    """Paso 4: Realizar análisis específico"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    if 'cv_content' not in session or 'selected_ai' not in session:
+        flash('Sesión expirada. Reinicia el proceso', 'error')
+        return redirect(url_for('analyze_cv'))
+    
+    username = session.get('username', 'unknown')
+    cv_content = session['cv_content']
+    filename = session['cv_filename']
+    ai_provider = session['selected_ai']
+    
+    # Validar tipo de análisis
+    valid_analysis_types = [
+        'general_health_check',
+        'content_quality_analysis', 
+        'job_tailoring_optimization',
+        'ats_compatibility_verification',
+        'tone_style_evaluation',
+        'industry_role_feedback',
+        'benchmarking_comparison',
+        'ai_improvement_suggestions',
+        'visual_design_assessment',
+        'comprehensive_score'
+    ]
+    
+    if analysis_type not in valid_analysis_types:
+        flash('Tipo de análisis no válido', 'error')
+        return redirect(url_for('select_analysis_type', ai_provider=ai_provider))
+    
+    try:
+        add_console_log('INFO', f'Iniciando análisis {analysis_type} con {ai_provider} para: {filename}', 'CV')
+        
+        # Realizar análisis según el proveedor y tipo seleccionado
+        analysis = perform_cv_analysis(cv_content, ai_provider, analysis_type)
+        
+        # Guardar en la base de datos
+        save_cv_analysis(session['user_id'], filename, cv_content, analysis)
+        add_console_log('INFO', f'Análisis CV completado exitosamente: {filename} por {username}', 'CV')
+        
+        # Limpiar sesión
+        session.pop('cv_content', None)
+        session.pop('cv_filename', None)
+        session.pop('selected_ai', None)
+        
+        return render_template('cv_analysis_result.html', analysis=analysis, analysis_type=analysis_type, ai_provider=ai_provider)
+        
+    except Exception as e:
+        add_console_log('ERROR', f'Error en análisis: {str(e)}', 'CV')
+        flash(f'Error durante el análisis: {str(e)}', 'error')
+        return redirect(url_for('select_analysis_type', ai_provider=ai_provider))
 
 def allowed_file(filename):
     """Verificar si el archivo tiene una extensión permitida"""
@@ -783,11 +865,9 @@ def extract_text_from_file(filepath):
                     text += page.extract_text()
         
         elif file_extension in ['doc', 'docx']:
-            # Temporarily disabled - docx processing not available
-            # doc = Document(filepath)
-            # for paragraph in doc.paragraphs:
-            #     text += paragraph.text + '\n'
-            text = "Word document processing temporarily unavailable. Please use PDF format."
+            doc = Document(filepath)
+            for paragraph in doc.paragraphs:
+                text += paragraph.text + '\n'
     
     except Exception as e:
         print(f"Error al extraer texto: {e}")
@@ -795,72 +875,415 @@ def extract_text_from_file(filepath):
     
     return text.strip()
 
-def analyze_cv_with_ai(cv_text):
+def perform_cv_analysis(cv_text, ai_provider, analysis_type):
+    """Realizar análisis de CV según el proveedor de IA y tipo de análisis seleccionado"""
+    if ai_provider == 'openai':
+        return analyze_cv_with_openai(cv_text, analysis_type)
+    elif ai_provider == 'anthropic':
+        return analyze_cv_with_anthropic(cv_text, analysis_type)
+    elif ai_provider == 'gemini':
+        return analyze_cv_with_gemini(cv_text, analysis_type)
+    else:
+        raise ValueError(f"Proveedor de IA no soportado: {ai_provider}")
+
+def get_analysis_prompt(analysis_type, cv_text):
+    """Obtener el prompt específico según el tipo de análisis"""
+    
+    analysis_prompts = {
+        'general_health_check': f"""
+        Realiza una revisión general del estado del currículum. Evalúa la ortografía, gramática, formato, integridad de la sección y longitud de currículum.
+        
+        Proporciona:
+        1. Puntaje general (0-100)
+        2. Errores de ortografía y gramática encontrados
+        3. Problemas de formato
+        4. Recomendaciones de mejora
+        
+        IMPORTANTE: Responde ÚNICAMENTE en formato JSON válido con esta estructura exacta:
+        {{
+            "score": número_entre_0_y_100,
+            "strengths": ["fortaleza1", "fortaleza2"],
+            "weaknesses": ["debilidad1", "debilidad2"],
+            "recommendations": ["recomendación1", "recomendación2"],
+            "keywords": ["palabra1", "palabra2"],
+            "analysis_type": "general_health_check",
+            "detailed_feedback": "análisis detallado aquí"
+        }}
+        
+        CV: {cv_text}
+        """,
+        
+        'content_quality_analysis': f"""
+        Evalúa verbos de acción, logros cuantificables, claridad y lenguaje profesional del currículum.
+        
+        Analiza:
+        1. Uso de verbos de acción efectivos
+        2. Logros cuantificados con números/porcentajes
+        3. Claridad en la comunicación
+        4. Profesionalismo del lenguaje
+        
+        IMPORTANTE: Responde ÚNICAMENTE en formato JSON válido con esta estructura exacta:
+        {{
+            "score": número_entre_0_y_100,
+            "strengths": ["fortaleza1", "fortaleza2"],
+            "weaknesses": ["debilidad1", "debilidad2"],
+            "recommendations": ["recomendación1", "recomendación2"],
+            "keywords": ["palabra1", "palabra2"],
+            "analysis_type": "content_quality_analysis",
+            "detailed_feedback": "análisis detallado del contenido aquí"
+        }}
+        
+        CV: {cv_text}
+        """,
+        
+        'job_tailoring_optimization': f"""
+        Analiza si el currículum coincide con descripciones de trabajo específicas para una mejor inserción.
+        
+        Evalúa:
+        1. Alineación con roles objetivo
+        2. Palabras clave relevantes para la industria
+        3. Habilidades transferibles
+        4. Sugerencias de personalización
+        
+        IMPORTANTE: Responde ÚNICAMENTE en formato JSON válido con esta estructura exacta:
+        {{
+            "score": número_entre_0_y_100,
+            "strengths": ["fortaleza1", "fortaleza2"],
+            "weaknesses": ["debilidad1", "debilidad2"],
+            "recommendations": ["recomendación1", "recomendación2"],
+            "keywords": ["palabra1", "palabra2"],
+            "analysis_type": "job_tailoring_optimization",
+            "detailed_feedback": "análisis detallado de optimización para trabajos aquí"
+        }}
+        
+        CV: {cv_text}
+        """,
+        
+        'ats_compatibility_verification': f"""
+        Verifica la compatibilidad con sistemas ATS (Applicant Tracking Systems).
+        
+        Asegúrate de que el currículum pase a través de los sistemas de seguimiento de solicitantes con éxito.
+        
+        Evalúa:
+        1. Formato compatible con ATS
+        2. Uso de palabras clave estándar
+        3. Estructura de secciones
+        4. Elementos que podrían causar problemas
+        
+        IMPORTANTE: Responde ÚNICAMENTE en formato JSON válido con esta estructura exacta:
+        {{
+            "score": número_entre_0_y_100,
+            "strengths": ["fortaleza1", "fortaleza2"],
+            "weaknesses": ["debilidad1", "debilidad2"],
+            "recommendations": ["recomendación1", "recomendación2"],
+            "keywords": ["palabra1", "palabra2"],
+            "analysis_type": "ats_compatibility_verification",
+            "detailed_feedback": "análisis detallado de compatibilidad ATS aquí"
+        }}
+        
+        CV: {cv_text}
+        """,
+        
+        'tone_style_evaluation': f"""
+        Evalúa el tono profesional, la idoneidad del idioma y la legibilidad del currículum.
+        
+        Analiza:
+        1. Consistencia del tono profesional
+        2. Apropiación del lenguaje para la industria
+        3. Legibilidad y fluidez
+        4. Impacto y persuasión
+        
+        IMPORTANTE: Responde ÚNICAMENTE en formato JSON válido con esta estructura exacta:
+        {{
+            "score": número_entre_0_y_100,
+            "strengths": ["fortaleza1", "fortaleza2"],
+            "weaknesses": ["debilidad1", "debilidad2"],
+            "recommendations": ["recomendación1", "recomendación2"],
+            "keywords": ["palabra1", "palabra2"],
+            "analysis_type": "tone_style_evaluation",
+            "detailed_feedback": "análisis detallado de tono y estilo aquí"
+        }}
+        
+        CV: {cv_text}
+        """,
+        
+        'industry_role_feedback': f"""
+        Proporciona asesoramiento personalizado basado en la industria y rol específico.
+        
+        Obtén asesoramiento personalizado basado en su industria y su rol.
+        
+        Analiza:
+        1. Relevancia para la industria específica
+        2. Competencias clave del rol
+        3. Tendencias del mercado laboral
+        4. Recomendaciones específicas del sector
+        
+        IMPORTANTE: Responde ÚNICAMENTE en formato JSON válido con esta estructura exacta:
+        {{
+            "score": número_entre_0_y_100,
+            "strengths": ["fortaleza1", "fortaleza2"],
+            "weaknesses": ["debilidad1", "debilidad2"],
+            "recommendations": ["recomendación1", "recomendación2"],
+            "keywords": ["palabra1", "palabra2"],
+            "analysis_type": "industry_role_feedback",
+            "detailed_feedback": "análisis detallado específico de la industria aquí"
+        }}
+        
+        CV: {cv_text}
+        """,
+        
+        'benchmarking_comparison': f"""
+        Compara el currículum con ejemplos exitosos en roles similares.
+        
+        Realiza:
+        1. Comparación con estándares de la industria
+        2. Identificación de brechas
+        3. Mejores prácticas aplicables
+        4. Posicionamiento competitivo
+        
+        IMPORTANTE: Responde ÚNICAMENTE en formato JSON válido con esta estructura exacta:
+        {{
+            "score": número_entre_0_y_100,
+            "strengths": ["fortaleza1", "fortaleza2"],
+            "weaknesses": ["debilidad1", "debilidad2"],
+            "recommendations": ["recomendación1", "recomendación2"],
+            "keywords": ["palabra1", "palabra2"],
+            "analysis_type": "benchmarking_comparison",
+            "detailed_feedback": "análisis detallado de comparación y benchmarking aquí"
+        }}
+        
+        CV: {cv_text}
+        """,
+        
+        'ai_improvement_suggestions': f"""
+        Obtén consejos de mejora basados en IA personalizadas para mejorar su currículum.
+        
+        Proporciona:
+        1. Sugerencias específicas de mejora
+        2. Optimizaciones basadas en IA
+        3. Tendencias actuales del mercado
+        4. Estrategias de diferenciación
+        
+        IMPORTANTE: Responde ÚNICAMENTE en formato JSON válido con esta estructura exacta:
+        {{
+            "score": número_entre_0_y_100,
+            "strengths": ["fortaleza1", "fortaleza2"],
+            "weaknesses": ["debilidad1", "debilidad2"],
+            "recommendations": ["recomendación1", "recomendación2"],
+            "keywords": ["palabra1", "palabra2"],
+            "analysis_type": "ai_improvement_suggestions",
+            "detailed_feedback": "sugerencias detalladas de mejora basadas en IA aquí"
+        }}
+        
+        CV: {cv_text}
+        """,
+        
+        'visual_design_assessment': f"""
+        Evalúa el atractivo visual, la legibilidad y la presentación profesional del currículum.
+        
+        Analiza:
+        1. Diseño visual y layout
+        2. Legibilidad y organización
+        3. Uso efectivo del espacio
+        4. Impresión profesional general
+        
+        IMPORTANTE: Responde ÚNICAMENTE en formato JSON válido con esta estructura exacta:
+        {{
+            "score": número_entre_0_y_100,
+            "strengths": ["fortaleza1", "fortaleza2"],
+            "weaknesses": ["debilidad1", "debilidad2"],
+            "recommendations": ["recomendación1", "recomendación2"],
+            "keywords": ["palabra1", "palabra2"],
+            "analysis_type": "visual_design_assessment",
+            "detailed_feedback": "análisis detallado de diseño visual aquí"
+        }}
+        
+        CV: {cv_text}
+        """,
+        
+        'comprehensive_score': f"""
+        Proporciona una puntuación completa del currículum con desglose detallado y retroalimentación procesable.
+        
+        Incluye:
+        1. Puntuación general detallada (0-100)
+        2. Desglose por categorías (formato, contenido, ATS, etc.)
+        3. Fortalezas principales identificadas
+        4. Áreas de mejora prioritarias
+        5. Plan de acción específico y procesable
+        
+        IMPORTANTE: Responde ÚNICAMENTE en formato JSON válido con esta estructura exacta:
+        {{
+            "score": número_entre_0_y_100,
+            "strengths": ["fortaleza1", "fortaleza2", "fortaleza3"],
+            "weaknesses": ["debilidad1", "debilidad2", "debilidad3"],
+            "recommendations": ["recomendación1", "recomendación2", "recomendación3"],
+            "keywords": ["palabra_clave1", "palabra_clave2", "palabra_clave3"],
+            "analysis_type": "comprehensive_score",
+            "detailed_feedback": "Análisis completo: [Puntuación general: X/100] [Formato: Y/100] [Contenido: Z/100] [Compatibilidad ATS: W/100] - Detalles específicos y plan de acción aquí"
+        }}
+        
+        CV: {cv_text}
+        """
+    }
+    
+    return analysis_prompts.get(analysis_type, analysis_prompts['general_health_check'])
+
+def analyze_cv_with_openai(cv_text, analysis_type):
     """Analizar CV usando OpenAI"""
-    prompt = f"""
-    Actúa como un sistema ATS (Applicant Tracking System) profesional y analiza el siguiente currículum vitae.
+    prompt = get_analysis_prompt(analysis_type, cv_text)
     
-    Evalúa la compatibilidad del CV con los sistemas ATS modernos y proporciona:
-    1. Un puntaje general del 0 al 100 que indique la compatibilidad con sistemas ATS
-    2. Análisis de fortalezas (máximo 5 puntos)
-    3. Análisis de debilidades (máximo 5 puntos)
-    4. Recomendaciones específicas de mejora (máximo 5 puntos)
-    5. Sugerencias para palabras clave que podrían mejorar la visibilidad del CV
+    system_prompt = """Eres un experto en recursos humanos, reclutamiento y sistemas ATS (Applicant Tracking System). 
+    Tu objetivo es ayudar a los candidatos a optimizar sus currículums para maximizar sus posibilidades de pasar los filtros ATS y llegar a la entrevista.
     
-    Responde en formato JSON con la siguiente estructura:
-    {{
-        "score": número,
+    Responde SIEMPRE en formato JSON con la siguiente estructura:
+    {
+        "score": número (0-100),
         "strengths": ["fortaleza1", "fortaleza2", ...],
         "weaknesses": ["debilidad1", "debilidad2", ...],
         "recommendations": ["recomendación1", "recomendación2", ...],
-        "keywords": ["palabra_clave1", "palabra_clave2", ...]
-    }}
-    
-    Currículum a analizar:
-    {cv_text}
-    """
+        "keywords": ["palabra_clave1", "palabra_clave2", ...],
+        "analysis_type": "tipo_de_análisis",
+        "detailed_feedback": "retroalimentación detallada específica del tipo de análisis"
+    }"""
     
     try:
-        # Usar la sintaxis de OpenAI v0.28.1
         response = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": "Eres un experto en recursos humanos, reclutamiento y sistemas ATS (Applicant Tracking System). Tu objetivo es ayudar a los candidatos a optimizar sus currículums para maximizar sus posibilidades de pasar los filtros ATS y llegar a la entrevista."},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=1500,
+            max_tokens=2000,
             temperature=0.7
         )
         
         analysis_text = response.choices[0].message.content
         analysis = json.loads(analysis_text)
         
-        # Asegurarse de que todos los campos requeridos estén presentes
-        if "keywords" not in analysis:
-            analysis["keywords"] = []
+        # Asegurar campos requeridos
+        analysis.setdefault("keywords", [])
+        analysis.setdefault("analysis_type", analysis_type)
+        analysis.setdefault("ai_provider", "openai")
             
         return analysis
     
-    except json.JSONDecodeError as e:
-        print(f"Error al decodificar JSON de la respuesta de IA: {e}")
-        print(f"Respuesta recibida: {analysis_text}")
-        return {
-            "score": 0,
-            "strengths": ["Error al procesar el análisis - Respuesta de IA no válida"],
-            "weaknesses": ["No se pudo completar el análisis"],
-            "recommendations": ["Intente nuevamente más tarde"],
-            "keywords": []
-        }
     except Exception as e:
-        print(f"Error al analizar con IA: {e}")
-        print(f"Tipo de error: {type(e).__name__}")
-        return {
-            "score": 0,
-            "strengths": ["Error al procesar el análisis"],
-            "weaknesses": ["No se pudo completar el análisis"],
-            "recommendations": ["Intente nuevamente más tarde"],
-            "keywords": []
-        }
+        print(f"Error al analizar con OpenAI: {e}")
+        return get_error_analysis(analysis_type, "openai", str(e))
+
+def analyze_cv_with_anthropic(cv_text, analysis_type):
+    """Analizar CV usando Anthropic Claude"""
+    try:
+        import anthropic
+        
+        # Configurar cliente de Anthropic
+        client = anthropic.Anthropic(
+            api_key=os.getenv('ANTHROPIC_API_KEY')
+        )
+        
+        prompt = get_analysis_prompt(analysis_type, cv_text)
+        
+        system_prompt = """Eres un experto en recursos humanos, reclutamiento y sistemas ATS. 
+        Responde SIEMPRE en formato JSON válido con la estructura especificada."""
+        
+        message = client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=2000,
+            temperature=0.7,
+            system=system_prompt,
+            messages=[
+                {"role": "user", "content": prompt + "\n\nResponde en formato JSON con: score, strengths, weaknesses, recommendations, keywords, analysis_type, detailed_feedback"}
+            ]
+        )
+        
+        analysis_text = message.content[0].text
+        
+        # Limpiar respuesta si contiene markdown
+        if "```json" in analysis_text:
+            analysis_text = analysis_text.split("```json")[1].split("```")[0]
+        elif "```" in analysis_text:
+            analysis_text = analysis_text.split("```")[1]
+        
+        analysis = json.loads(analysis_text.strip())
+        
+        # Asegurar campos requeridos
+        analysis.setdefault("keywords", [])
+        analysis.setdefault("analysis_type", analysis_type)
+        analysis.setdefault("ai_provider", "anthropic")
+        
+        return analysis
+        
+    except ImportError:
+        return get_error_analysis(analysis_type, "anthropic", "Librería de Anthropic no instalada")
+    except json.JSONDecodeError as e:
+        print(f"Error de JSON en Anthropic: {e}")
+        print(f"Respuesta recibida: {analysis_text if 'analysis_text' in locals() else 'No disponible'}")
+        return get_error_analysis(analysis_type, "anthropic", f"Error de formato JSON: {str(e)}")
+    except Exception as e:
+        print(f"Error al analizar con Anthropic: {e}")
+        return get_error_analysis(analysis_type, "anthropic", str(e))
+
+def analyze_cv_with_gemini(cv_text, analysis_type):
+    """Analizar CV usando Google Gemini"""
+    try:
+        import google.generativeai as genai
+        
+        # Configurar Gemini
+        genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
+        model = genai.GenerativeModel('gemini-1.5-pro')
+        
+        prompt = get_analysis_prompt(analysis_type, cv_text)
+        
+        system_instruction = """Eres un experto en recursos humanos y sistemas ATS. 
+        Responde SIEMPRE en formato JSON válido con la estructura especificada."""
+        
+        full_prompt = f"{system_instruction}\n\n{prompt}\n\nResponde en formato JSON con: score, strengths, weaknesses, recommendations, keywords, analysis_type, detailed_feedback"
+        
+        response = model.generate_content(full_prompt)
+        analysis_text = response.text
+        
+        # Limpiar respuesta si contiene markdown
+        if "```json" in analysis_text:
+            analysis_text = analysis_text.split("```json")[1].split("```")[0]
+        elif "```" in analysis_text:
+            analysis_text = analysis_text.split("```")[1]
+        
+        analysis = json.loads(analysis_text.strip())
+        
+        # Asegurar campos requeridos
+        analysis.setdefault("keywords", [])
+        analysis.setdefault("analysis_type", analysis_type)
+        analysis.setdefault("ai_provider", "gemini")
+        
+        return analysis
+        
+    except ImportError:
+        return get_error_analysis(analysis_type, "gemini", "Librería de Google Generative AI no instalada")
+    except json.JSONDecodeError as e:
+        print(f"Error de JSON en Gemini: {e}")
+        print(f"Respuesta recibida: {analysis_text if 'analysis_text' in locals() else 'No disponible'}")
+        return get_error_analysis(analysis_type, "gemini", f"Error de formato JSON: {str(e)}")
+    except Exception as e:
+        print(f"Error al analizar con Gemini: {e}")
+        return get_error_analysis(analysis_type, "gemini", str(e))
+
+def get_error_analysis(analysis_type, ai_provider, error_message):
+    """Retornar análisis de error estándar"""
+    return {
+        "score": 0,
+        "strengths": [f"Error al procesar con {ai_provider}"],
+        "weaknesses": ["No se pudo completar el análisis"],
+        "recommendations": ["Intente nuevamente más tarde o use otro proveedor de IA"],
+        "keywords": [],
+        "analysis_type": analysis_type,
+        "ai_provider": ai_provider,
+        "detailed_feedback": f"Error: {error_message}",
+        "error": True
+    }
+
+def analyze_cv_with_ai(cv_text):
+    """Función legacy para compatibilidad - usar OpenAI por defecto"""
+    return analyze_cv_with_openai(cv_text, 'general_health_check')
 
 def save_cv_analysis(user_id, filename, content, analysis):
     """Guardar análisis de CV en la base de datos"""

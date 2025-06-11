@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}Seleccionar IA - ARMind CVs{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="fw-bold mb-2">
+                        <i class="fas fa-brain me-2 text-primary"></i>Seleccionar Inteligencia Artificial
+                    </h2>
+                    <p class="text-muted mb-0">
+                        Elige el proveedor de IA que analizará tu currículum
+                    </p>
+                </div>
+                <a href="{{ url_for('analyze_cv') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Volver
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="row g-4">
+                <!-- OpenAI -->
+                <div class="col-md-4">
+                    <div class="card h-100 ai-provider-card" onclick="selectAI('openai')">
+                        <div class="card-body text-center p-4">
+                            <div class="ai-logo mb-3">
+                                <div class="ai-icon bg-dark text-white rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142-.0852 4.783-2.7582a.7712.7712 0 0 0 .7806 0l5.8428 3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/>
+                                    </svg>
+                                </div>
+                            </div>
+                            <h4 class="fw-bold mb-2">OpenAI</h4>
+                            <p class="text-muted mb-3">GPT-4 - Análisis avanzado y detallado</p>
+                            <div class="features mb-3">
+                                <small class="d-block mb-1"><i class="fas fa-check text-success me-2"></i>Análisis profundo</small>
+                                <small class="d-block mb-1"><i class="fas fa-check text-success me-2"></i>Respuestas precisas</small>
+                                <small class="d-block"><i class="fas fa-check text-success me-2"></i>Amplio conocimiento</small>
+                            </div>
+                            <div class="status-badge">
+                                <span class="badge bg-success">Disponible</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Anthropic Claude -->
+                <div class="col-md-4">
+                    <div class="card h-100 ai-provider-card" onclick="selectAI('anthropic')">
+                        <div class="card-body text-center p-4">
+                            <div class="ai-logo mb-3">
+                                <div class="ai-icon bg-warning text-dark rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 2.5L3.5 7v10l8.5 4.5L20.5 17V7L12 2.5zm0 2.2l6.5 3.4v7.8L12 19.3l-6.5-3.4V7.9L12 4.7z"/>
+                                        <path d="M8.5 10.5h7l-1.5 3h-4l-1.5-3z"/>
+                                        <circle cx="12" cy="8" r="1.5"/>
+                                    </svg>
+                                </div>
+                            </div>
+                            <h4 class="fw-bold mb-2">Claude 3.5 Sonnet</h4>
+                            <p class="text-muted mb-3">Claude 3.5 Sonnet - Análisis contextual superior</p>
+                            <div class="features mb-3">
+                                <small class="d-block mb-1"><i class="fas fa-check text-success me-2"></i>Comprensión contextual</small>
+                                <small class="d-block mb-1"><i class="fas fa-check text-success me-2"></i>Análisis ético</small>
+                                <small class="d-block"><i class="fas fa-check text-success me-2"></i>Respuestas balanceadas</small>
+                            </div>
+                            <div class="status-badge">
+                                <span class="badge bg-primary">Nuevo</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Google Gemini -->
+                <div class="col-md-4">
+                    <div class="card h-100 ai-provider-card" onclick="selectAI('gemini')">
+                        <div class="card-body text-center p-4">
+                            <div class="ai-logo mb-3">
+                                <div class="ai-icon bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                                    </svg>
+                                </div>
+                            </div>
+                            <h4 class="fw-bold mb-2">Gemini</h4>
+                            <p class="text-muted mb-3">Gemini 1.5 Pro - Análisis multimodal avanzado</p>
+                            <div class="features mb-3">
+                                <small class="d-block mb-1"><i class="fas fa-check text-success me-2"></i>Análisis multimodal</small>
+                                <small class="d-block mb-1"><i class="fas fa-check text-success me-2"></i>Procesamiento rápido</small>
+                                <small class="d-block"><i class="fas fa-check text-success me-2"></i>Integración Google</small>
+                            </div>
+                            <div class="status-badge">
+                                <span class="badge bg-primary">Nuevo</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Información adicional -->
+            <div class="row mt-5">
+                <div class="col-12">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h5 class="mb-3"><i class="fas fa-info-circle me-2 text-info"></i>¿Cuál elegir?</h5>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <h6 class="fw-bold">OpenAI (GPT-4)</h6>
+                                    <p class="small text-muted mb-0">Ideal para análisis detallados y recomendaciones específicas. Excelente para identificar áreas de mejora.</p>
+                                </div>
+                                <div class="col-md-4">
+                                    <h6 class="fw-bold">Anthropic (Claude)</h6>
+                                    <p class="small text-muted mb-0">Perfecto para análisis equilibrados y éticos. Proporciona feedback constructivo y contextual.</p>
+                                </div>
+                                <div class="col-md-4">
+                                    <h6 class="fw-bold">Google (Gemini)</h6>
+                                    <p class="small text-muted mb-0">Excelente para análisis rápidos y comprensivos. Integra múltiples perspectivas de análisis.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.ai-provider-card {
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.ai-provider-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    border-color: var(--bs-primary);
+}
+
+.ai-icon {
+    transition: all 0.3s ease;
+}
+
+.ai-provider-card:hover .ai-icon {
+    transform: scale(1.1);
+}
+
+.features small {
+    font-size: 0.85rem;
+}
+
+.status-badge {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+}
+
+.card {
+    position: relative;
+}
+</style>
+
+<script>
+function selectAI(provider) {
+    // Agregar efecto visual de selección
+    document.querySelectorAll('.ai-provider-card').forEach(card => {
+        card.style.borderColor = 'transparent';
+    });
+    
+    event.currentTarget.style.borderColor = 'var(--bs-primary)';
+    
+    // Redirigir después de un breve delay para mostrar la selección
+    setTimeout(() => {
+        window.location.href = `/select_analysis_type/${provider}`;
+    }, 300);
+}
+</script>
+{% endblock %}
