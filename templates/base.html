@@ -362,64 +362,27 @@
              transform: none !important;
          }
          
+         /* Estilos simples para dropdown */
          .dropdown-menu {
-             z-index: 999999 !important;
-             position: absolute !important;
-             display: none;
-             background: var(--white) !important;
-             border: 1px solid var(--gray-200) !important;
-             border-radius: 8px !important;
-             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+             background: white;
+             border: 1px solid #dee2e6;
+             border-radius: 0.375rem;
+             box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
          }
          
-         .dropdown-menu.show {
-             z-index: 999999 !important;
-             position: absolute !important;
-             display: block !important;
-             background: var(--white) !important;
-             top: 100% !important;
-         }
-         
-         .nav-item.dropdown {
-             z-index: 999999 !important;
-             position: relative !important;
-         }
-         
-         .dropdown {
-             z-index: 999999 !important;
-             position: relative !important;
-         }
-         
-         .dropdown-toggle {
-             z-index: 999999 !important;
-         }
-         
-         .dropdown-toggle::after {
-             z-index: 1000000 !important;
-         }
-         
-         .btn-group .dropdown-menu {
-             z-index: 999999 !important;
-             position: absolute !important;
-             background: var(--white) !important;
-         }
-         
-         .card .dropdown-menu {
-             z-index: 999999 !important;
-             position: absolute !important;
-             background: var(--white) !important;
-         }
-         
+         /* Asegurar que el dropdown del navbar esté por encima de todo */
          .navbar .dropdown-menu {
-             z-index: 999999 !important;
+             z-index: 9999 !important;
              position: absolute !important;
-             background: var(--white) !important;
          }
          
-         .navbar-nav .dropdown-menu {
-             z-index: 999999 !important;
-             position: absolute !important;
-             background: var(--white) !important;
+         .navbar .nav-item.dropdown {
+             position: relative;
+         }
+         
+         .navbar .dropdown-menu.show {
+             z-index: 9999 !important;
+             display: block !important;
          }
          
          /* Estilos específicos para el botón del panel de administrador */
@@ -440,54 +403,16 @@
              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
          }
          
-         /* Asegurar que todos los dropdowns estén por encima */
-         .dropdown-menu,
-         .modern-dropdown,
-         .navbar .dropdown-menu,
-         .nav-item .dropdown-menu,
-         .card .dropdown-menu,
-         .analysis-card .dropdown-menu,
-         .btn-group .dropdown-menu {
-             z-index: 999999 !important;
-             position: absolute !important;
-             background-color: white !important;
-             border: 1px solid #dee2e6 !important;
-             border-radius: 8px !important;
-             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
-             min-width: 160px !important;
-             transform: none !important;
+         /* Estilos básicos para elementos del dropdown */
+         .dropdown-item {
+             color: #212529;
+             text-decoration: none;
          }
          
-         /* Estilos específicos para dropdowns en tarjetas */
-         .card .dropdown,
-         .analysis-card .dropdown {
-             z-index: 1000 !important;
-             position: relative !important;
-         }
-         
-         .card .dropdown.show,
-         .analysis-card .dropdown.show {
-             z-index: 1001 !important;
-         }
-         
-         .card .dropdown-menu.show,
-         .analysis-card .dropdown-menu.show {
-             z-index: 999999 !important;
-             position: absolute !important;
-             display: block !important;
-             background-color: white !important;
-             border: 1px solid #dee2e6 !important;
-             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25) !important;
-         }
-         
-         /* Prevenir que las tarjetas interfieran con los dropdowns */
-         .analysis-card:hover {
-             z-index: 999 !important;
-         }
-         
-         .analysis-card .dropdown:hover,
-         .analysis-card .dropdown.show {
-             z-index: 1001 !important;
+         .dropdown-item:hover,
+         .dropdown-item:focus {
+             background-color: #f8f9fa;
+             color: #1e2125;
          }
          
          .modern-dropdown .dropdown-item {
@@ -638,16 +563,13 @@
                 <ul class="navbar-nav">
                     {% if session.user_id %}
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
-                            <div class="user-avatar me-2">
-                                <i class="fas fa-user"></i>
-                            </div>
-                            {{ session.username }}
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-user me-2"></i>{{ session.username }}
                         </a>
-                        <ul class="dropdown-menu dropdown-menu-end modern-dropdown">
-                            <li><a class="dropdown-item" href="{{ url_for('profile') }}"><i class="fas fa-user me-2"></i>Perfil</a></li>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="{{ url_for('profile') }}">Perfil</a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt me-2"></i>Cerrar Sesión</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('logout') }}">Cerrar Sesión</a></li>
                         </ul>
                     </li>
                     {% else %}
@@ -747,6 +669,8 @@
                 bsAlert.close();
             });
         }, 5000);
+        
+        // Bootstrap maneja automáticamente los dropdowns
     </script>
     
     {% block extra_js %}{% endblock %}
