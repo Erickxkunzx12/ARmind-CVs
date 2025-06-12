@@ -372,17 +372,24 @@
          
          /* Asegurar que el dropdown del navbar esté por encima de todo */
          .navbar .dropdown-menu {
-             z-index: 9999 !important;
+             z-index: 9999999 !important;
              position: absolute !important;
          }
          
          .navbar .nav-item.dropdown {
              position: relative;
+             z-index: 9999999 !important;
          }
          
          .navbar .dropdown-menu.show {
-             z-index: 9999 !important;
+             z-index: 9999999 !important;
              display: block !important;
+         }
+         
+         /* Asegurar que el navbar completo tenga z-index alto */
+         .navbar {
+             z-index: 9999999 !important;
+             position: relative !important;
          }
          
          /* Estilos específicos para el botón del panel de administrador */
