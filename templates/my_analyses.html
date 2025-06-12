@@ -14,27 +14,101 @@
                     </a>
                 </div>
                 <div class="card-body">
-                    {% if analyses %}
+                    {% if s3_analyses or legacy_analyses %}
+                        <!-- S3-based Analyses -->
+                        {% if s3_analyses %}
+                        <h5 class="mb-3"><i class="fas fa-cloud"></i> Análisis Actuales (S3)</h5>
+                        {% for analysis_type, providers in s3_analyses.items() %}
+                        <div class="mb-4">
+                            <h6 class="text-primary"><i class="fas fa-chart-line"></i> {{ type_names[analysis_type] }}</h6>
+                            <div class="row">
+                                {% for ai_provider, analysis in providers.items() %}
+                                <div class="col-md-6 col-lg-4 mb-3">
+                                    <div class="card h-100 analysis-card border-primary" data-analysis-id="s3_{{ analysis_type }}_{{ ai_provider }}">
+                                        <div class="card-header d-flex justify-content-between align-items-center bg-primary text-white">
+                                            <h6 class="mb-0">
+                                                <i class="fas fa-robot me-1"></i>
+                                                {{ provider_names[ai_provider] }}
+                                            </h6>
+                                            <span class="badge bg-light text-dark">S3</span>
+                                        </div>
+                                        <div class="card-body">
+                                            <!-- Score Circle -->
+                                            <div class="text-center mb-3">
+                                                <div class="score-circle mx-auto" data-score="{{ (analysis.score or 0) | default(0) }}">
+                                                    <div class="score-text">
+                                                        <span class="score-number">{{ (analysis.score or 0) | default(0) }}</span>
+                                                        <span class="score-label">/100</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Quick Stats -->
+                                            <div class="row text-center mb-3">
+                                                <div class="col-4">
+                                                    <div class="stat-item">
+                                                        <div class="stat-number text-success">{{ analysis.strengths|length if analysis.strengths else 0 }}</div>
+                                                        <div class="stat-label">Fortalezas</div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-4">
+                                                    <div class="stat-item">
+                                                        <div class="stat-number text-warning">{{ analysis.weaknesses|length if analysis.weaknesses else 0 }}</div>
+                                                        <div class="stat-label">Debilidades</div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-4">
+                                                    <div class="stat-item">
+                                                        <div class="stat-number text-info">{{ analysis.recommendations|length if analysis.recommendations else 0 }}</div>
+                                                        <div class="stat-label">Recomendaciones</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Preview -->
+                                            <div class="analysis-preview">
+                                                {% if analysis.strengths and analysis.strengths|length > 0 %}
+                                                <div class="mb-2">
+                                                    <small class="text-success fw-bold">Top Fortaleza:</small>
+                                                    <small class="d-block text-muted">{{ analysis.strengths[0][:50] }}{% if analysis.strengths[0]|length > 50 %}...{% endif %}</small>
+                                                </div>
+                                                {% endif %}
+                                                
+                                                {% if analysis.recommendations and analysis.recommendations|length > 0 %}
+                                                <div class="mb-2">
+                                                    <small class="text-info fw-bold">Recomendación:</small>
+                                                    <small class="d-block text-muted">{{ analysis.recommendations[0][:50] }}{% if analysis.recommendations[0]|length > 50 %}...{% endif %}</small>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        <div class="card-footer text-muted">
+                                            <small>
+                                                <i class="fas fa-calendar me-1"></i>
+                                                {{ analysis.created_at.strftime('%d/%m/%Y %H:%M') if analysis.created_at else 'Fecha no disponible' }}
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+                        
+                        <!-- Legacy Database Analyses -->
+                        {% if legacy_analyses %}
+                        <h5 class="mb-3 mt-4"><i class="fas fa-database"></i> Análisis Anteriores (Base de Datos)</h5>
                         <div class="row">
-                            {% for analysis in analyses %}
+                            {% for analysis in legacy_analyses %}
                             <div class="col-md-6 col-lg-4 mb-4">
-                                <div class="card h-100 analysis-card" data-analysis-id="{{ analysis.id }}">
-                                    <div class="card-header d-flex justify-content-between align-items-center">
+                <div class="card h-100 analysis-card border-secondary" data-analysis-id="{{ analysis.id }}">
+                                    <div class="card-header d-flex justify-content-between align-items-center bg-secondary text-white">
                                         <h6 class="mb-0 text-truncate" title="{{ analysis.filename }}">
                                             <i class="fas fa-file-alt me-1"></i>
                                             {{ analysis.filename[:20] }}{% if analysis.filename|length > 20 %}...{% endif %}
                                         </h6>
-                                        <div class="dropdown">
-                                            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown">
-                                                <i class="fas fa-ellipsis-v"></i>
-                                            </button>
-                                            <ul class="dropdown-menu">
-                                                <li><a class="dropdown-item" href="#" onclick="viewAnalysisDetail('{{ analysis.id }}')"><i class="fas fa-eye me-1"></i> Ver Detalles</a></li>
-                                                <li><a class="dropdown-item" href="#" onclick="downloadReport('{{ analysis.id }}')"><i class="fas fa-download me-1"></i> Descargar Reporte</a></li>
-                                                <li><hr class="dropdown-divider"></li>
-                                                <li><a class="dropdown-item text-danger" href="#" onclick="deleteAnalysis('{{ analysis.id }}')"><i class="fas fa-trash me-1"></i> Eliminar</a></li>
-                                            </ul>
-                                        </div>
+                                        <span class="badge bg-light text-dark">DB</span>
                                     </div>
                                     <div class="card-body">
                                         <!-- Score Circle -->
@@ -51,19 +125,19 @@
                                         <div class="row text-center mb-3">
                                             <div class="col-4">
                                                 <div class="stat-item">
-                                                    <div class="stat-number text-success">{{ analysis.strengths|length }}</div>
+                                                    <div class="stat-number text-success">{{ analysis.strengths|length if analysis.strengths else 0 }}</div>
                                                     <div class="stat-label">Fortalezas</div>
                                                 </div>
                                             </div>
                                             <div class="col-4">
                                                 <div class="stat-item">
-                                                    <div class="stat-number text-warning">{{ analysis.weaknesses|length }}</div>
+                                                    <div class="stat-number text-warning">{{ analysis.weaknesses|length if analysis.weaknesses else 0 }}</div>
                                                     <div class="stat-label">Debilidades</div>
                                                 </div>
                                             </div>
                                             <div class="col-4">
                                                 <div class="stat-item">
-                                                    <div class="stat-number text-info">{{ analysis.recommendations|length }}</div>
+                                                    <div class="stat-number text-info">{{ analysis.recommendations|length if analysis.recommendations else 0 }}</div>
                                                     <div class="stat-label">Recomendaciones</div>
                                                 </div>
                                             </div>
@@ -71,14 +145,14 @@
                                         
                                         <!-- Preview -->
                                         <div class="analysis-preview">
-                                            {% if analysis.strengths %}
+                                            {% if analysis.strengths and analysis.strengths|length > 0 %}
                                             <div class="mb-2">
                                                 <small class="text-success fw-bold">Top Fortaleza:</small>
                                                 <small class="d-block text-muted">{{ analysis.strengths[0][:50] }}{% if analysis.strengths[0]|length > 50 %}...{% endif %}</small>
                                             </div>
                                             {% endif %}
                                             
-                                            {% if analysis.recommendations %}
+                                            {% if analysis.recommendations and analysis.recommendations|length > 0 %}
                                             <div class="mb-2">
                                                 <small class="text-info fw-bold">Recomendación:</small>
                                                 <small class="d-block text-muted">{{ analysis.recommendations[0][:50] }}{% if analysis.recommendations[0]|length > 50 %}...{% endif %}</small>
@@ -89,13 +163,14 @@
                                     <div class="card-footer text-muted">
                                         <small>
                                             <i class="fas fa-calendar me-1"></i>
-                                            {{ analysis.created_at.strftime('%d/%m/%Y %H:%M') }}
+                                            {{ analysis.created_at.strftime('%d/%m/%Y %H:%M') if analysis.created_at else 'Fecha no disponible' }}
                                         </small>
                                     </div>
                                 </div>
                             </div>
                             {% endfor %}
                         </div>
+                        {% endif %}
                         
                         <!-- Estadísticas Generales -->
                         <div class="row mt-4">
@@ -111,7 +186,7 @@
                                                     <div class="stat-icon bg-primary">
                                                         <i class="fas fa-file-alt"></i>
                                                     </div>
-                                                    <div class="stat-value">{{ analyses|length }}</div>
+                                                    <div class="stat-value">{{ total_analyses_count }}</div>
                                                     <div class="stat-description">CVs Analizados</div>
                                                 </div>
                                             </div>
@@ -120,7 +195,7 @@
                                                     <div class="stat-icon bg-success">
                                                         <i class="fas fa-chart-line"></i>
                                                     </div>
-                                                    <div class="stat-value">{{ (analyses|sum(attribute='score') / analyses|length)|round|int if analyses else 0 }}</div>
+                                                    <div class="stat-value">{{ avg_score|round|int }}</div>
                                                     <div class="stat-description">Puntuación Promedio</div>
                                                 </div>
                                             </div>
@@ -129,7 +204,7 @@
                                                     <div class="stat-icon bg-info">
                                                         <i class="fas fa-trophy"></i>
                                                     </div>
-                                                    <div class="stat-value">{{ analyses|max(attribute='score')|attr('score') if analyses else 0 }}</div>
+                                                    <div class="stat-value">{{ max_score }}</div>
                                                     <div class="stat-description">Mejor Puntuación</div>
                                                 </div>
                                             </div>
@@ -138,8 +213,8 @@
                                                     <div class="stat-icon bg-warning">
                                                         <i class="fas fa-calendar-week"></i>
                                                     </div>
-                                                    <div class="stat-value">{{ analyses|selectattr('created_at')|list|length if analyses else 0 }}</div>
-                                                    <div class="stat-description">Este Mes</div>
+                                                    <div class="stat-value">{{ s3_analyses_count }}</div>
+                                                    <div class="stat-description">En S3</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -340,8 +415,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Ver detalles del análisis
 function viewAnalysisDetail(analysisId) {
-    // Convertir a número si es una cadena
-    analysisId = parseInt(analysisId, 10);
+    // Mantener el ID como string
     currentAnalysisId = analysisId;
     
     // Buscar el análisis en los datos de la página
@@ -611,7 +685,7 @@ function showAlert(message, type) {
 document.addEventListener('click', function(e) {
     const card = e.target.closest('.analysis-card');
     if (card && !e.target.closest('.dropdown')) {
-        const analysisId = parseInt(card.dataset.analysisId);
+        const analysisId = card.dataset.analysisId;
         viewAnalysisDetail(analysisId);
     }
 });

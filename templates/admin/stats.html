@@ -154,7 +154,7 @@
                     <div class="text-center">
                         <small class="text-muted">
                             <i class="fas fa-clock"></i>
-                            Última actualización: <span id="lastUpdate">{{ moment().format('HH:mm:ss') }}</span>
+                            Última actualización: <span id="lastUpdate">{{ datetime.now().strftime('%H:%M:%S') }}</span>
                         </small>
                     </div>
                 </div>

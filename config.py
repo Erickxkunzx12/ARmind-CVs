@@ -18,6 +18,19 @@ class Config:
     # Configuración de OpenAI
     OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY') or 'your-openai-api-key-here'
     
+    # Configuración de Anthropic
+    ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY') or 'your-anthropic-api-key-here'
+    
+    # Configuración de Google Gemini
+    GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY') or 'your-gemini-api-key-here'
+    
+    # Configuración de AWS S3
+    AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID') or 'your-aws-access-key-here'
+    AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY') or 'your-aws-secret-key-here'
+    AWS_REGION = os.environ.get('AWS_REGION') or 'us-east-1'
+    S3_BUCKET_NAME = os.environ.get('S3_BUCKET_NAME') or 'armind-cv-analysis'
+    S3_FOLDER_PREFIX = os.environ.get('S3_FOLDER_PREFIX') or 'cv-analysis/'
+    
     # Configuración de archivos
     UPLOAD_FOLDER = 'uploads'
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB

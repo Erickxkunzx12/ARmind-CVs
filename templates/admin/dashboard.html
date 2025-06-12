@@ -110,6 +110,33 @@
         </div>
     </div>
 
+    <!-- S3 Connection Test -->
+    <div class="row">
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card border-left-secondary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-secondary text-uppercase mb-1">
+                                AWS S3 Storage
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">Conexión</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-cloud fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button id="testS3Connection" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-plug"></i> Probar Conexión S3
+                        </button>
+                        <div id="s3Status" class="mt-2" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Información del sistema -->
     <div class="row">
         <div class="col-lg-6">
@@ -173,6 +200,10 @@
     border-left: 0.25rem solid #f6c23e !important;
 }
 
+.border-left-secondary {
+    border-left: 0.25rem solid #6c757d !important;
+}
+
 .text-gray-800 {
     color: #5a5c69 !important;
 }
@@ -185,4 +216,56 @@
     color: #dddfeb !important;
 }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const testS3Button = document.getElementById('testS3Connection');
+    const s3Status = document.getElementById('s3Status');
+    
+    testS3Button.addEventListener('click', function() {
+        // Disable button and show loading
+        testS3Button.disabled = true;
+        testS3Button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Probando...';
+        s3Status.style.display = 'block';
+        s3Status.innerHTML = '<div class="text-info"><i class="fas fa-spinner fa-spin"></i> Verificando conexión S3...</div>';
+        
+        // Make AJAX request to test S3 connection
+        fetch('/admin/check_s3', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                s3Status.innerHTML = `
+                    <div class="alert alert-success alert-sm mb-0">
+                        <i class="fas fa-check-circle"></i> ${data.message}
+                        <br><small>Bucket: ${data.bucket_name}</small>
+                    </div>
+                `;
+            } else {
+                s3Status.innerHTML = `
+                    <div class="alert alert-danger alert-sm mb-0">
+                        <i class="fas fa-exclamation-triangle"></i> Error: ${data.error}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            s3Status.innerHTML = `
+                <div class="alert alert-danger alert-sm mb-0">
+                    <i class="fas fa-exclamation-triangle"></i> Error de conexión: ${error.message}
+                </div>
+            `;
+        })
+        .finally(() => {
+            // Re-enable button
+            testS3Button.disabled = false;
+            testS3Button.innerHTML = '<i class="fas fa-plug"></i> Probar Conexión S3';
+        });
+    });
+});
+</script>
 {% endblock %}

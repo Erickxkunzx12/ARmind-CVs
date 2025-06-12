@@ -66,6 +66,9 @@ app.secret_key = os.getenv('SECRET_KEY', 'fallback_secret_key')
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
+# Hacer datetime disponible en todas las plantillas
+app.jinja_env.globals['datetime'] = datetime
+
 # Configuracion de OpenAI
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 if OPENAI_API_KEY:
@@ -355,6 +358,9 @@ def init_database():
                 weaknesses TEXT,
                 recommendations TEXT,
                 keywords TEXT,
+                s3_key VARCHAR(500),
+                analysis_type VARCHAR(100),
+                ai_provider VARCHAR(50),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -711,7 +717,7 @@ def dashboard():
 
 @app.route('/analyze_cv', methods=['GET', 'POST'])
 def analyze_cv():
-    """Analizador de CV con IA - Paso 1: Subir archivo"""
+    """Analizador de CV con IA - Paso 1: Subir archivo (usando archivos temporales)"""
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
@@ -733,27 +739,39 @@ def analyze_cv():
         
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(filepath)
             
-            add_console_log('INFO', f'Archivo CV subido: {filename} por {username}', 'CV')
-            
-            # Extraer texto del archivo
-            text_content = extract_text_from_file(filepath)
-            print(f"Texto extraído (primeros 200 caracteres): {text_content[:200] if text_content else 'None'}")
-            
-            if text_content:
-                # Guardar el contenido del CV en la sesión para el siguiente paso
-                session['cv_content'] = text_content
-                session['cv_filename'] = filename
+            # Usar archivo temporal en lugar de guardarlo permanentemente
+            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                filepath = temp_file.name
+                file.save(filepath)
                 
-                # Redirigir a la selección de IA
-                return redirect(url_for('select_ai_provider'))
-            else:
-                add_console_log('ERROR', f'Error extrayendo texto de: {filename} por {username}', 'CV')
-                print("Error: No se pudo extraer texto del archivo")
-                flash('No se pudo extraer texto del archivo', 'error')
-    
+                add_console_log('INFO', f'Archivo CV procesado temporalmente: {filename} por {username}', 'CV')
+                
+                # Extraer texto del archivo (pasar la extensión del archivo original)
+                original_extension = filename.rsplit('.', 1)[1].lower() if '.' in filename else None
+                text_content = extract_text_from_file(filepath, original_extension)
+                print(f"Texto extraído (primeros 200 caracteres): {text_content[:200] if text_content else 'None'}")
+                
+                # Eliminar el archivo temporal después de extraer el texto
+                try:
+                    os.unlink(filepath)
+                except PermissionError:
+                    # En Windows, a veces el archivo sigue en uso
+                    # Registrar el error pero continuar con el proceso
+                    add_console_log('WARNING', f'No se pudo eliminar el archivo temporal: {filepath}', 'CV')
+                    pass
+                
+                if text_content:
+                    # Guardar el contenido del CV en la sesión para el siguiente paso
+                    session['cv_content'] = text_content
+                    session['cv_filename'] = filename
+                    
+                    # Redirigir a la selección de IA
+                    return redirect(url_for('select_ai_provider'))
+                else:
+                    add_console_log('ERROR', f'Error extrayendo texto de: {filename} por {username}', 'CV')
+                    print("Error: No se pudo extraer texto del archivo")
+                    flash('No se pudo extraer texto del archivo', 'error')
         else:
             add_console_log('WARNING', f'Archivo no permitido subido: {file.filename} por {username}', 'CV')
             flash('Tipo de archivo no permitido. Solo se permiten archivos PDF, DOC y DOCX.', 'error')
@@ -852,10 +870,27 @@ def allowed_file(filename):
     ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx'}
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def extract_text_from_file(filepath):
+def extract_text_from_file(filepath, file_extension=None):
     """Extraer texto de archivos PDF o Word"""
     text = ""
-    file_extension = filepath.rsplit('.', 1)[1].lower()
+    
+    # Si no se proporciona extensión, intentar obtenerla del filepath
+    if file_extension is None:
+        if '.' not in filepath:
+            # Si no hay extensión, intentar detectar el tipo de archivo
+            try:
+                with open(filepath, 'rb') as f:
+                    header = f.read(8)
+                    if header.startswith(b'%PDF'):
+                        file_extension = 'pdf'
+                    elif header.startswith(b'PK\x03\x04'):
+                        file_extension = 'docx'
+                    else:
+                        return ""
+            except:
+                return ""
+        else:
+            file_extension = filepath.rsplit('.', 1)[1].lower()
     
     try:
         if file_extension == 'pdf':
@@ -1286,36 +1321,87 @@ def analyze_cv_with_ai(cv_text):
     return analyze_cv_with_openai(cv_text, 'general_health_check')
 
 def save_cv_analysis(user_id, filename, content, analysis):
-    """Guardar análisis de CV en la base de datos"""
+    """Guardar análisis de CV en S3 y referencia en la base de datos"""
+    from s3_utils import save_analysis_to_s3, delete_old_analysis_for_section
+    
+    # Obtener información del análisis
+    analysis_type = analysis.get('analysis_type', 'general_health_check')
+    ai_provider = analysis.get('ai_provider', 'openai')
+    
+    # Eliminar análisis anterior del mismo tipo y proveedor
+    delete_old_analysis_for_section(user_id, analysis_type, ai_provider)
+    
+    # Guardar análisis completo en S3
+    s3_key = save_analysis_to_s3(user_id, analysis, analysis_type, ai_provider)
+    
     connection = get_db_connection()
     if connection:
         cursor = connection.cursor()
         
-        # Insertar currículum
+        # Eliminar análisis anterior del mismo tipo y proveedor de la base de datos
+        cursor.execute("""
+            DELETE FROM feedback 
+            WHERE resume_id IN (
+                SELECT id FROM resumes WHERE user_id = %s
+            ) AND analysis_type = %s AND ai_provider = %s
+        """, (user_id, analysis_type, ai_provider))
+        
+        # Insertar un registro mínimo en resumes (sin el contenido completo)
         cursor.execute(
             "INSERT INTO resumes (user_id, filename, content) VALUES (%s, %s, %s) RETURNING id",
-            (user_id, filename, content)
+            (user_id, filename, "Análisis almacenado en S3 - contenido no local")
         )
         resume_id = cursor.fetchone()['id']
         
-        # Insertar feedback
-        cursor.execute(
-            "INSERT INTO feedback (resume_id, score, strengths, weaknesses, recommendations, keywords) VALUES (%s, %s, %s, %s, %s, %s)",
-            (resume_id, analysis['score'], 
-             json.dumps(analysis['strengths']), 
-             json.dumps(analysis['weaknesses']), 
-             json.dumps(analysis['recommendations']),
-             json.dumps(analysis['keywords']))
-        )
+        # Insertar feedback con referencia a S3
+        cursor.execute("""
+            INSERT INTO feedback (resume_id, score, strengths, weaknesses, recommendations, keywords, s3_key, analysis_type, ai_provider) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            resume_id, 
+            analysis['score'], 
+            json.dumps(analysis['strengths']), 
+            json.dumps(analysis['weaknesses']), 
+            json.dumps(analysis['recommendations']),
+            json.dumps(analysis['keywords']),
+            s3_key,
+            analysis_type,
+            ai_provider
+        ))
         
         connection.commit()
         cursor.close()
         connection.close()
+        
+        print(f"Análisis guardado - S3: {s3_key}, DB: resume_id {resume_id}")
 
 def get_latest_cv_analysis(user_id):
-    """Obtener el análisis de CV más reciente del usuario"""
+    """Obtener el análisis de CV más reciente del usuario desde S3"""
+    from s3_utils import get_analysis_from_s3
+    
     connection = get_db_connection()
     if connection:
+        cursor = connection.cursor()
+        cursor.execute("""
+            SELECT f.s3_key, f.analysis_type, f.ai_provider, f.created_at
+            FROM feedback f
+            INNER JOIN resumes r ON f.resume_id = r.id
+            WHERE r.user_id = %s AND f.s3_key IS NOT NULL
+            ORDER BY f.created_at DESC
+            LIMIT 1
+        """, (user_id,))
+        
+        result = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        
+        if result and result['s3_key']:
+            # Recuperar análisis completo desde S3
+            analysis_data = get_analysis_from_s3(result['s3_key'])
+            if analysis_data:
+                return analysis_data
+        
+        # Fallback: buscar en base de datos local (para compatibilidad)
         cursor = connection.cursor()
         cursor.execute("""
             SELECT f.score, f.strengths, f.weaknesses, f.recommendations, f.keywords, r.content
@@ -1340,6 +1426,57 @@ def get_latest_cv_analysis(user_id):
                 'content': result['content']
             }
     return None
+
+def get_user_cv_analyses(user_id):
+    """Obtener todos los análisis de CV de un usuario organizados por tipo y proveedor"""
+    from s3_utils import get_analysis_from_s3
+    
+    connection = get_db_connection()
+    if not connection:
+        return {}
+    
+    cursor = connection.cursor()
+    cursor.execute("""
+        SELECT f.s3_key, f.analysis_type, f.ai_provider, f.created_at, f.score
+        FROM feedback f
+        INNER JOIN resumes r ON f.resume_id = r.id
+        WHERE r.user_id = %s AND f.s3_key IS NOT NULL
+        ORDER BY f.analysis_type, f.ai_provider, f.created_at DESC
+    """, (user_id,))
+    
+    results = cursor.fetchall()
+    cursor.close()
+    connection.close()
+    
+    analyses = {}
+    
+    for result in results:
+        analysis_type = result['analysis_type']
+        ai_provider = result['ai_provider']
+        
+        # Crear estructura anidada si no existe
+        if analysis_type not in analyses:
+            analyses[analysis_type] = {}
+        
+        # Solo mantener el más reciente por tipo y proveedor
+        if ai_provider not in analyses[analysis_type]:
+            # Recuperar análisis completo desde S3
+            analysis_data = get_analysis_from_s3(result['s3_key'])
+            if analysis_data:
+                # Aplanar la estructura para que el template pueda acceder directamente
+                flattened_analysis = {
+                    'score': analysis_data.get('score', 0),
+                    'strengths': analysis_data.get('strengths', []),
+                    'weaknesses': analysis_data.get('weaknesses', []),
+                    'recommendations': analysis_data.get('recommendations', []),
+                    'keywords': analysis_data.get('keywords', []),
+                    'created_at': result['created_at'],
+                    's3_key': result['s3_key'],
+                    'analysis': analysis_data  # Mantener el análisis completo también
+                }
+                analyses[analysis_type][ai_provider] = flattened_analysis
+    
+    return analyses
 
 def generate_smart_search_terms(cv_analysis):
     """Generar términos de búsqueda inteligentes basados en el análisis de CV usando IA"""
@@ -1767,10 +1904,10 @@ def save_cv():
         connection = get_db_connection()
         cursor = connection.cursor()
         
-        # Guardar el CV generado
+        # Guardar una referencia mínima del CV (sin el HTML completo para optimizar almacenamiento)
         cursor.execute(
             "INSERT INTO resumes (user_id, filename, content) VALUES (%s, %s, %s) RETURNING id",
-            (session['user_id'], data['personal_info'].get('name', 'Mi CV'), cv_html)
+            (session['user_id'], data['personal_info'].get('name', 'Mi CV'), "CV creado por el usuario - datos estructurados en user_cv_data")
         )
         cv_id = cursor.fetchone()['id']
         
@@ -2198,41 +2335,110 @@ def ai_job_search():
 
 @app.route('/my_analyses')
 def my_analyses():
-    """Ver análisis previos del usuario"""
+    """Ver análisis previos del usuario organizados por tipo y proveedor de IA"""
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
+    # Obtener análisis organizados desde S3
+    user_analyses = get_user_cv_analyses(session['user_id'])
+    
+    # Fallback: obtener análisis legacy de la base de datos
     connection = get_db_connection()
-    analyses = []
+    legacy_analyses = []
     
     if connection:
         cursor = connection.cursor()
         cursor.execute("""
-            SELECT f.id, r.filename, r.created_at, f.score, f.strengths, f.weaknesses, f.recommendations, f.keywords
+            SELECT f.id, r.filename, r.created_at, f.score, f.strengths, f.weaknesses, f.recommendations, f.keywords, f.analysis_type, f.ai_provider
             FROM resumes r
             INNER JOIN feedback f ON r.id = f.resume_id
-            WHERE r.user_id = %s
+            WHERE r.user_id = %s AND f.s3_key IS NULL
             ORDER BY r.created_at DESC
         """, (session['user_id'],))
         
         results = cursor.fetchall()
         for result in results:
             analysis = {
-                'id': result['id'],  # Ahora es f.id (feedback ID)
+                'id': result['id'],
                 'filename': result['filename'],
                 'created_at': result['created_at'],
                 'score': result['score'] if result['score'] else 0,
                 'strengths': json.loads(result['strengths']) if result['strengths'] else [],
                 'weaknesses': json.loads(result['weaknesses']) if result['weaknesses'] else [],
                 'recommendations': json.loads(result['recommendations']) if result['recommendations'] else [],
-                'keywords': json.loads(result['keywords']) if result['keywords'] else []
+                'keywords': json.loads(result['keywords']) if result['keywords'] else [],
+                'analysis_type': result['analysis_type'] or 'general_health_check',
+                'ai_provider': result['ai_provider'] or 'openai'
             }
-            analyses.append(analysis)
+            legacy_analyses.append(analysis)
         
         cursor.close()
         connection.close()
     
-    return render_template('my_analyses.html', analyses=analyses)
+    # Definir nombres amigables para tipos de análisis
+    analysis_type_names = {
+        'general_health_check': 'Revisión General',
+        'content_quality_analysis': 'Análisis de Calidad',
+        'job_tailoring_optimization': 'Optimización para Empleos',
+        'ats_compatibility_verification': 'Compatibilidad ATS',
+        'tone_style_evaluation': 'Evaluación de Tono y Estilo',
+        'industry_role_feedback': 'Feedback por Industria',
+        'benchmarking_comparison': 'Comparación Benchmarking',
+        'ai_improvement_suggestions': 'Sugerencias de IA',
+        'visual_design_assessment': 'Evaluación de Diseño',
+        'comprehensive_score': 'Puntuación Integral'
+    }
+    
+    # Nombres amigables para proveedores de IA
+    ai_provider_names = {
+        'openai': 'OpenAI GPT',
+        'anthropic': 'Anthropic Claude',
+        'gemini': 'Google Gemini'
+    }
+    
+    # Calcular el número total de análisis en S3
+    s3_analyses_count = sum(len(providers) for providers in user_analyses.values())
+    
+    # Crear una lista plana de todos los análisis para JavaScript
+    all_analyses = []
+    
+    # Agregar análisis de S3 (convertir estructura anidada a lista plana)
+    for analysis_type, providers in user_analyses.items():
+        for ai_provider, analysis_data in providers.items():
+            all_analyses.append({
+                'id': f"s3_{analysis_type}_{ai_provider}",
+                'filename': f"Análisis {analysis_type_names.get(analysis_type, analysis_type)}",
+                'created_at': analysis_data['created_at'],
+                'score': analysis_data.get('score', 0),
+                'strengths': analysis_data.get('strengths', []),
+                'weaknesses': analysis_data.get('weaknesses', []),
+                'recommendations': analysis_data.get('recommendations', []),
+                'keywords': analysis_data.get('keywords', []),
+                'analysis_type': analysis_type,
+                'ai_provider': ai_provider,
+                'source': 's3'
+            })
+    
+    # Agregar análisis legacy
+    all_analyses.extend(legacy_analyses)
+    
+    # Calcular puntuación promedio
+    scores = []
+    for analysis in all_analyses:
+        score = analysis.get('score', 0)
+        if score and score != 0:
+            scores.append(score)
+    
+    avg_score = sum(scores) / len(scores) if scores else 0
+    
+    return render_template('my_analyses.html', 
+                         s3_analyses=user_analyses,
+                         legacy_analyses=legacy_analyses,
+                         analyses=all_analyses,
+                         type_names=analysis_type_names,
+                         provider_names=ai_provider_names,
+                         s3_analyses_count=s3_analyses_count,
+                         avg_score=avg_score)
 
 def generate_professional_summary_section(professional_summary, use_xyz, use_start):
     """Generar sección de resumen profesional con metodologías aplicadas"""
@@ -2260,13 +2466,16 @@ def generate_professional_summary_section(professional_summary, use_xyz, use_sta
         # Aplicar mejoras según las metodologías seleccionadas
         if use_xyz and use_start:
             # Combinar ambas metodologías
-            enhanced_summary += f" {xyz_enhancements[0]} y {start_enhancements[0]}."
+            if xyz_enhancements and start_enhancements:
+                enhanced_summary += f" {xyz_enhancements[0]} y {start_enhancements[0]}."
         elif use_xyz:
             # Solo metodología XYZ
-            enhanced_summary += f" {xyz_enhancements[0]}."
+            if xyz_enhancements:
+                enhanced_summary += f" {xyz_enhancements[0]}."
         elif use_start:
             # Solo metodología Start
-            enhanced_summary += f" {start_enhancements[0]}."
+            if start_enhancements:
+                enhanced_summary += f" {start_enhancements[0]}."
     
     return f'<div class="section"><div class="section-title">RESUMEN PROFESIONAL</div><div style="text-align: justify; line-height: 1.4;">{enhanced_summary}</div></div>'
 
@@ -2299,13 +2508,16 @@ def enhance_experience_description(description, use_xyz, use_start):
         # Aplicar mejoras según las metodologías seleccionadas
         if use_xyz and use_start:
             # Combinar ambas metodologías
-            enhanced_description += f" Destacando por {xyz_phrases[0]} y {start_phrases[0]}."
+            if xyz_phrases and start_phrases:
+                enhanced_description += f" Destacando por {xyz_phrases[0]} y {start_phrases[0]}."
         elif use_xyz:
             # Solo metodología XYZ
-            enhanced_description += f" Destacando por {xyz_phrases[0]}."
+            if xyz_phrases:
+                enhanced_description += f" Destacando por {xyz_phrases[0]}."
         elif use_start:
             # Solo metodología Start
-            enhanced_description += f" Destacando por {start_phrases[0]}."
+            if start_phrases:
+                enhanced_description += f" Destacando por {start_phrases[0]}."
     
     return enhanced_description
 
@@ -2742,13 +2954,16 @@ def generate_professional_summary_section(professional_summary, use_xyz, use_sta
         # Aplicar mejoras según las metodologías seleccionadas
         if use_xyz and use_start:
             # Combinar ambas metodologías
-            enhanced_summary += f" {xyz_enhancements[0]} y {start_enhancements[0]}."
+            if xyz_enhancements and start_enhancements:
+                enhanced_summary += f" {xyz_enhancements[0]} y {start_enhancements[0]}."
         elif use_xyz:
             # Solo metodología XYZ
-            enhanced_summary += f" {xyz_enhancements[0]}."
+            if xyz_enhancements:
+                enhanced_summary += f" {xyz_enhancements[0]}."
         elif use_start:
             # Solo metodología Start
-            enhanced_summary += f" {start_enhancements[0]}."
+            if start_enhancements:
+                enhanced_summary += f" {start_enhancements[0]}."
     
     return f'<div class="section"><div class="section-title">RESUMEN PROFESIONAL</div><div style="text-align: justify; line-height: 1.4;">{enhanced_summary}</div></div>'
 
@@ -2781,13 +2996,16 @@ def enhance_experience_description(description, use_xyz, use_start):
         # Aplicar mejoras según las metodologías seleccionadas
         if use_xyz and use_start:
             # Combinar ambas metodologías
-            enhanced_description += f" Destacando por {xyz_phrases[0]} y {start_phrases[0]}."
+            if xyz_phrases and start_phrases:
+                enhanced_description += f" Destacando por {xyz_phrases[0]} y {start_phrases[0]}."
         elif use_xyz:
             # Solo metodología XYZ
-            enhanced_description += f" Destacando por {xyz_phrases[0]}."
+            if xyz_phrases:
+                enhanced_description += f" Destacando por {xyz_phrases[0]}."
         elif use_start:
             # Solo metodología Start
-            enhanced_description += f" Destacando por {start_phrases[0]}."
+            if start_phrases:
+                enhanced_description += f" Destacando por {start_phrases[0]}."
     
     return enhanced_description
 
@@ -3392,7 +3610,7 @@ def admin_database():
 @admin_required
 def admin_search_users():
     """Buscar usuarios por título profesional"""
-    search_term = request.form.get('search_term', '').strip()
+    search_term = request.form.get('search_query', '').strip()
     
     if not search_term:
         flash('Por favor, introduce un término de búsqueda', 'warning')
@@ -3431,11 +3649,11 @@ def admin_search_users():
         flash('Error realizando la búsqueda', 'error')
         return redirect(url_for('admin_database'))
 
-@app.route('/admin/export_users')
+@app.route('/admin/export_users', methods=['POST'])
 @admin_required
 def admin_export_users():
     """Exportar usuarios a Excel"""
-    search_term = request.args.get('search_term', '')
+    search_term = request.form.get('search_query', '')
     
     connection = get_db_connection()
     if not connection:
@@ -3836,6 +4054,62 @@ def admin_console_logs():
              'error': str(e),
              'logs': []
          })
+
+@app.route('/admin/check_s3')
+def check_s3_connection():
+    """Check S3 connection and create bucket if needed"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    # Check if user is admin
+    connection = get_db_connection()
+    if connection:
+        cursor = connection.cursor()
+        cursor.execute("SELECT role FROM users WHERE id = %s", (session['user_id'],))
+        user = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        
+        if not user or user['role'] != 'admin':
+            return jsonify({'success': False, 'error': 'Access denied'})
+    else:
+        return jsonify({'success': False, 'error': 'Database connection failed'})
+    
+    try:
+        from s3_utils import check_s3_connection, create_bucket_if_not_exists
+        
+        # Check S3 connection
+        connection_result = check_s3_connection()
+        if not connection_result['success']:
+            return jsonify({
+                'success': False,
+                'error': f"S3 connection failed: {connection_result['error']}"
+            })
+        
+        # Create bucket if it doesn't exist
+        bucket_result = create_bucket_if_not_exists()
+        if not bucket_result['success']:
+            return jsonify({
+                'success': False,
+                'error': f"Failed to create S3 bucket: {bucket_result['error']}"
+            })
+        
+        return jsonify({
+            'success': True,
+            'message': 'S3 connection successful and bucket is ready',
+            'bucket_name': bucket_result.get('bucket_name', 'Unknown')
+        })
+        
+    except ImportError:
+        return jsonify({
+            'success': False,
+            'error': 'S3 utilities not available. Please check s3_utils.py'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Unexpected error: {str(e)}'
+        })
 
 if __name__ == '__main__':
     init_database()
