@@ -474,6 +474,35 @@
                             </button>
                         </div>
 
+                        <!-- Certificados -->
+                        <div class="section mb-4">
+                            <h5 class="text-primary border-bottom pb-2">Certificados</h5>
+                            <div id="certificatesContainer">
+                                <div class="certificate-item border p-3 mb-3 rounded">
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Título del Certificado</label>
+                                            <input type="text" class="form-control certificate-title" placeholder="Ej: Certificación AWS">
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Institución</label>
+                                            <input type="text" class="form-control certificate-institution" placeholder="Ej: Amazon Web Services">
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label">Fecha de Obtención</label>
+                                            <input type="month" class="form-control certificate-date">
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-danger remove-certificate" style="display: none;">Eliminar</button>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="addCertificate">
+                                <i class="fas fa-plus"></i> Agregar Certificado
+                            </button>
+                        </div>
+
                         <!-- Botón de guardar datos -->
                         <div class="d-grid gap-2">
                             <button type="button" class="btn btn-outline-primary btn-lg" id="saveData">
@@ -581,6 +610,11 @@ function loadUserData() {
             // Cargar idiomas
             if (data.languages && data.languages.length > 0) {
                 loadLanguagesData(data.languages);
+            }
+            
+            // Cargar certificados
+            if (data.certificates && data.certificates.length > 0) {
+                loadCertificatesData(data.certificates);
             }
             
             // Cargar opciones de formato
@@ -697,6 +731,33 @@ function loadLanguagesData(languagesData) {
     updateRemoveButtons();
 }
 
+// Función para cargar datos de certificados
+function loadCertificatesData(certificatesData) {
+    const container = document.getElementById('certificatesContainer');
+    
+    // Limpiar contenedor excepto el primer elemento
+    while (container.children.length > 1) {
+        container.removeChild(container.lastChild);
+    }
+    
+    certificatesData.forEach((cert, index) => {
+        let certificateItem;
+        if (index === 0) {
+            certificateItem = container.children[0];
+        } else {
+            certificateItem = container.children[0].cloneNode(true);
+            certificateItem.querySelector('.remove-certificate').style.display = 'inline-block';
+            container.appendChild(certificateItem);
+        }
+        
+        certificateItem.querySelector('.certificate-title').value = cert.title || '';
+        certificateItem.querySelector('.certificate-institution').value = cert.institution || '';
+        certificateItem.querySelector('.certificate-date').value = cert.date || '';
+    });
+    
+    updateRemoveButtons();
+}
+
 // Agregar educación
 document.getElementById('addEducation').addEventListener('click', function() {
     const container = document.getElementById('educationContainer');
@@ -737,6 +798,19 @@ document.getElementById('addLanguage').addEventListener('click', function() {
     // Limpiar valores
     newItem.querySelectorAll('input, select').forEach(input => input.value = '');
     newItem.querySelector('.remove-language').style.display = 'inline-block';
+    
+    container.appendChild(newItem);
+    updateRemoveButtons();
+});
+
+// Agregar certificado
+document.getElementById('addCertificate').addEventListener('click', function() {
+    const container = document.getElementById('certificatesContainer');
+    const newItem = container.children[0].cloneNode(true);
+    
+    // Limpiar valores
+    newItem.querySelectorAll('input').forEach(input => input.value = '');
+    newItem.querySelector('.remove-certificate').style.display = 'inline-block';
     
     container.appendChild(newItem);
     updateRemoveButtons();
@@ -802,6 +876,22 @@ function updateRemoveButtons() {
     languageItems.forEach((item, index) => {
         const removeBtn = item.querySelector('.remove-language');
         if (languageItems.length > 1) {
+            removeBtn.style.display = 'inline-block';
+            removeBtn.onclick = () => {
+                item.remove();
+                updateRemoveButtons();
+                updatePreview();
+            };
+        } else {
+            removeBtn.style.display = 'none';
+        }
+    });
+    
+    // Certificados
+    const certificateItems = document.querySelectorAll('.certificate-item');
+    certificateItems.forEach((item, index) => {
+        const removeBtn = item.querySelector('.remove-certificate');
+        if (certificateItems.length > 1) {
             removeBtn.style.display = 'inline-block';
             removeBtn.onclick = () => {
                 item.remove();
@@ -983,6 +1073,25 @@ function updatePreview() {
         html += `</div>`;
     }
     
+    if (cvData.certificates && cvData.certificates.length > 0) {
+        html += `
+            <div style="margin-bottom: 20px;">
+                <div style="${sectionTitleStyle}">CERTIFICADOS</div>
+        `;
+        cvData.certificates.forEach(cert => {
+            if (cert.title) {
+                html += `
+                    <div style="margin-bottom: 10px;">
+                        <div style="float: right;">${cert.date || ''}</div>
+                        <div style="font-weight: bold;">${cert.title}</div>
+                        <div style="font-style: italic;">${cert.institution || ''}</div>
+                    </div>
+                `;
+            }
+        });
+        html += `</div>`;
+    }
+    
     preview.innerHTML = html;
 }
 
@@ -1003,6 +1112,7 @@ function collectFormData() {
         experience: [],
         skills: skills,
         languages: [],
+        certificates: [],
         format_options: {
             format: document.querySelector('input[name="cv-format"]:checked').value,
             summary_tech_xyz: document.getElementById('summary-tech-xyz').checked,
@@ -1050,6 +1160,20 @@ function collectFormData() {
             data.languages.push({
                 language: language,
                 level: level
+            });
+        }
+    });
+    
+    // Certificados
+    document.querySelectorAll('.certificate-item').forEach(item => {
+        const title = item.querySelector('.certificate-title').value;
+        const institution = item.querySelector('.certificate-institution').value;
+        const date = item.querySelector('.certificate-date').value;
+        if (title) {
+            data.certificates.push({
+                title: title,
+                institution: institution,
+                date: date
             });
         }
     });
