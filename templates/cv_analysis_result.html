@@ -80,6 +80,23 @@
         background-color: #ffffff;
         border-radius: 8px;
         border: 2px solid #e9ecef;
+        max-height: 400px !important;
+        height: auto !important;
+        width: 100% !important;
+    }
+    
+    /* Contenedores de gráficos - adaptables al contenido */
+    .card-body {
+        min-height: 200px;
+        overflow: visible;
+    }
+    
+    /* Asegurar que los gráficos no se extiendan */
+    .chart-container {
+        position: relative;
+        min-height: 300px;
+        height: auto;
+        width: 100%;
     }
     
     .progress-bar {
@@ -203,7 +220,7 @@
     <div class="row">
         <!-- Enhanced Strengths -->
         <div class="col-lg-4 mb-4">
-            <div class="card h-100 shadow-sm">
+            <div class="card shadow-sm" style="min-height: 400px;">
                 <div class="card-header bg-success text-white">
                     <h5 class="mb-0">
                         <i class="fas fa-thumbs-up me-2"></i>Fortalezas Identificadas
@@ -284,7 +301,7 @@
         
         <!-- Enhanced Weaknesses -->
         <div class="col-lg-4 mb-4">
-            <div class="card h-100 shadow-sm">
+            <div class="card shadow-sm" style="min-height: 400px;">
                 <div class="card-header bg-warning text-white">
                     <h5 class="mb-0">
                         <i class="fas fa-exclamation-triangle me-2"></i>Áreas de Mejora
@@ -375,7 +392,7 @@
         
         <!-- Enhanced Recommendations -->
         <div class="col-lg-4 mb-4">
-            <div class="card h-100 shadow-sm">
+            <div class="card shadow-sm" style="min-height: 400px;">
                 <div class="card-header bg-info text-white">
                     <h5 class="mb-0">
                         <i class="fas fa-lightbulb me-2"></i>Recomendaciones Estratégicas
@@ -541,7 +558,9 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    <canvas id="scoreChart" width="400" height="300"></canvas>
+                    <div class="chart-container">
+                        <canvas id="scoreChart" width="400" height="300"></canvas>
+                    </div>
                     <div class="mt-3">
                         <p class="text-muted mb-3"><strong>Interpretación:</strong> Este gráfico circular muestra cómo se distribuye tu puntuación general del CV en diferentes rangos de calidad.</p>
                         <div class="row text-center">
@@ -580,7 +599,9 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    <canvas id="radarChart" width="400" height="300"></canvas>
+                    <div class="chart-container">
+                        <canvas id="radarChart" width="400" height="300"></canvas>
+                    </div>
                     <div class="mt-3">
                         <p class="text-muted mb-3"><strong>Interpretación:</strong> Este gráfico radar evalúa tu CV en 5 dimensiones clave. Cada eje representa un aspecto fundamental que los reclutadores consideran.</p>
                         <div class="row text-center">
@@ -616,7 +637,9 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    <canvas id="atsChart" width="400" height="300"></canvas>
+                    <div class="chart-container">
+                        <canvas id="atsChart" width="400" height="300"></canvas>
+                    </div>
                     <div class="mt-3">
                         <p class="text-muted mb-3"><strong>¿Qué es ATS?</strong> Los Applicant Tracking Systems son software que las empresas usan para filtrar CVs automáticamente antes de que lleguen a un reclutador humano.</p>
                         <div class="progress mb-2" style="height: 12px;">
@@ -648,7 +671,9 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    <canvas id="skillsChart" width="400" height="300"></canvas>
+                    <div class="chart-container">
+                        <canvas id="skillsChart" width="400" height="300"></canvas>
+                    </div>
                     <div class="mt-3">
                         <p class="text-muted mb-3"><strong>Balance de Habilidades:</strong> Un CV efectivo debe mostrar tanto competencias técnicas específicas como habilidades interpersonales.</p>
                         <div class="row">
@@ -677,6 +702,25 @@
                             <small class="text-info">💡 Podrías enfatizar más tus competencias técnicas</small>
                             {% endif %}
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Category Analysis Chart -->
+        <div class="col-md-6 mb-4">
+            <div class="card" style="min-height: 400px;">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-chart-area me-2"></i>Análisis por Categorías
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="categoryChart" width="400" height="300"></canvas>
+                    </div>
+                    <div class="mt-3">
+                        <small class="text-muted">Evaluación detallada por categorías de análisis</small>
                     </div>
                 </div>
             </div>
@@ -1297,8 +1341,9 @@
                         }]
                     },
                     options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
+                responsive: true,
+                maintainAspectRatio: false,
+                aspectRatio: 1.5,
                         plugins: {
                             legend: {
                                 position: 'bottom',
@@ -1358,6 +1403,7 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        aspectRatio: 1.5,
                         plugins: {
                             legend: {
                                 position: 'bottom'
@@ -1400,6 +1446,7 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        aspectRatio: 1.5,
                         plugins: {
                             legend: { display: false }
                         },
@@ -1413,7 +1460,58 @@
                 });
             }
             
-            // 4. Category Analysis Chart (Radar)
+            // 4. Skills Balance Chart (Doughnut)
+            const skillsCanvas = document.getElementById('skillsChart');
+            if (skillsCanvas) {
+                const skillsCtx = skillsCanvas.getContext('2d');
+                const technicalSkills = {{ (analysis.technical_skills_count or 15) }};
+                const softSkills = {{ (analysis.soft_skills_count or 8) }};
+                
+                new Chart(skillsCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Habilidades Técnicas', 'Habilidades Blandas'],
+                        datasets: [{
+                            data: [technicalSkills, softSkills],
+                            backgroundColor: [
+                                'rgba(23, 162, 184, 0.8)',
+                                'rgba(255, 193, 7, 0.8)'
+                            ],
+                            borderColor: [
+                                'rgba(23, 162, 184, 1)',
+                                'rgba(255, 193, 7, 1)'
+                            ],
+                            borderWidth: 3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        aspectRatio: 1.5,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    color: '#2c3e50',
+                                    font: { size: 12, weight: '600' }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const total = technicalSkills + softSkills;
+                                        const percentage = Math.round((context.parsed / total) * 100);
+                                        return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+                                    }
+                                }
+                            }
+                        },
+                        cutout: '60%'
+                    }
+                });
+            }
+            
+            // 5. Category Analysis Chart (Radar)
             const categoryCanvas = document.getElementById('categoryChart');
             if (categoryCanvas) {
                 const categoryCtx = categoryCanvas.getContext('2d');
@@ -1477,6 +1575,7 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        aspectRatio: 1.5,
                         scales: {
                             r: {
                                 beginAtZero: true,
@@ -1504,647 +1603,33 @@
         
         // Start the chart initialization process
         waitForChartJS();
-
-
         
-        // Tone Metrics Chart
-        {% if analysis.get('tone_metrics') %}
-        const toneCtx = document.getElementById('toneMetricsChart').getContext('2d');
-        new Chart(toneCtx, {
-            type: 'radar',
-            data: {
-                labels: [
-                    'Profesionalismo',
-                    'Lenguaje Sectorial',
-                    'Legibilidad',
-                    'Impacto Persuasivo',
-                    'Consistencia'
-                ],
-                datasets: [{
-                    label: 'Métricas de Tono',
-                    data: [
-                        {{ analysis.tone_metrics.professionalism_score or 0 }},
-                        {{ analysis.tone_metrics.industry_language_score or 0 }},
-                        {{ analysis.tone_metrics.readability_score or 0 }},
-                        {{ analysis.tone_metrics.persuasion_impact_score or 0 }},
-                        {{ analysis.tone_metrics.consistency_score or 0 }}
-                    ],
-                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    pointBackgroundColor: 'rgba(54, 162, 235, 1)',
-                    pointBorderColor: '#fff',
-                    pointHoverBackgroundColor: '#fff',
-                    pointHoverBorderColor: 'rgba(54, 162, 235, 1)'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    title: {
-                        display: true,
-                        text: 'Análisis de Tono y Estilo'
-                    }
-                },
-                scales: {
-                    r: {
-                        beginAtZero: true,
-                        max: 100
-                    }
-                }
-            }
-        });
-        {% endif %}
-        
-        // Industry Analysis Chart
-        {% if analysis.get('industry_analysis') %}
-        const industryCtx = document.getElementById('industryAnalysisChart').getContext('2d');
-        new Chart(industryCtx, {
-            type: 'doughnut',
-            data: {
-                labels: [
-                    'Alineación con Industria',
-                    'Relevancia de Experiencia',
-                    'Competencias Técnicas',
-                    'Soft Skills',
-                    'Certificaciones'
-                ],
-                datasets: [{
-                    data: [
-                        {{ analysis.industry_analysis.industry_alignment_score or 0 }},
-                        {{ analysis.industry_analysis.experience_relevance_score or 0 }},
-                        {{ analysis.industry_analysis.technical_skills_score or 0 }},
-                        {{ analysis.industry_analysis.soft_skills_score or 0 }},
-                        {{ analysis.industry_analysis.certifications_score or 0 }}
-                    ],
-                    backgroundColor: [
-                        'rgba(255, 99, 132, 0.8)',
-                        'rgba(54, 162, 235, 0.8)',
-                        'rgba(255, 205, 86, 0.8)',
-                        'rgba(75, 192, 192, 0.8)',
-                        'rgba(153, 102, 255, 0.8)'
-                    ],
-                    borderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    title: {
-                        display: true,
-                        text: 'Análisis por Industria'
-                    },
-                    legend: {
-                        position: 'bottom'
-                    }
-                }
-            }
-        });
-        {% endif %}
-        
-        // Design Assessment Chart
-        {% if analysis.get('design_metrics') %}
-        const designCtx = document.getElementById('designAssessmentChart').getContext('2d');
-        new Chart(designCtx, {
-            type: 'bar',
-            data: {
-                labels: [
-                    'Legibilidad Visual',
-                    'Estructura',
-                    'Consistencia',
-                    'Profesionalismo',
-                    'Compatibilidad'
-                ],
-                datasets: [{
-                    label: 'Puntuación de Diseño',
-                    data: [
-                        {{ analysis.design_metrics.visual_readability_score or 0 }},
-                        {{ analysis.design_metrics.structure_score or 0 }},
-                        {{ analysis.design_metrics.consistency_score or 0 }},
-                        {{ analysis.design_metrics.professionalism_score or 0 }},
-                        {{ analysis.design_metrics.compatibility_score or 0 }}
-                    ],
-                    backgroundColor: 'rgba(75, 192, 192, 0.8)',
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    title: {
-                        display: true,
-                        text: 'Evaluación de Diseño Visual'
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: 100
-                    }
-                }
-            }
-        });
-        {% endif %}
-        
-        // AI Insights Chart
-        {% if analysis.get('ai_insights') %}
-        const aiCtx = document.getElementById('aiInsightsChart').getContext('2d');
-        new Chart(aiCtx, {
-            type: 'line',
-            data: {
-                labels: [
-                    'Optimización Actual',
-                    'Potencial de Mejora',
-                    'Competitividad',
-                    'Tendencias de Mercado',
-                    'Predicción de Éxito'
-                ],
-                datasets: [{
-                    label: 'Puntuación Actual',
-                    data: [
-                        {{ analysis.ai_insights.current_optimization_score or 0 }},
-                        {{ analysis.ai_insights.improvement_potential_score or 0 }},
-                        {{ analysis.ai_insights.competitiveness_score or 0 }},
-                        {{ analysis.ai_insights.market_trends_alignment_score or 0 }},
-                        {{ analysis.ai_insights.success_prediction_score or 0 }}
-                    ],
-                    borderColor: 'rgba(255, 99, 132, 1)',
-                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                    tension: 0.4
-                }, {
-                    label: 'Potencial Optimizado',
-                    data: [
-                        Math.min(100, {{ analysis.ai_insights.current_optimization_score or 0 }} + 15),
-                        Math.min(100, {{ analysis.ai_insights.improvement_potential_score or 0 }} + 20),
-                        Math.min(100, {{ analysis.ai_insights.competitiveness_score or 0 }} + 18),
-                        Math.min(100, {{ analysis.ai_insights.market_trends_alignment_score or 0 }} + 12),
-                        Math.min(100, {{ analysis.ai_insights.success_prediction_score or 0 }} + 25)
-                    ],
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                    tension: 0.4,
-                    borderDash: [5, 5]
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    title: {
-                        display: true,
-                        text: 'Análisis de IA y Potencial de Optimización'
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: 100
-                    }
-                }
-            }
-        });
-        {% endif %}
-        
-        // Market Analysis Chart
-        {% if analysis.get('market_analysis') %}
-        const marketCtx = document.getElementById('marketChart').getContext('2d');
-        new Chart(marketCtx, {
-            type: 'bar',
-            data: {
-                labels: ['Alineación Industria', 'Optimización Keywords', 'Transferibilidad Skills', 'Posicionamiento Competitivo', 'Preparación Mercado', 'Potencial Crecimiento'],
-                datasets: [{
-                    label: 'Puntuación',
-                    data: [
-                        {{ analysis.market_analysis.industry_alignment or 0 }},
-                        {{ analysis.market_analysis.keyword_optimization or 0 }},
-                        {{ analysis.market_analysis.skills_transferability or 0 }},
-                        {{ analysis.market_analysis.competitive_positioning or 0 }},
-                        {{ analysis.market_analysis.market_readiness or 0 }},
-                        {{ analysis.market_analysis.growth_potential or 0 }}
-                    ],
-                    backgroundColor: [
-                        'rgba(52, 152, 219, 0.8)',
-                        'rgba(46, 204, 113, 0.8)',
-                        'rgba(155, 89, 182, 0.8)',
-                        'rgba(241, 196, 15, 0.8)',
-                        'rgba(230, 126, 34, 0.8)',
-                        'rgba(231, 76, 60, 0.8)'
-                    ],
-                    borderColor: [
-                        'rgba(52, 152, 219, 1)',
-                        'rgba(46, 204, 113, 1)',
-                        'rgba(155, 89, 182, 1)',
-                        'rgba(241, 196, 15, 1)',
-                        'rgba(230, 126, 34, 1)',
-                        'rgba(231, 76, 60, 1)'
-                    ],
-                    borderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: 100,
-                        ticks: {
-                            color: '#2c3e50',
-                            font: { size: 12, weight: '600' }
-                        }
-                    },
-                    x: {
-                        ticks: {
-                            color: '#2c3e50',
-                            font: { size: 11, weight: '600' },
-                            maxRotation: 45
-                        }
-                    }
-                },
-                plugins: {
-                    legend: { display: false }
-                }
-            }
-        });
-        {% endif %}
-        
-        // Content Analysis Chart
-        {% if analysis.get('content_analysis') %}
-        const contentCtx = document.getElementById('contentChart').getContext('2d');
-        new Chart(contentCtx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Relevancia Experiencia', 'Alineación Skills', 'Impacto Logros', 'Valor Educación', 'Progresión Carrera', 'Competitividad Mercado'],
-                datasets: [{
-                    data: [
-                        {{ analysis.content_analysis.experience_relevance or 0 }},
-                        {{ analysis.content_analysis.skills_alignment or 0 }},
-                        {{ analysis.content_analysis.achievements_impact or 0 }},
-                        {{ analysis.content_analysis.education_value or 0 }},
-                        {{ analysis.content_analysis.career_progression or 0 }},
-                        {{ analysis.content_analysis.market_competitiveness or 0 }}
-                    ],
-                    backgroundColor: [
-                        'rgba(52, 152, 219, 0.8)',
-                        'rgba(46, 204, 113, 0.8)',
-                        'rgba(155, 89, 182, 0.8)',
-                        'rgba(241, 196, 15, 0.8)',
-                        'rgba(230, 126, 34, 0.8)',
-                        'rgba(231, 76, 60, 0.8)'
-                    ],
-                    borderColor: '#fff',
-                    borderWidth: 3
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            color: '#2c3e50',
-                            font: { size: 11, weight: '600' },
-                            padding: 15
-                        }
-                    }
-                }
-            }
-        });
-        {% endif %}
-        
-        // ATS Compatibility Matrix Chart
-        {% if analysis.get('ats_compatibility_matrix') %}
-        const atsMatrixCtx = document.getElementById('atsMatrixChart').getContext('2d');
-        new Chart(atsMatrixCtx, {
-            type: 'bar',
-            data: {
-                labels: ['Workday', 'Taleo', 'iCIMS', 'Greenhouse', 'ATS General'],
-                datasets: [{
-                    label: 'Compatibilidad (%)',
-                    data: [
-                        {{ analysis.ats_compatibility_matrix.workday_score or 0 }},
-                        {{ analysis.ats_compatibility_matrix.taleo_score or 0 }},
-                        {{ analysis.ats_compatibility_matrix.icims_score or 0 }},
-                        {{ analysis.ats_compatibility_matrix.greenhouse_score or 0 }},
-                        {{ analysis.ats_compatibility_matrix.general_ats_score or 0 }}
-                    ],
-                    backgroundColor: [
-                        {% set workday_score = analysis.ats_compatibility_matrix.workday_score or 0 %}
-                        {% if workday_score >= 80 %}'rgba(46, 204, 113, 0.8)'{% elif workday_score >= 60 %}'rgba(241, 196, 15, 0.8)'{% else %}'rgba(231, 76, 60, 0.8)'{% endif %},
-                        {% set taleo_score = analysis.ats_compatibility_matrix.taleo_score or 0 %}
-                        {% if taleo_score >= 80 %}'rgba(46, 204, 113, 0.8)'{% elif taleo_score >= 60 %}'rgba(241, 196, 15, 0.8)'{% else %}'rgba(231, 76, 60, 0.8)'{% endif %},
-                        {% set icims_score = analysis.ats_compatibility_matrix.icims_score or 0 %}
-                        {% if icims_score >= 80 %}'rgba(46, 204, 113, 0.8)'{% elif icims_score >= 60 %}'rgba(241, 196, 15, 0.8)'{% else %}'rgba(231, 76, 60, 0.8)'{% endif %},
-                        {% set greenhouse_score = analysis.ats_compatibility_matrix.greenhouse_score or 0 %}
-                        {% if greenhouse_score >= 80 %}'rgba(46, 204, 113, 0.8)'{% elif greenhouse_score >= 60 %}'rgba(241, 196, 15, 0.8)'{% else %}'rgba(231, 76, 60, 0.8)'{% endif %},
-                        {% set general_score = analysis.ats_compatibility_matrix.general_ats_score or 0 %}
-                        {% if general_score >= 80 %}'rgba(46, 204, 113, 0.8)'{% elif general_score >= 60 %}'rgba(241, 196, 15, 0.8)'{% else %}'rgba(231, 76, 60, 0.8)'{% endif %}
-                    ],
-                    borderColor: [
-                        {% set workday_score = analysis.ats_compatibility_matrix.workday_score or 0 %}
-                        {% if workday_score >= 80 %}'rgba(46, 204, 113, 1)'{% elif workday_score >= 60 %}'rgba(241, 196, 15, 1)'{% else %}'rgba(231, 76, 60, 1)'{% endif %},
-                        {% set taleo_score = analysis.ats_compatibility_matrix.taleo_score or 0 %}
-                        {% if taleo_score >= 80 %}'rgba(46, 204, 113, 1)'{% elif taleo_score >= 60 %}'rgba(241, 196, 15, 1)'{% else %}'rgba(231, 76, 60, 1)'{% endif %},
-                        {% set icims_score = analysis.ats_compatibility_matrix.icims_score or 0 %}
-                        {% if icims_score >= 80 %}'rgba(46, 204, 113, 1)'{% elif icims_score >= 60 %}'rgba(241, 196, 15, 1)'{% else %}'rgba(231, 76, 60, 1)'{% endif %},
-                        {% set greenhouse_score = analysis.ats_compatibility_matrix.greenhouse_score or 0 %}
-                        {% if greenhouse_score >= 80 %}'rgba(46, 204, 113, 1)'{% elif greenhouse_score >= 60 %}'rgba(241, 196, 15, 1)'{% else %}'rgba(231, 76, 60, 1)'{% endif %},
-                        {% set general_score = analysis.ats_compatibility_matrix.general_ats_score or 0 %}
-                        {% if general_score >= 80 %}'rgba(46, 204, 113, 1)'{% elif general_score >= 60 %}'rgba(241, 196, 15, 1)'{% else %}'rgba(231, 76, 60, 1)'{% endif %}
-                    ],
-                    borderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: 100,
-                        ticks: {
-                            color: '#2c3e50',
-                            font: { size: 12, weight: '600' },
-                            callback: function(value) {
-                                return value + '%';
-                            }
-                        }
-                    },
-                    x: {
-                        ticks: {
-                            color: '#2c3e50',
-                            font: { size: 12, weight: '600' }
-                        }
-                    }
-                },
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return context.parsed.y + '% de compatibilidad';
-                            }
-                        }
-                    }
-                }
-            }
-        });
-        {% endif %}
+        // Código de gráficos adicionales eliminado - se usa initializeMainCharts()
         
 
         
         // Initialize charts after ensuring Chart.js is loaded
+        // Función de inicialización de gráficos consolidada
         function initializeCharts() {
             if (typeof Chart === 'undefined') {
                 console.error('Chart.js no está cargado');
                 return;
             }
             
-            // Score Distribution Chart (Pie Chart)
-            const scoreCanvas = document.getElementById('scoreChart');
-            if (scoreCanvas) {
-                const scoreCtx = scoreCanvas.getContext('2d');
-                const totalScore = parseInt("{{ (analysis.score or 0) | default(0) }}", 10);
-                
-                let excellentScore = 0, goodScore = 0, improvableScore = 0;
-                if (totalScore >= 80) {
-                    excellentScore = totalScore;
-                } else if (totalScore >= 60) {
-                    goodScore = totalScore;
-                } else {
-                    improvableScore = totalScore;
-                }
-                
-                new Chart(scoreCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Excelente (80-100%)', 'Bueno (60-79%)', 'Mejorable (0-59%)'],
-                        datasets: [{
-                            data: [excellentScore, goodScore, improvableScore],
-                            backgroundColor: [
-                                'rgba(40, 167, 69, 0.8)',
-                                'rgba(255, 193, 7, 0.8)',
-                                'rgba(220, 53, 69, 0.8)'
-                            ],
-                            borderColor: [
-                                'rgba(40, 167, 69, 1)',
-                                'rgba(255, 193, 7, 1)',
-                                'rgba(220, 53, 69, 1)'
-                            ],
-                            borderWidth: 3
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    color: '#2c3e50',
-                                    font: { size: 12, weight: '600' },
-                                    padding: 15
-                                }
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        return context.label + ': ' + context.parsed + '%';
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-        
-            // Radar Chart for Multidimensional Analysis
-            const radarCanvas = document.getElementById('radarChart');
-            if (radarCanvas) {
-                const radarCtx = radarCanvas.getContext('2d');
-                
-                const radarData = {
-                    'Contenido': {{ (analysis.content_score or 75) }},
-                    'Formato': {{ (analysis.format_score or 80) }},
-                    'Keywords': {{ (analysis.keywords_score or 65) }},
-                    'Experiencia': {{ (analysis.experience_score or 85) }},
-                    'Competencias': {{ (analysis.skills_score or 70) }}
-                };
-                
-                new Chart(radarCtx, {
-                    type: 'radar',
-                    data: {
-                        labels: Object.keys(radarData),
-                        datasets: [{
-                            label: 'Tu Puntuación',
-                            data: Object.values(radarData),
-                            backgroundColor: 'rgba(40, 167, 69, 0.3)',
-                            borderColor: 'rgba(40, 167, 69, 1)',
-                            borderWidth: 3,
-                            pointBackgroundColor: 'rgba(40, 167, 69, 1)',
-                            pointBorderColor: '#fff',
-                            pointBorderWidth: 2,
-                            pointRadius: 6,
-                            pointHoverBackgroundColor: '#fff',
-                            pointHoverBorderColor: 'rgba(40, 167, 69, 1)',
-                            pointHoverRadius: 8
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            r: {
-                                beginAtZero: true,
-                                max: 100,
-                                ticks: {
-                                    stepSize: 20,
-                                    color: '#2c3e50',
-                                    font: { size: 12, weight: '600' }
-                                },
-                                pointLabels: {
-                                    color: '#2c3e50',
-                                    font: { size: 13, weight: '600' }
-                                },
-                                grid: { color: 'rgba(44, 62, 80, 0.2)' },
-                                angleLines: { color: 'rgba(44, 62, 80, 0.2)' }
-                            }
-                        },
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        return context.label + ': ' + context.parsed + '%';
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-        
-            // ATS Compatibility Chart
-            const atsCanvas = document.getElementById('atsChart');
-            if (atsCanvas) {
-                const atsCtx = atsCanvas.getContext('2d');
-                const atsScore = {{ (analysis.ats_compatibility_score or 75) }};
-                
-                new Chart(atsCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: ['Parsing', 'Keywords', 'Formato', 'Estructura', 'Compatibilidad General'],
-                        datasets: [{
-                            label: 'Compatibilidad ATS',
-                            data: [
-                                Math.max(0, atsScore - 10 + Math.random() * 20),
-                                Math.max(0, atsScore - 5 + Math.random() * 15),
-                                Math.max(0, atsScore + Math.random() * 10),
-                                Math.max(0, atsScore - 8 + Math.random() * 16),
-                                atsScore
-                            ],
-                            backgroundColor: 'rgba(23, 162, 184, 0.8)',
-                            borderColor: 'rgba(23, 162, 184, 1)',
-                            borderWidth: 2
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                max: 100,
-                                ticks: {
-                                    color: '#2c3e50',
-                                    font: { size: 12, weight: '600' },
-                                    callback: function(value) { return value + '%'; }
-                                }
-                            },
-                            x: {
-                                ticks: {
-                                    color: '#2c3e50',
-                                    font: { size: 11, weight: '600' },
-                                    maxRotation: 45
-                                }
-                            }
-                        },
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        return context.parsed.y + '% de compatibilidad';
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-        
-            // Skills Analysis Chart
-            const skillsCanvas = document.getElementById('skillsChart');
-            if (skillsCanvas) {
-                const skillsCtx = skillsCanvas.getContext('2d');
-                const technicalSkills = {{ (analysis.technical_skills_count or 15) }};
-                const softSkills = {{ (analysis.soft_skills_count or 8) }};
-                
-                new Chart(skillsCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Habilidades Técnicas', 'Habilidades Blandas'],
-                        datasets: [{
-                            data: [technicalSkills, softSkills],
-                            backgroundColor: [
-                                'rgba(23, 162, 184, 0.8)',
-                                'rgba(255, 193, 7, 0.8)'
-                            ],
-                            borderColor: [
-                                'rgba(23, 162, 184, 1)',
-                                'rgba(255, 193, 7, 1)'
-                            ],
-                            borderWidth: 3
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    color: '#2c3e50',
-                                    font: { size: 12, weight: '600' },
-                                    padding: 15
-                                }
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        const total = technicalSkills + softSkills;
-                                        const percentage = ((context.parsed / total) * 100).toFixed(1);
-                                        return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            }
+            // Llamar a la función principal de inicialización
+            initializeMainCharts();
         }
         
         // Initialize charts when DOM is ready
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initializeCharts);
+            document.addEventListener('DOMContentLoaded', function() {
+                waitForChartJS();
+            });
         } else {
             // DOM is already loaded
-            setTimeout(initializeCharts, 100);
+            waitForChartJS();
         }
+        // Código de inicialización eliminado - se usa initializeMainCharts()
         
         // Animate cards on scroll
         const observerOptions = {
