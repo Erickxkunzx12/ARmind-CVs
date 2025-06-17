@@ -295,6 +295,128 @@ El equipo de ARMind CVs
         traceback.print_exc()
         return False
 
+def generate_reset_token():
+    """Generar token único para reset de contraseña"""
+    return str(uuid.uuid4())
+
+def send_password_reset_email(email, username, token):
+    """Enviar email de recuperación de contraseña"""
+    try:
+        # Crear mensaje
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = 'Recuperar contraseña - ARMind CVs'
+        msg['From'] = EMAIL_CONFIG['email']
+        msg['To'] = email
+        
+        # Versión texto plano
+        text = f"""Hola {username},
+        
+Hemos recibido una solicitud para restablecer tu contraseña en ARMind CVs.
+        
+Para restablecer tu contraseña, haz clic en el siguiente enlace:
+        
+http://localhost:5000/reset_password/{token}
+        
+Este enlace expirará en 1 hora por seguridad.
+        
+Si no solicitaste este restablecimiento, puedes ignorar este mensaje.
+        
+Saludos,
+El equipo de ARMind CVs
+        """
+        
+        # Versión HTML
+        html = f"""
+        <html>
+        <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background-color: #dc3545; color: white; padding: 20px; text-align: center; }}
+                .content {{ padding: 20px; background-color: #f9f9f9; }}
+                .button {{ display: inline-block; background-color: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; }}
+                .footer {{ text-align: center; margin-top: 20px; font-size: 12px; color: #777; }}
+                .warning {{ background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 5px; margin: 15px 0; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>🔐 Recuperar Contraseña</h1>
+                </div>
+                <div class="content">
+                    <h2>Hola {username},</h2>
+                    <p>Hemos recibido una solicitud para restablecer tu contraseña en ARMind CVs.</p>
+                    <p style="text-align: center;">
+                        <a href="http://localhost:5000/reset_password/{token}" class="button">Restablecer mi contraseña</a>
+                    </p>
+                    <div class="warning">
+                        <strong>⚠️ Importante:</strong> Este enlace expirará en 1 hora por seguridad.
+                    </div>
+                    <p>Si el botón no funciona, copia y pega el siguiente enlace en tu navegador:</p>
+                    <p style="word-break: break-all;">http://localhost:5000/reset_password/{token}</p>
+                    <p>Si no solicitaste este restablecimiento, puedes ignorar este mensaje de forma segura.</p>
+                </div>
+                <div class="footer">
+                    <p>© 2023 ARMind CVs. Todos los derechos reservados.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # Adjuntar partes al mensaje
+        part1 = MIMEText(text, 'plain')
+        part2 = MIMEText(html, 'html')
+        msg.attach(part1)
+        msg.attach(part2)
+        
+        # Conectar al servidor SMTP
+        server = smtplib.SMTP(EMAIL_CONFIG['smtp_server'], EMAIL_CONFIG['smtp_port'])
+        if EMAIL_CONFIG['use_tls']:
+            server.starttls()
+        
+        # Iniciar sesión
+        server.login(EMAIL_CONFIG['email'], EMAIL_CONFIG['password'])
+        
+        # Enviar email
+        server.sendmail(EMAIL_CONFIG['email'], email, msg.as_string())
+        server.quit()
+        
+        print(f"✅ Email de recuperación enviado exitosamente a: {email}")
+        print(f"   Usuario: {username}")
+        print(f"   Token: {token}")
+        return True
+    except Exception as e:
+        print(f"Error al enviar email de recuperación: {e}")
+        print(f"Email destino: {email}")
+        print(f"Username: {username}")
+        print(f"Token: {token}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+def validate_password_strength(password):
+    """Validar que la contraseña cumpla con los requisitos de seguridad"""
+    errors = []
+    
+    if len(password) < 8:
+        errors.append("La contraseña debe tener al menos 8 caracteres")
+    
+    if not re.search(r'[a-z]', password):
+        errors.append("La contraseña debe contener al menos una letra minúscula")
+    
+    if not re.search(r'[A-Z]', password):
+        errors.append("La contraseña debe contener al menos una letra mayúscula")
+    
+    if not re.search(r'\d', password):
+        errors.append("La contraseña debe contener al menos un número")
+    
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>\-_+=\[\]\\;/~`]', password):
+        errors.append("La contraseña debe contener al menos un carácter especial")
+    
+    return errors
+
 def init_database():
     """Inicializar la base de datos y crear las tablas necesarias"""
     connection = get_db_connection()
@@ -314,6 +436,8 @@ def init_database():
                 password_hash VARCHAR(255) NOT NULL,
                 email_verified BOOLEAN DEFAULT FALSE,
                 verification_token VARCHAR(255),
+                reset_token VARCHAR(255),
+                reset_token_expires TIMESTAMP,
                 role VARCHAR(50) DEFAULT 'user',
                 is_banned BOOLEAN DEFAULT FALSE,
                 ban_until TIMESTAMP NULL,
@@ -390,13 +514,15 @@ def init_database():
         if not cursor.fetchone():
             cursor.execute("ALTER TABLE user_cv_data ADD COLUMN professional_summary TEXT")
         
-        # Verificar y agregar nuevas columnas de administración
+        # Verificar y agregar nuevas columnas de administración y reset de contraseña
         admin_columns = [
             ('role', 'VARCHAR(50) DEFAULT \'user\''),
             ('is_banned', 'BOOLEAN DEFAULT FALSE'),
             ('ban_until', 'TIMESTAMP NULL'),
             ('ban_reason', 'TEXT'),
-            ('last_login', 'TIMESTAMP')
+            ('last_login', 'TIMESTAMP'),
+            ('reset_token', 'VARCHAR(255)'),
+            ('reset_token_expires', 'TIMESTAMP')
         ]
         
         for column_name, column_def in admin_columns:
@@ -446,6 +572,14 @@ def register():
         if not username or not email or not password:
             add_console_log('WARNING', f'Registro fallido - campos incompletos para: {username}', 'AUTH')
             flash('Todos los campos son obligatorios', 'error')
+            return render_template('register.html')
+        
+        # Validar fortaleza de la contraseña
+        password_errors = validate_password_strength(password)
+        if password_errors:
+            add_console_log('WARNING', f'Registro fallido - contraseña débil para: {username}', 'AUTH')
+            for error in password_errors:
+                flash(error, 'error')
             return render_template('register.html')
         
         # Hash de la contraseña
@@ -582,6 +716,154 @@ def logout():
     session.clear()
     flash('Sesión cerrada', 'info')
     return redirect(url_for('index'))
+
+@app.route('/forgot_password', methods=['POST'])
+def forgot_password():
+    """Solicitar recuperación de contraseña"""
+    email = request.form.get('resetEmail')
+    
+    if not email:
+        return jsonify({'success': False, 'message': 'Email es requerido'}), 400
+    
+    add_console_log('INFO', f'Solicitud de recuperación de contraseña para: {email}', 'AUTH')
+    
+    connection = get_db_connection()
+    if connection:
+        cursor = connection.cursor()
+        try:
+            # Verificar si el email existe
+            cursor.execute("SELECT id, username, email FROM users WHERE email = %s", (email,))
+            user = cursor.fetchone()
+            
+            if user:
+                # Generar token de reset
+                reset_token = generate_reset_token()
+                
+                # Establecer expiración del token (1 hora)
+                from datetime import datetime, timedelta
+                expires_at = datetime.now() + timedelta(hours=1)
+                
+                # Guardar token en la base de datos
+                cursor.execute(
+                    "UPDATE users SET reset_token = %s, reset_token_expires = %s WHERE id = %s",
+                    (reset_token, expires_at, user['id'])
+                )
+                connection.commit()
+                
+                # Enviar email de recuperación
+                email_sent = send_password_reset_email(user['email'], user['username'], reset_token)
+                
+                if email_sent:
+                    add_console_log('INFO', f'Email de recuperación enviado a: {email}', 'EMAIL')
+                    return jsonify({'success': True, 'message': 'Se ha enviado un enlace de recuperación a tu correo electrónico.'})
+                else:
+                    add_console_log('ERROR', f'Error al enviar email de recuperación a: {email}', 'EMAIL')
+                    return jsonify({'success': False, 'message': 'Error al enviar el email. Inténtalo más tarde.'}), 500
+            else:
+                # Por seguridad, no revelamos si el email existe o no
+                add_console_log('WARNING', f'Intento de recuperación con email inexistente: {email}', 'AUTH')
+                return jsonify({'success': True, 'message': 'Si el email existe, se ha enviado un enlace de recuperación.'})
+                
+        except Exception as e:
+            add_console_log('ERROR', f'Error en recuperación de contraseña para {email}: {str(e)}', 'AUTH')
+            return jsonify({'success': False, 'message': 'Error interno del servidor'}), 500
+        finally:
+            cursor.close()
+            connection.close()
+    
+    return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+
+@app.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    """Restablecer contraseña con token"""
+    if request.method == 'GET':
+        # Verificar si el token es válido
+        connection = get_db_connection()
+        if connection:
+            cursor = connection.cursor()
+            try:
+                from datetime import datetime
+                cursor.execute(
+                    "SELECT id, username, email FROM users WHERE reset_token = %s AND reset_token_expires > %s",
+                    (token, datetime.now())
+                )
+                user = cursor.fetchone()
+                
+                if user:
+                    return render_template('reset_password.html', token=token, username=user['username'])
+                else:
+                    add_console_log('WARNING', f'Token de reset inválido o expirado: {token}', 'AUTH')
+                    flash('El enlace de recuperación es inválido o ha expirado. Solicita uno nuevo.', 'error')
+                    return redirect(url_for('login'))
+                    
+            except Exception as e:
+                add_console_log('ERROR', f'Error al verificar token de reset: {str(e)}', 'AUTH')
+                flash('Error al procesar la solicitud', 'error')
+                return redirect(url_for('login'))
+            finally:
+                cursor.close()
+                connection.close()
+    
+    elif request.method == 'POST':
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+        
+        # Validaciones
+        if not new_password or not confirm_password:
+            flash('Todos los campos son obligatorios', 'error')
+            return render_template('reset_password.html', token=token)
+        
+        if new_password != confirm_password:
+            flash('Las contraseñas no coinciden', 'error')
+            return render_template('reset_password.html', token=token)
+        
+        # Validar fortaleza de la contraseña
+        password_errors = validate_password_strength(new_password)
+        if password_errors:
+            for error in password_errors:
+                flash(error, 'error')
+            return render_template('reset_password.html', token=token)
+        
+        # Actualizar contraseña
+        connection = get_db_connection()
+        if connection:
+            cursor = connection.cursor()
+            try:
+                from datetime import datetime
+                # Verificar token nuevamente
+                cursor.execute(
+                    "SELECT id, username, email FROM users WHERE reset_token = %s AND reset_token_expires > %s",
+                    (token, datetime.now())
+                )
+                user = cursor.fetchone()
+                
+                if user:
+                    # Actualizar contraseña y limpiar token
+                    password_hash = generate_password_hash(new_password)
+                    cursor.execute(
+                        "UPDATE users SET password_hash = %s, reset_token = NULL, reset_token_expires = NULL WHERE id = %s",
+                        (password_hash, user['id'])
+                    )
+                    connection.commit()
+                    
+                    add_console_log('INFO', f'Contraseña restablecida exitosamente para: {user["username"]}', 'AUTH')
+                    flash('Tu contraseña ha sido restablecida exitosamente. Ya puedes iniciar sesión.', 'success')
+                    return redirect(url_for('login'))
+                else:
+                    add_console_log('WARNING', f'Token de reset inválido o expirado en POST: {token}', 'AUTH')
+                    flash('El enlace de recuperación es inválido o ha expirado.', 'error')
+                    return redirect(url_for('login'))
+                    
+            except Exception as e:
+                add_console_log('ERROR', f'Error al restablecer contraseña: {str(e)}', 'AUTH')
+                flash('Error al restablecer la contraseña', 'error')
+                return render_template('reset_password.html', token=token)
+            finally:
+                cursor.close()
+                connection.close()
+    
+    flash('Error de conexión a la base de datos', 'error')
+    return redirect(url_for('login'))
 
 @app.route('/resend_verification', methods=['POST'])
 def resend_verification():
@@ -926,211 +1208,509 @@ def get_analysis_prompt(analysis_type, cv_text):
     
     analysis_prompts = {
         'general_health_check': f"""
-        Realiza una revisión general del estado del currículum. Evalúa la ortografía, gramática, formato, integridad de la sección y longitud de currículum.
+        Realiza una revisión general exhaustiva del estado del currículum como un experto en recursos humanos con 15 años de experiencia. Evalúa minuciosamente la ortografía, gramática, formato, integridad de secciones y longitud del currículum.
         
-        Proporciona:
-        1. Puntaje general (0-100)
-        2. Errores de ortografía y gramática encontrados
-        3. Problemas de formato
-        4. Recomendaciones de mejora
+        Proporciona un análisis EXTREMADAMENTE DETALLADO que incluya:
+        1. Puntaje general (0-100) con justificación específica
+        2. Lista detallada de errores de ortografía y gramática encontrados con ejemplos exactos
+        3. Problemas de formato específicos con ubicaciones precisas
+        4. Recomendaciones de mejora con ejemplos concretos de cómo implementarlas
+        5. Análisis de estructura y organización
+        6. Evaluación de la longitud y densidad de información
+        7. Ejemplos específicos de mejoras con texto "antes" y "después"
+        8. Comparación con estándares de la industria
         
         IMPORTANTE: Responde ÚNICAMENTE en formato JSON válido con esta estructura exacta:
         {{
             "score": número_entre_0_y_100,
-            "strengths": ["fortaleza1", "fortaleza2"],
-            "weaknesses": ["debilidad1", "debilidad2"],
-            "recommendations": ["recomendación1", "recomendación2"],
-            "keywords": ["palabra1", "palabra2"],
+            "strengths": ["fortaleza1 con ejemplo específico", "fortaleza2 con detalle", "fortaleza3 con contexto", "fortaleza4 con justificación", "fortaleza5 con evidencia"],
+            "weaknesses": ["debilidad1 con ejemplo específico del CV", "debilidad2 con ubicación exacta", "debilidad3 con impacto explicado", "debilidad4 con consecuencias", "debilidad5 con contexto"],
+            "recommendations": ["recomendación1 con ejemplo práctico de implementación", "recomendación2 con texto sugerido", "recomendación3 con pasos específicos", "recomendación4 con plantilla", "recomendación5 con mejores prácticas"],
+            "keywords": ["palabra1", "palabra2", "palabra3", "palabra4", "palabra5", "palabra6", "palabra7", "palabra8"],
             "analysis_type": "general_health_check",
-            "detailed_feedback": "análisis detallado aquí"
+            "detailed_feedback": "Análisis exhaustivo de 500+ palabras que incluya: evaluación detallada de cada sección del CV, ejemplos específicos de errores encontrados con citas textuales, sugerencias de mejora con ejemplos concretos de texto mejorado, comparación con mejores prácticas de la industria, análisis de impacto en sistemas ATS, recomendaciones de formato específicas con justificación, evaluación de la coherencia y flujo narrativo, análisis de la efectividad comunicativa, sugerencias de reorganización si es necesario, y proyección del impacto de las mejoras sugeridas en la empleabilidad del candidato.",
+            "examples": {{
+                "spelling_errors": ["Error encontrado: 'texto_original' → Corrección: 'texto_corregido'"],
+                "format_improvements": ["Problema: descripción del problema → Solución: ejemplo específico de mejora"],
+                "before_after": ["Antes: 'texto original problemático' → Después: 'texto mejorado y optimizado'"]
+            }},
+            "metrics": {{
+                "readability_score": número_0_100,
+                "ats_compatibility": número_0_100,
+                "professional_impact": número_0_100,
+                "structure_quality": número_0_100
+            }}
         }}
         
         CV: {cv_text}
         """,
         
         'content_quality_analysis': f"""
-        Evalúa verbos de acción, logros cuantificables, claridad y lenguaje profesional del currículum.
+        Evalúa exhaustivamente verbos de acción, logros cuantificables, claridad y lenguaje profesional del currículum como un experto en comunicación corporativa y desarrollo profesional.
         
-        Analiza:
-        1. Uso de verbos de acción efectivos
-        2. Logros cuantificados con números/porcentajes
-        3. Claridad en la comunicación
-        4. Profesionalismo del lenguaje
+        Analiza DETALLADAMENTE:
+        1. Uso de verbos de acción efectivos con análisis de impacto y alternativas
+        2. Logros cuantificados con números/porcentajes y contexto de relevancia
+        3. Claridad en la comunicación con ejemplos específicos de mejora
+        4. Profesionalismo del lenguaje con evaluación de tono y registro
+        5. Estructura narrativa y storytelling profesional
+        6. Densidad informativa y eficiencia comunicativa
+        7. Diferenciación competitiva en la expresión
+        8. Adaptabilidad del mensaje a diferentes audiencias
+        9. Coherencia estilística y consistencia terminológica
+        10. Impacto emocional y persuasivo del contenido
         
         IMPORTANTE: Responde ÚNICAMENTE en formato JSON válido con esta estructura exacta:
         {{
             "score": número_entre_0_y_100,
-            "strengths": ["fortaleza1", "fortaleza2"],
-            "weaknesses": ["debilidad1", "debilidad2"],
-            "recommendations": ["recomendación1", "recomendación2"],
-            "keywords": ["palabra1", "palabra2"],
+            "strengths": ["fortaleza1 con ejemplo específico del CV", "fortaleza2 con análisis de impacto", "fortaleza3 con contexto profesional", "fortaleza4 con diferenciación", "fortaleza5 con efectividad comunicativa", "fortaleza6 con valor agregado"],
+            "weaknesses": ["debilidad1 con ejemplo textual específico", "debilidad2 con impacto en percepción", "debilidad3 con oportunidad perdida", "debilidad4 con comparación de mejores prácticas", "debilidad5 con consecuencias en empleabilidad", "debilidad6 con análisis de efectividad"],
+            "recommendations": ["recomendación1 con ejemplo antes/después", "recomendación2 con verbos alternativos específicos", "recomendación3 con métricas sugeridas", "recomendación4 con reformulación completa", "recomendación5 con estrategia de storytelling", "recomendación6 con optimización de impacto"],
+            "keywords": ["palabra1", "palabra2", "palabra3", "palabra4", "palabra5", "palabra6", "palabra7", "palabra8", "palabra9", "palabra10"],
             "analysis_type": "content_quality_analysis",
-            "detailed_feedback": "análisis detallado del contenido aquí"
+            "detailed_feedback": "Análisis exhaustivo de 600+ palabras que incluya: evaluación detallada de cada verbo de acción utilizado con sugerencias de alternativas más impactantes, análisis específico de logros cuantificados con contexto de relevancia sectorial, evaluación de claridad comunicativa con ejemplos de reformulación, análisis de profesionalismo del lenguaje con comparación de registros, evaluación de estructura narrativa y coherencia del storytelling, análisis de densidad informativa y eficiencia del mensaje, evaluación de diferenciación competitiva en la expresión, análisis de adaptabilidad del contenido a diferentes audiencias, evaluación de consistencia terminológica y estilística, y proyección del impacto persuasivo en reclutadores y sistemas ATS.",
+            "communication_analysis": {{
+                "action_verbs_effectiveness": número_0_100,
+                "quantified_achievements": número_0_100,
+                "clarity_score": número_0_100,
+                "professionalism_level": número_0_100,
+                "storytelling_quality": número_0_100,
+                "persuasive_impact": número_0_100
+            }},
+            "detailed_examples": {{
+                "weak_verbs": ["Verbo débil encontrado: 'responsable de' → Alternativa impactante: 'lideró/optimizó/transformó' con contexto específico"],
+                "strong_achievements": ["Logro bien cuantificado identificado con análisis de por qué es efectivo"],
+                "clarity_improvements": ["Frase confusa: 'texto original' → Versión clara: 'texto mejorado' con explicación"],
+                "professionalism_upgrades": ["Expresión informal: 'texto original' → Versión profesional: 'texto mejorado'"]
+            }},
+            "optimization_suggestions": {{
+                "high_impact_verbs": ["Lista de verbos de alto impacto específicos para el perfil"],
+                "quantification_opportunities": ["Oportunidades específicas de cuantificación identificadas"],
+                "storytelling_improvements": ["Sugerencias específicas de mejora narrativa"]
+            }}
         }}
         
         CV: {cv_text}
         """,
         
         'job_tailoring_optimization': f"""
-        Analiza si el currículum coincide con descripciones de trabajo específicas para una mejor inserción.
+        Analiza exhaustivamente si el currículum coincide con descripciones de trabajo específicas para una mejor inserción laboral, actuando como un especialista en reclutamiento con experiencia en múltiples industrias.
         
-        Evalúa:
-        1. Alineación con roles objetivo
-        2. Palabras clave relevantes para la industria
-        3. Habilidades transferibles
-        4. Sugerencias de personalización
+        Evalúa COMPREHENSIVAMENTE:
+        1. Alineación estratégica con roles objetivo y análisis de fit cultural
+        2. Palabras clave relevantes para la industria con análisis de densidad y posicionamiento
+        3. Habilidades transferibles con mapeo de competencias cross-funcionales
+        4. Sugerencias de personalización específicas por sector y nivel jerárquico
+        5. Análisis de competitividad frente a perfiles similares del mercado
+        6. Evaluación de gaps críticos y cómo compensarlos estratégicamente
+        7. Optimización de narrativa profesional para diferentes tipos de empleadores
+        8. Análisis de tendencias del mercado laboral y adaptación del perfil
+        9. Estrategias de diferenciación competitiva por industria
+        10. Proyección de empleabilidad y potencial de contratación por sector
         
         IMPORTANTE: Responde ÚNICAMENTE en formato JSON válido con esta estructura exacta:
         {{
             "score": número_entre_0_y_100,
-            "strengths": ["fortaleza1", "fortaleza2"],
-            "weaknesses": ["debilidad1", "debilidad2"],
-            "recommendations": ["recomendación1", "recomendación2"],
-            "keywords": ["palabra1", "palabra2"],
+            "strengths": ["fortaleza1 con análisis de mercado específico", "fortaleza2 con ventaja competitiva identificada", "fortaleza3 con alineación sectorial", "fortaleza4 con transferibilidad de skills", "fortaleza5 con diferenciación estratégica", "fortaleza6 con potencial de crecimiento"],
+            "weaknesses": ["debilidad1 con impacto en empleabilidad sectorial", "debilidad2 con gap crítico identificado", "debilidad3 con desalineación de mercado", "debilidad4 con competencia desfavorable", "debilidad5 con barrera de entrada", "debilidad6 con limitación de oportunidades"],
+            "recommendations": ["recomendación1 con estrategia de personalización específica", "recomendación2 con keywords sectoriales exactas", "recomendación3 con reformulación para industria target", "recomendación4 con compensación de gaps", "recomendación5 con diferenciación competitiva", "recomendación6 con optimización de narrativa"],
+            "keywords": ["keyword1_industria", "keyword2_técnica", "keyword3_soft_skill", "keyword4_herramienta", "keyword5_metodología", "keyword6_certificación", "keyword7_sector", "keyword8_nivel", "keyword9_función", "keyword10_tendencia"],
             "analysis_type": "job_tailoring_optimization",
-            "detailed_feedback": "análisis detallado de optimización para trabajos aquí"
+            "detailed_feedback": "Análisis exhaustivo de 650+ palabras que incluya: evaluación detallada de alineación con roles target específicos, análisis de competitividad frente a perfiles similares del mercado, mapeo de habilidades transferibles con ejemplos de aplicación sectorial, identificación de gaps críticos con estrategias de compensación, análisis de keywords sectoriales con densidad óptima y posicionamiento estratégico, evaluación de narrativa profesional con adaptaciones por tipo de empleador, análisis de tendencias del mercado laboral relevantes, estrategias de diferenciación competitiva específicas por industria, proyección de empleabilidad por sector con probabilidades de éxito, y recomendaciones de personalización con ejemplos concretos de reformulación para diferentes oportunidades laborales.",
+            "market_analysis": {{
+                "industry_alignment": número_0_100,
+                "keyword_optimization": número_0_100,
+                "skills_transferability": número_0_100,
+                "competitive_positioning": número_0_100,
+                "market_readiness": número_0_100,
+                "growth_potential": número_0_100
+            }},
+            "tailoring_examples": {{
+                "industry_specific_keywords": ["Keyword crítico para sector X con justificación de importancia"],
+                "role_adaptations": ["Adaptación específica: 'descripción original' → 'versión optimizada para rol Y'"],
+                "skills_repositioning": ["Skill reposicionado: 'presentación actual' → 'enfoque estratégico para industria Z'"],
+                "narrative_adjustments": ["Ajuste narrativo: 'versión genérica' → 'versión personalizada para empleador tipo A'"]
+            }},
+            "competitive_analysis": {{
+                "market_advantages": ["Ventaja competitiva específica con contexto de mercado"],
+                "improvement_priorities": ["Prioridad de mejora con impacto proyectado en empleabilidad"],
+                "differentiation_strategies": ["Estrategia de diferenciación específica con implementación práctica"]
+            }}
         }}
         
         CV: {cv_text}
         """,
         
         'ats_compatibility_verification': f"""
-        Verifica la compatibilidad con sistemas ATS (Applicant Tracking Systems).
+        Verifica exhaustivamente la compatibilidad con sistemas ATS (Applicant Tracking Systems) actuando como un especialista en tecnología de reclutamiento con conocimiento profundo de múltiples plataformas ATS.
         
-        Asegúrate de que el currículum pase a través de los sistemas de seguimiento de solicitantes con éxito.
+        Asegúrate de que el currículum pase exitosamente a través de los sistemas de seguimiento de solicitantes más utilizados en el mercado.
         
-        Evalúa:
-        1. Formato compatible con ATS
-        2. Uso de palabras clave estándar
-        3. Estructura de secciones
-        4. Elementos que podrían causar problemas
+        Evalúa METICULOSAMENTE:
+        1. Formato compatible con ATS con análisis de parsing y legibilidad automática
+        2. Uso de palabras clave estándar con análisis de densidad y posicionamiento óptimo
+        3. Estructura de secciones con evaluación de headers y jerarquía informativa
+        4. Elementos que podrían causar problemas con identificación específica de conflictos
+        5. Análisis de fuentes, espaciado y elementos gráficos problemáticos
+        6. Evaluación de compatibilidad con diferentes versiones de ATS populares
+        7. Análisis de metadata y información estructurada
+        8. Verificación de campos estándar y formatos de fecha/contacto
+        9. Evaluación de longitud y densidad de contenido para parsing óptimo
+        10. Análisis de probabilidad de ranking alto en búsquedas automatizadas
         
         IMPORTANTE: Responde ÚNICAMENTE en formato JSON válido con esta estructura exacta:
         {{
             "score": número_entre_0_y_100,
-            "strengths": ["fortaleza1", "fortaleza2"],
-            "weaknesses": ["debilidad1", "debilidad2"],
-            "recommendations": ["recomendación1", "recomendación2"],
-            "keywords": ["palabra1", "palabra2"],
+            "strengths": ["fortaleza1 con compatibilidad específica de ATS", "fortaleza2 con ventaja en parsing automático", "fortaleza3 con optimización de keywords", "fortaleza4 con estructura favorable", "fortaleza5 con metadata correcta", "fortaleza6 con ranking potencial alto"],
+            "weaknesses": ["debilidad1 con riesgo específico de parsing", "debilidad2 con elemento problemático identificado", "debilidad3 con incompatibilidad de formato", "debilidad4 con pérdida de información", "debilidad5 con ranking desfavorable", "debilidad6 con barrera técnica"],
+            "recommendations": ["recomendación1 con solución técnica específica", "recomendación2 con reformateo exacto", "recomendación3 con optimización de keywords", "recomendación4 con ajuste de estructura", "recomendación5 con corrección de metadata", "recomendación6 con mejora de compatibilidad"],
+            "keywords": ["keyword1_ats_friendly", "keyword2_standard", "keyword3_industry", "keyword4_technical", "keyword5_role", "keyword6_skill", "keyword7_certification", "keyword8_tool", "keyword9_methodology", "keyword10_level"],
             "analysis_type": "ats_compatibility_verification",
-            "detailed_feedback": "análisis detallado de compatibilidad ATS aquí"
+            "detailed_feedback": "Análisis exhaustivo de 700+ palabras que incluya: evaluación detallada de compatibilidad con sistemas ATS principales (Workday, Taleo, iCIMS, Greenhouse, etc.), análisis específico de elementos que causan problemas de parsing con ejemplos concretos, evaluación de estructura de headers y secciones con recomendaciones de optimización, análisis de densidad y posicionamiento de keywords para ranking automático, verificación de formatos de fecha, contacto y campos estándar, evaluación de fuentes y elementos gráficos problemáticos, análisis de metadata y información estructurada, proyección de probabilidad de paso exitoso por filtros automáticos, recomendaciones específicas de reformateo con ejemplos antes/después, y estrategias de optimización para diferentes tipos de ATS con consideraciones técnicas específicas.",
+            "ats_analysis": {{
+                "parsing_compatibility": número_0_100,
+                "keyword_optimization": número_0_100,
+                "structure_quality": número_0_100,
+                "format_compliance": número_0_100,
+                "metadata_accuracy": número_0_100,
+                "ranking_potential": número_0_100
+            }},
+            "technical_issues": {{
+                "problematic_elements": ["Elemento problemático específico: 'descripción del problema' → Solución: 'corrección técnica'"],
+                "parsing_risks": ["Riesgo de parsing identificado con probabilidad de fallo y solución"],
+                "format_conflicts": ["Conflicto de formato: 'problema específico' → Alternativa compatible: 'solución'"],
+                "optimization_opportunities": ["Oportunidad de optimización: 'situación actual' → 'mejora sugerida con impacto'"]
+            }},
+            "ats_compatibility_matrix": {{
+                "workday_score": número_0_100,
+                "taleo_score": número_0_100,
+                "icims_score": número_0_100,
+                "greenhouse_score": número_0_100,
+                "general_ats_score": número_0_100
+            }}
         }}
         
         CV: {cv_text}
         """,
         
         'tone_style_evaluation': f"""
-        Evalúa el tono profesional, la idoneidad del idioma y la legibilidad del currículum.
+        Evalúa el tono profesional, la idoneidad del idioma y la legibilidad del currículum con análisis exhaustivo.
         
-        Analiza:
-        1. Consistencia del tono profesional
-        2. Apropiación del lenguaje para la industria
-        3. Legibilidad y fluidez
-        4. Impacto y persuasión
+        Analiza en detalle:
+        1. **Consistencia del tono profesional**: Evalúa uniformidad, autoridad, confianza
+        2. **Apropiación del lenguaje para la industria**: Terminología técnica, jerga profesional, nivel de formalidad
+        3. **Legibilidad y fluidez**: Estructura de oraciones, transiciones, claridad
+        4. **Impacto y persuasión**: Poder de convencimiento, llamadas a la acción, diferenciación
+        5. **Comunicación efectiva**: Concisión, precisión, engagement
+        6. **Adaptación al público objetivo**: Alineación con expectativas del reclutador
+        
+        Proporciona ejemplos específicos de:
+        - Frases que demuestran tono profesional vs. informal
+        - Terminología técnica bien/mal utilizada
+        - Oraciones que necesitan mejora en fluidez
+        - Expresiones con alto/bajo impacto persuasivo
         
         IMPORTANTE: Responde ÚNICAMENTE en formato JSON válido con esta estructura exacta:
         {{
             "score": número_entre_0_y_100,
-            "strengths": ["fortaleza1", "fortaleza2"],
-            "weaknesses": ["debilidad1", "debilidad2"],
-            "recommendations": ["recomendación1", "recomendación2"],
-            "keywords": ["palabra1", "palabra2"],
+            "strengths": ["fortaleza1 con ejemplo específico", "fortaleza2 con ejemplo específico", "fortaleza3"],
+            "weaknesses": ["debilidad1 con ejemplo específico", "debilidad2 con ejemplo específico", "debilidad3"],
+            "recommendations": ["recomendación1 con ejemplo antes/después", "recomendación2 con ejemplo", "recomendación3"],
+            "keywords": ["palabra_clave_profesional1", "palabra_clave_industria2", "término_técnico3"],
             "analysis_type": "tone_style_evaluation",
-            "detailed_feedback": "análisis detallado de tono y estilo aquí"
+            "detailed_feedback": "análisis detallado de tono y estilo con ejemplos específicos",
+            "tone_metrics": {{
+                "professionalism_score": número_0_100,
+                "industry_language_score": número_0_100,
+                "readability_score": número_0_100,
+                "persuasion_impact_score": número_0_100,
+                "consistency_score": número_0_100
+            }},
+            "language_analysis": {{
+                "formal_expressions": ["expresión formal 1", "expresión formal 2"],
+                "informal_expressions": ["expresión informal 1", "expresión informal 2"],
+                "technical_terms_used": ["término técnico 1", "término técnico 2"],
+                "missing_industry_terms": ["término faltante 1", "término faltante 2"]
+            }},
+            "improvement_examples": {{
+                "weak_phrases": [
+                    {{"original": "frase débil", "improved": "frase mejorada", "reason": "razón de mejora"}},
+                    {{"original": "otra frase débil", "improved": "otra frase mejorada", "reason": "razón de mejora"}}
+                ],
+                "tone_adjustments": [
+                    {{"section": "sección del CV", "current_tone": "tono actual", "recommended_tone": "tono recomendado", "example": "ejemplo de mejora"}}
+                ]
+            }}
         }}
         
         CV: {cv_text}
         """,
         
         'industry_role_feedback': f"""
-        Proporciona asesoramiento personalizado basado en la industria y rol específico.
+        Proporciona asesoramiento personalizado exhaustivo basado en la industria y rol específico identificados en el CV.
         
-        Obtén asesoramiento personalizado basado en su industria y su rol.
+        Analiza en profundidad:
+        1. **Relevancia para la industria específica**: Alineación con estándares, certificaciones, experiencia sectorial
+        2. **Competencias clave del rol**: Skills técnicos, soft skills, competencias emergentes
+        3. **Tendencias del mercado laboral**: Demanda actual, skills en crecimiento, tecnologías emergentes
+        4. **Recomendaciones específicas del sector**: Certificaciones valoradas, experiencias clave, networking
+        5. **Posicionamiento competitivo**: Ventajas diferenciales, gaps vs. competencia
+        6. **Proyección de carrera**: Próximos pasos, roles objetivo, desarrollo profesional
         
-        Analiza:
-        1. Relevancia para la industria específica
-        2. Competencias clave del rol
-        3. Tendencias del mercado laboral
-        4. Recomendaciones específicas del sector
+        Identifica y proporciona ejemplos específicos de:
+        - Experiencias que demuestran expertise sectorial
+        - Skills técnicos específicos de la industria presentes/ausentes
+        - Logros cuantificados relevantes para el sector
+        - Terminología y keywords específicas de la industria
+        - Certificaciones y formación valoradas en el sector
         
         IMPORTANTE: Responde ÚNICAMENTE en formato JSON válido con esta estructura exacta:
         {{
             "score": número_entre_0_y_100,
-            "strengths": ["fortaleza1", "fortaleza2"],
-            "weaknesses": ["debilidad1", "debilidad2"],
-            "recommendations": ["recomendación1", "recomendación2"],
-            "keywords": ["palabra1", "palabra2"],
+            "strengths": ["fortaleza1 con ejemplo específico del sector", "fortaleza2 con contexto industrial", "fortaleza3"],
+            "weaknesses": ["debilidad1 con impacto en la industria", "debilidad2 con comparación sectorial", "debilidad3"],
+            "recommendations": ["recomendación1 específica del sector con ejemplo", "recomendación2 con certificación sugerida", "recomendación3"],
+            "keywords": ["keyword_industria1", "skill_técnico2", "certificación3", "herramienta4"],
             "analysis_type": "industry_role_feedback",
-            "detailed_feedback": "análisis detallado específico de la industria aquí"
+            "detailed_feedback": "análisis detallado específico de la industria con ejemplos y contexto sectorial",
+            "industry_analysis": {{
+                "identified_industry": "industria identificada",
+                "target_role": "rol objetivo identificado",
+                "industry_alignment_score": número_0_100,
+                "role_readiness_score": número_0_100,
+                "market_competitiveness_score": número_0_100
+            }},
+            "sector_requirements": {{
+                "essential_skills": ["skill esencial 1", "skill esencial 2", "skill esencial 3"],
+                "preferred_skills": ["skill preferido 1", "skill preferido 2"],
+                "missing_skills": ["skill faltante 1", "skill faltante 2"],
+                "relevant_certifications": ["certificación 1", "certificación 2"]
+            }},
+            "market_insights": {{
+                "current_trends": ["tendencia 1", "tendencia 2", "tendencia 3"],
+                "emerging_technologies": ["tecnología 1", "tecnología 2"],
+                "salary_range": "rango salarial estimado",
+                "growth_outlook": "perspectiva de crecimiento del sector"
+            }},
+            "career_development": {{
+                "next_steps": ["paso 1 específico", "paso 2 con timeline", "paso 3"],
+                "target_companies": ["tipo de empresa 1", "tipo de empresa 2"],
+                "networking_opportunities": ["evento/plataforma 1", "asociación profesional 2"],
+                "skill_development_priority": ["skill prioritario 1", "skill prioritario 2"]
+            }}
         }}
         
         CV: {cv_text}
         """,
         
         'benchmarking_comparison': f"""
-        Compara el currículum con ejemplos exitosos en roles similares.
+        Compara exhaustivamente el currículum con ejemplos exitosos y estándares de la industria para roles similares.
         
-        Realiza:
-        1. Comparación con estándares de la industria
-        2. Identificación de brechas
-        3. Mejores prácticas aplicables
-        4. Posicionamiento competitivo
+        Realiza análisis comparativo detallado:
+        1. **Comparación con estándares de la industria**: Benchmarks sectoriales, métricas de rendimiento, niveles esperados
+        2. **Identificación de brechas críticas**: Gaps en experiencia, skills, logros, formación
+        3. **Mejores prácticas aplicables**: Estructuras exitosas, formatos optimizados, contenido efectivo
+        4. **Posicionamiento competitivo**: Ranking vs. competencia, ventajas diferenciales, áreas de mejora
+        5. **Análisis de perfiles top-tier**: Comparación con candidatos exitosos del mismo nivel
+        6. **Evaluación de mercado**: Posición relativa, competitividad, oportunidades
+        
+        Proporciona ejemplos específicos y comparaciones concretas:
+        - Logros cuantificados vs. estándares del mercado
+        - Estructura y formato vs. mejores prácticas
+        - Skills y certificaciones vs. perfiles exitosos
+        - Experiencia y progresión vs. trayectorias típicas
+        - Lenguaje y terminología vs. estándares profesionales
         
         IMPORTANTE: Responde ÚNICAMENTE en formato JSON válido con esta estructura exacta:
         {{
             "score": número_entre_0_y_100,
-            "strengths": ["fortaleza1", "fortaleza2"],
-            "weaknesses": ["debilidad1", "debilidad2"],
-            "recommendations": ["recomendación1", "recomendación2"],
-            "keywords": ["palabra1", "palabra2"],
+            "strengths": ["fortaleza1 vs. benchmark específico", "fortaleza2 con comparación cuantificada", "fortaleza3"],
+            "weaknesses": ["debilidad1 vs. estándar industrial", "debilidad2 con gap específico", "debilidad3"],
+            "recommendations": ["recomendación1 basada en mejores prácticas", "recomendación2 con ejemplo de mejora", "recomendación3"],
+            "keywords": ["keyword_benchmark1", "término_estándar2", "skill_competitivo3"],
             "analysis_type": "benchmarking_comparison",
-            "detailed_feedback": "análisis detallado de comparación y benchmarking aquí"
+            "detailed_feedback": "análisis detallado de comparación y benchmarking con ejemplos específicos",
+            "benchmark_analysis": {{
+                "industry_percentile": número_0_100,
+                "experience_level_match": "junior/mid/senior/executive",
+                "competitive_position": "below_average/average/above_average/top_tier",
+                "market_readiness_score": número_0_100
+            }},
+            "comparison_metrics": {{
+                "format_vs_standard": {{
+                    "current_score": número_0_100,
+                    "industry_average": número_0_100,
+                    "top_performers": número_0_100,
+                    "gap_analysis": "descripción del gap"
+                }},
+                "content_vs_benchmark": {{
+                    "achievements_quality": número_0_100,
+                    "skills_relevance": número_0_100,
+                    "experience_depth": número_0_100,
+                    "industry_alignment": número_0_100
+                }}
+            }},
+            "best_practices_analysis": {{
+                "successful_patterns": ["patrón exitoso 1", "patrón exitoso 2", "patrón exitoso 3"],
+                "missing_elements": ["elemento faltante 1", "elemento faltante 2"],
+                "optimization_opportunities": [
+                    {{"area": "área de mejora", "current_state": "estado actual", "best_practice": "mejor práctica", "expected_impact": "impacto esperado"}}
+                ]
+            }},
+            "competitive_analysis": {{
+                "strengths_vs_market": ["ventaja competitiva 1", "ventaja competitiva 2"],
+                "weaknesses_vs_market": ["desventaja 1", "desventaja 2"],
+                "differentiation_opportunities": ["oportunidad 1", "oportunidad 2"],
+                "market_positioning": "posicionamiento en el mercado"
+            }}
         }}
         
         CV: {cv_text}
         """,
         
         'ai_improvement_suggestions': f"""
-        Obtén consejos de mejora basados en IA personalizadas para mejorar su currículum.
+        Proporciona consejos de mejora avanzados basados en IA y machine learning para optimizar el currículum de manera integral.
         
-        Proporciona:
-        1. Sugerencias específicas de mejora
-        2. Optimizaciones basadas en IA
-        3. Tendencias actuales del mercado
-        4. Estrategias de diferenciación
+        Analiza y proporciona sugerencias inteligentes sobre:
+        1. **Optimizaciones basadas en IA**: Análisis de patrones exitosos, predicciones de rendimiento, scoring automático
+        2. **Sugerencias específicas de mejora**: Recomendaciones personalizadas, ajustes de contenido, optimización de formato
+        3. **Tendencias actuales del mercado**: Insights de datos de reclutamiento, skills emergentes, demandas del mercado
+        4. **Estrategias de diferenciación**: Elementos únicos, propuesta de valor, posicionamiento competitivo
+        5. **Optimización para ATS y IA**: Compatibilidad con sistemas automatizados, keywords estratégicas
+        6. **Predicciones de éxito**: Probabilidad de éxito, áreas de alto impacto, ROI de mejoras
+        
+        Incluye ejemplos específicos y transformaciones concretas:
+        - Antes/después de secciones optimizadas
+        - Keywords con mayor impacto según IA
+        - Estructuras de frases más efectivas
+        - Métricas y logros optimizados
+        - Formatos que maximizan el engagement
         
         IMPORTANTE: Responde ÚNICAMENTE en formato JSON válido con esta estructura exacta:
         {{
             "score": número_entre_0_y_100,
-            "strengths": ["fortaleza1", "fortaleza2"],
-            "weaknesses": ["debilidad1", "debilidad2"],
-            "recommendations": ["recomendación1", "recomendación2"],
-            "keywords": ["palabra1", "palabra2"],
+            "strengths": ["fortaleza1 identificada por IA", "fortaleza2 con potencial de optimización", "fortaleza3"],
+            "weaknesses": ["debilidad1 detectada por análisis automático", "debilidad2 con impacto cuantificado", "debilidad3"],
+            "recommendations": ["recomendación1 basada en ML con ejemplo", "recomendación2 con predicción de impacto", "recomendación3"],
+            "keywords": ["keyword_ai_optimized1", "trending_skill2", "high_impact_term3"],
             "analysis_type": "ai_improvement_suggestions",
-            "detailed_feedback": "sugerencias detalladas de mejora basadas en IA aquí"
+            "detailed_feedback": "sugerencias detalladas de mejora basadas en IA con ejemplos específicos",
+            "ai_insights": {{
+                "optimization_score": número_0_100,
+                "market_alignment_score": número_0_100,
+                "ats_compatibility_prediction": número_0_100,
+                "success_probability": número_0_100
+            }},
+            "smart_optimizations": {{
+                "high_impact_changes": [
+                    {{"section": "sección", "current": "contenido actual", "optimized": "contenido optimizado", "impact_score": número_0_100, "reasoning": "razón basada en IA"}}
+                ],
+                "keyword_optimization": [
+                    {{"current_keyword": "keyword actual", "optimized_keyword": "keyword optimizado", "frequency_recommendation": "frecuencia recomendada", "context": "contexto de uso"}}
+                ],
+                "structure_improvements": [
+                    {{"area": "área de mejora", "current_structure": "estructura actual", "recommended_structure": "estructura recomendada", "ai_reasoning": "razón basada en datos"}}
+                ]
+            }},
+            "market_intelligence": {{
+                "trending_skills": ["skill emergente 1", "skill emergente 2", "skill emergente 3"],
+                "declining_skills": ["skill en declive 1", "skill en declive 2"],
+                "industry_predictions": ["predicción 1", "predicción 2"],
+                "salary_impact_factors": ["factor 1", "factor 2"]
+            }},
+            "personalization": {{
+                "career_stage_optimization": "optimización específica para nivel de carrera",
+                "industry_customization": "personalización para industria específica",
+                "role_targeting": "enfoque para rol objetivo",
+                "geographic_considerations": "consideraciones geográficas del mercado"
+            }},
+            "predictive_analysis": {{
+                "interview_probability": número_0_100,
+                "salary_negotiation_strength": número_0_100,
+                "career_advancement_potential": número_0_100,
+                "market_competitiveness": número_0_100
+            }}
         }}
         
         CV: {cv_text}
         """,
         
         'visual_design_assessment': f"""
-        Evalúa el atractivo visual, la legibilidad y la presentación profesional del currículum.
+        Evalúa exhaustivamente el atractivo visual, la legibilidad y la presentación profesional del currículum desde una perspectiva de diseño UX/UI.
         
-        Analiza:
-        1. Diseño visual y layout
-        2. Legibilidad y organización
-        3. Uso efectivo del espacio
-        4. Impresión profesional general
+        Analiza en detalle:
+        1. **Diseño visual y layout**: Jerarquía visual, balance, alineación, consistencia tipográfica
+        2. **Legibilidad y organización**: Flujo de lectura, espaciado, contraste, accesibilidad
+        3. **Uso efectivo del espacio**: Distribución, márgenes, densidad de información, respiración visual
+        4. **Impresión profesional general**: Primera impresión, credibilidad visual, modernidad
+        5. **Experiencia de usuario**: Facilidad de navegación, escaneabilidad, jerarquía de información
+        6. **Adaptabilidad**: Compatibilidad con diferentes formatos, impresión, visualización digital
+        
+        Proporciona análisis específico de elementos visuales:
+        - Tipografía: fuentes, tamaños, jerarquías, legibilidad
+        - Color y contraste: esquema cromático, accesibilidad, profesionalismo
+        - Espaciado: márgenes, padding, line-height, secciones
+        - Estructura: grid, alineación, balance visual
+        - Elementos gráficos: iconos, líneas, separadores, bullets
         
         IMPORTANTE: Responde ÚNICAMENTE en formato JSON válido con esta estructura exacta:
         {{
             "score": número_entre_0_y_100,
-            "strengths": ["fortaleza1", "fortaleza2"],
-            "weaknesses": ["debilidad1", "debilidad2"],
-            "recommendations": ["recomendación1", "recomendación2"],
-            "keywords": ["palabra1", "palabra2"],
+            "strengths": ["fortaleza1 de diseño específica", "fortaleza2 visual con detalle", "fortaleza3"],
+            "weaknesses": ["debilidad1 de layout específica", "debilidad2 de legibilidad", "debilidad3"],
+            "recommendations": ["recomendación1 de diseño con ejemplo", "recomendación2 de mejora visual", "recomendación3"],
+            "keywords": ["término_diseño1", "concepto_visual2", "elemento_ux3"],
             "analysis_type": "visual_design_assessment",
-            "detailed_feedback": "análisis detallado de diseño visual aquí"
+            "detailed_feedback": "análisis detallado de diseño visual con ejemplos específicos",
+            "design_metrics": {{
+                "visual_hierarchy_score": número_0_100,
+                "readability_score": número_0_100,
+                "professional_appearance_score": número_0_100,
+                "space_utilization_score": número_0_100,
+                "consistency_score": número_0_100,
+                "modern_design_score": número_0_100
+            }},
+            "visual_elements_analysis": {{
+                "typography": {{
+                    "font_choices": "evaluación de fuentes",
+                    "hierarchy_effectiveness": número_0_100,
+                    "readability_assessment": "evaluación de legibilidad",
+                    "size_consistency": número_0_100
+                }},
+                "layout_structure": {{
+                    "grid_system": "evaluación del sistema de grid",
+                    "alignment_quality": número_0_100,
+                    "balance_assessment": "evaluación del balance visual",
+                    "flow_effectiveness": número_0_100
+                }},
+                "spacing_whitespace": {{
+                    "margin_usage": "evaluación de márgenes",
+                    "section_separation": número_0_100,
+                    "breathing_room": "evaluación del espacio en blanco",
+                    "density_optimization": número_0_100
+                }}
+            }},
+            "ux_assessment": {{
+                "scannability": número_0_100,
+                "information_hierarchy": número_0_100,
+                "user_journey": "evaluación del flujo de lectura",
+                "accessibility_score": número_0_100
+            }},
+            "design_improvements": {{
+                "priority_fixes": [
+                    {{"issue": "problema visual", "solution": "solución específica", "impact": "impacto esperado", "difficulty": "fácil/medio/difícil"}}
+                ],
+                "enhancement_suggestions": [
+                    {{"area": "área de mejora", "current_state": "estado actual", "recommended_change": "cambio recomendado", "visual_impact": número_0_100}}
+                ],
+                "modern_trends": ["tendencia de diseño 1", "tendencia de diseño 2", "tendencia de diseño 3"]
+            }},
+            "format_compatibility": {{
+                "print_readiness": número_0_100,
+                "digital_optimization": número_0_100,
+                "ats_visual_compatibility": número_0_100,
+                "mobile_friendliness": número_0_100
+            }}
         }}
         
         CV: {cv_text}

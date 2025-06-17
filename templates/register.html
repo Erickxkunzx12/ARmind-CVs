@@ -72,6 +72,16 @@
                                          style="width: 0%"></div>
                                 </div>
                                 <small class="form-text" id="passwordHelp">Ingresa una contraseña</small>
+                                <div class="mt-2">
+                                    <small class="text-muted">La contraseña debe contener:</small>
+                                    <ul class="list-unstyled mt-1" style="font-size: 0.875rem;">
+                                        <li class="text-muted"><i class="fas fa-circle" style="font-size: 0.5rem;"></i> Mínimo 8 caracteres</li>
+                                        <li class="text-muted"><i class="fas fa-circle" style="font-size: 0.5rem;"></i> Al menos una letra minúscula</li>
+                                        <li class="text-muted"><i class="fas fa-circle" style="font-size: 0.5rem;"></i> Al menos una letra mayúscula</li>
+                                        <li class="text-muted"><i class="fas fa-circle" style="font-size: 0.5rem;"></i> Al menos un número</li>
+                                        <li class="text-muted"><i class="fas fa-circle" style="font-size: 0.5rem;"></i> Al menos un carácter especial (!@#$%^&*)</li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
                         
@@ -179,29 +189,59 @@
             const value = this.value;
             let strength = 0;
             let feedback = '';
+            let requirements = [];
             
-            if (value.length >= 6) strength += 20;
-            if (value.match(/[a-z]/)) strength += 20;
-            if (value.match(/[A-Z]/)) strength += 20;
-            if (value.match(/[0-9]/)) strength += 20;
-            if (value.match(/[^a-zA-Z0-9]/)) strength += 20;
+            // Check length (minimum 8 characters)
+            if (value.length >= 8) {
+                strength += 20;
+            } else {
+                requirements.push('8+ caracteres');
+            }
+            
+            // Check lowercase
+            if (value.match(/[a-z]/)) {
+                strength += 20;
+            } else {
+                requirements.push('minúsculas');
+            }
+            
+            // Check uppercase
+            if (value.match(/[A-Z]/)) {
+                strength += 20;
+            } else {
+                requirements.push('mayúsculas');
+            }
+            
+            // Check numbers
+            if (value.match(/[0-9]/)) {
+                strength += 20;
+            } else {
+                requirements.push('números');
+            }
+            
+            // Check special characters
+            if (value.match(/[!@#$%^&*(),.?":{}|<>\-_+=\[\]\\;/~`]/)) {
+                strength += 20;
+            } else {
+                requirements.push('caracteres especiales');
+            }
             
             passwordStrength.style.width = strength + '%';
             
-            if (strength < 40) {
+            if (strength < 60) {
                 passwordStrength.className = 'progress-bar bg-danger';
-                feedback = 'Contraseña débil';
-            } else if (strength < 80) {
+                feedback = requirements.length > 0 ? 'Faltan: ' + requirements.join(', ') : 'Contraseña muy débil';
+            } else if (strength < 100) {
                 passwordStrength.className = 'progress-bar bg-warning';
-                feedback = 'Contraseña moderada';
+                feedback = requirements.length > 0 ? 'Faltan: ' + requirements.join(', ') : 'Contraseña moderada';
             } else {
                 passwordStrength.className = 'progress-bar bg-success';
-                feedback = 'Contraseña fuerte';
+                feedback = 'Contraseña fuerte ✓';
             }
             
             passwordHelp.textContent = feedback;
-            passwordHelp.className = strength < 40 ? 'form-text text-danger' : 
-                                   strength < 80 ? 'form-text text-warning' : 
+            passwordHelp.className = strength < 60 ? 'form-text text-danger' : 
+                                   strength < 100 ? 'form-text text-warning' : 
                                    'form-text text-success';
         });
         
@@ -227,6 +267,21 @@
         form.addEventListener('submit', function(e) {
             if (!validatePasswordMatch()) {
                 e.preventDefault();
+                return;
+            }
+            
+            // Check password strength
+            const value = password.value;
+            let strength = 0;
+            if (value.length >= 8) strength += 20;
+            if (value.match(/[a-z]/)) strength += 20;
+            if (value.match(/[A-Z]/)) strength += 20;
+            if (value.match(/[0-9]/)) strength += 20;
+            if (value.match(/[!@#$%^&*(),.?":{}|<>\-_+=\[\]\\;/~`]/)) strength += 20;
+            
+            if (strength < 100) {
+                e.preventDefault();
+                alert('La contraseña debe cumplir con todos los requisitos de seguridad: mínimo 8 caracteres, mayúsculas, minúsculas, números y caracteres especiales.');
                 return;
             }
             
