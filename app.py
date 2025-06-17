@@ -24,18 +24,58 @@ from job_search_service import scrape_linkedin, scrape_computrabajo as scrape_co
 
 # Configuración de email usando variables de entorno
 import os
+from dotenv import load_dotenv
 
-EMAIL_CONFIG = {
-    'smtp_server': os.getenv('SMTP_SERVER', 'smtp.gmail.com'),
-    'smtp_port': int(os.getenv('SMTP_PORT', '587')),
-    'email': os.getenv('EMAIL_USER'),
-    'password': os.getenv('EMAIL_PASSWORD'),
-    'use_tls': os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
-}
+# Cargar variables de entorno desde archivo .env
+load_dotenv()
+
+# Intentar importar configuración de email desde archivo local
+try:
+    from email_config import EMAIL_CONFIG as CONFIG_FROM_FILE
+    # Verificar si la configuración del archivo tiene valores de ejemplo
+    example_values = ['tu_email@gmail.com', 'tu_email@outlook.com', 'tu_email@yahoo.com', 'tu_app_password', 'tu_contraseña']
+    
+    if (CONFIG_FROM_FILE['email'] in example_values or CONFIG_FROM_FILE['password'] in example_values):
+        print("⚠️ email_config.py contiene valores de ejemplo, usando variables de entorno")
+        # Usar variables de entorno si el archivo tiene valores de ejemplo
+        EMAIL_CONFIG = {
+            'smtp_server': os.getenv('SMTP_SERVER', 'smtp.gmail.com'),
+            'smtp_port': int(os.getenv('SMTP_PORT', '587')),
+            'email': os.getenv('EMAIL_USER'),
+            'password': os.getenv('EMAIL_PASSWORD'),
+            'use_tls': os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+        }
+        print("✅ Configuración de email cargada desde archivo .env")
+    else:
+        EMAIL_CONFIG = CONFIG_FROM_FILE
+        print("✅ Configuración de email cargada desde email_config.py")
+except ImportError:
+    # Usar variables de entorno como respaldo
+    EMAIL_CONFIG = {
+        'smtp_server': os.getenv('SMTP_SERVER', 'smtp.gmail.com'),
+        'smtp_port': int(os.getenv('SMTP_PORT', '587')),
+        'email': os.getenv('EMAIL_USER'),
+        'password': os.getenv('EMAIL_PASSWORD'),
+        'use_tls': os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+    }
+    print("✅ Configuración de email cargada desde archivo .env (email_config.py no encontrado)")
 
 # Verificar si la configuración de email está completa
-if not EMAIL_CONFIG['email'] or not EMAIL_CONFIG['password']:
-    print("ADVERTENCIA: Configuración de email incompleta en variables de entorno")
+# Lista de valores de ejemplo que indican configuración incompleta
+example_values = ['tu_email@gmail.com', 'tu_email@outlook.com', 'tu_email@yahoo.com', 'tu_app_password', 'tu_contraseña']
+
+if (not EMAIL_CONFIG['email'] or not EMAIL_CONFIG['password'] or 
+    EMAIL_CONFIG['email'] in example_values or EMAIL_CONFIG['password'] in example_values):
+    print("❌ ADVERTENCIA: Configuración de email incompleta o usando valores de ejemplo")
+    print("   Para habilitar el envío de emails:")
+    print("   1. Edita 'email_config.py'")
+    print("   2. Reemplaza 'tu_email@gmail.com' con tu email real")
+    print("   3. Reemplaza 'tu_app_password' con tu contraseña de aplicación real")
+    print("   4. Reinicia el servidor")
+    EMAIL_CONFIG_COMPLETE = False
+else:
+    EMAIL_CONFIG_COMPLETE = True
+    print(f"✅ Email configurado: {EMAIL_CONFIG['email']}")
 # Intentar usar pdfkit como alternativa a WeasyPrint
 try:
     import pdfkit
@@ -724,6 +764,14 @@ def forgot_password():
     
     if not email:
         return jsonify({'success': False, 'message': 'Email es requerido'}), 400
+    
+    # Verificar si la configuración de email está completa
+    if not EMAIL_CONFIG_COMPLETE:
+        add_console_log('ERROR', 'Intento de recuperación de contraseña sin configuración de email', 'AUTH')
+        return jsonify({
+            'success': False, 
+            'message': 'El servicio de recuperación de contraseña no está disponible. Contacta al administrador.'
+        }), 503
     
     add_console_log('INFO', f'Solicitud de recuperación de contraseña para: {email}', 'AUTH')
     

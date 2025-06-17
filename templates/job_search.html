@@ -3,6 +3,224 @@
 {% block title %}Búsqueda de Empleos - CV Analyzer{% endblock %}
 
 {% block content %}
+<!-- Modal flotante para funcionalidad deshabilitada -->
+<div id="disabledOverlay" class="disabled-overlay">
+    <div class="disabled-modal">
+        <div class="disabled-modal-header">
+            <div class="warning-icon">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <h3>Funcionalidad Temporalmente No Disponible</h3>
+        </div>
+        <div class="disabled-modal-body">
+            <h4>Búsqueda de Empleos</h4>
+            <p>Actualmente no podemos ofrecer la funcionalidad de búsqueda de empleos debido a que <strong>no contamos con las autorizaciones necesarias</strong> de las plataformas de búsqueda de empleo para acceder a sus APIs.</p>
+            
+            <div class="platforms-section">
+                <h6>Plataformas que requieren autorización:</h6>
+                <div class="platforms-badges">
+                    <span class="platform-badge">LinkedIn</span>
+                    <span class="platform-badge">Laborum</span>
+                    <span class="platform-badge">Indeed</span>
+                    <span class="platform-badge">CompuTrabajo</span>
+                    <span class="platform-badge">ChileTrabajo</span>
+                    <span class="platform-badge">Y más...</span>
+                </div>
+            </div>
+            
+            <a href="{{ url_for('dashboard') }}" class="return-btn">
+                <i class="fas fa-arrow-left"></i>
+                <span>VOLVER AL DASHBOARD</span>
+            </a>
+        </div>
+    </div>
+</div>
+
+<style>
+.disabled-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(3px);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.disabled-modal {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    max-width: 600px;
+    width: 90%;
+    margin: 20px;
+    overflow: hidden;
+    transform: scale(0.9);
+    animation: modalSlideIn 0.4s ease-out forwards;
+}
+
+.disabled-modal-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    color: white;
+    padding: 30px 20px;
+    text-align: center;
+    position: relative;
+}
+
+.warning-icon {
+    margin-bottom: 15px;
+}
+
+.warning-icon i {
+    font-size: 3rem;
+    color: #f39c12;
+    animation: pulse 2s infinite;
+}
+
+.disabled-modal-header h3 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.disabled-modal-body {
+    padding: 40px 30px;
+    text-align: center;
+}
+
+.disabled-modal-body h4 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+
+.disabled-modal-body p {
+    color: #5a6c7d;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    margin-bottom: 30px;
+}
+
+.platforms-section {
+    margin-bottom: 35px;
+}
+
+.platforms-section h6 {
+    color: #7f8c8d;
+    margin-bottom: 15px;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.platforms-badges {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+}
+
+.platform-badge {
+    background: #6c757d;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    cursor: default;
+}
+
+.platform-badge:hover {
+    background: #5a6268;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+}
+
+.return-btn {
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    color: white;
+    text-decoration: none;
+    padding: 15px 35px;
+    border-radius: 30px;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(44, 62, 80, 0.3);
+}
+
+.return-btn:hover {
+    background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(44, 62, 80, 0.4);
+    color: white;
+    text-decoration: none;
+}
+
+.return-btn:active {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(44, 62, 80, 0.3);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes modalSlideIn {
+    from {
+        transform: scale(0.8) translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+@media (max-width: 768px) {
+    .disabled-modal {
+        width: 95%;
+        margin: 10px;
+    }
+    
+    .disabled-modal-header {
+        padding: 25px 15px;
+    }
+    
+    .disabled-modal-body {
+        padding: 30px 20px;
+    }
+    
+    .platforms-badges {
+        gap: 6px;
+    }
+    
+    .platform-badge {
+        padding: 6px 12px;
+        font-size: 0.8rem;
+    }
+    
+    .return-btn {
+        padding: 12px 25px;
+        font-size: 0.9rem;
+    }
+}
+</style>
+
 <div class="container mt-4">
     <div class="row">
         <div class="col-md-4">

@@ -74,6 +74,9 @@
             border-bottom: 1px solid rgba(226, 232, 240, 0.8);
             padding: 0.75rem 0;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            height: 70px;
+            display: flex;
+            align-items: center;
         }
         
         .navbar-brand {
@@ -354,7 +357,7 @@
              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
              background: var(--white) !important;
              padding: 0.5rem 0;
-             z-index: 999999 !important;
+             z-index: 1040 !important;
              position: absolute !important;
              top: 100% !important;
              left: auto !important;
@@ -370,25 +373,25 @@
              box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
          }
          
-         /* Asegurar que el dropdown del navbar esté por encima de todo */
+         /* Asegurar que el dropdown del navbar esté por debajo de los modales */
          .navbar .dropdown-menu {
-             z-index: 9999999 !important;
+             z-index: 1040 !important;
              position: absolute !important;
          }
          
          .navbar .nav-item.dropdown {
              position: relative;
-             z-index: 9999999 !important;
+             z-index: 1040 !important;
          }
          
          .navbar .dropdown-menu.show {
-             z-index: 9999999 !important;
+             z-index: 1040 !important;
              display: block !important;
          }
          
-         /* Asegurar que el navbar completo tenga z-index alto */
+         /* Navbar debe estar por debajo de los modales de Bootstrap */
          .navbar {
-             z-index: 9999999 !important;
+             z-index: 1030 !important;
              position: relative !important;
          }
          
@@ -525,8 +528,8 @@
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('index') }}">
-                <i class="fas fa-briefcase me-2"></i>Armind Cv
+            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('index') }}">
+                <img src="{{ url_for('static', filename='img/ARMind_logo.svg') }}" alt="ARMind Logo" height="48">
             </a>
             
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -611,7 +614,9 @@
         <div class="container">
             <div class="row">
                 <div class="col-md-6">
-                    <h5>ARMind CVs</h5>
+                    <div class="d-flex align-items-center mb-2">
+                        <img src="{{ url_for('static', filename='img/ARMind_logo.svg') }}" alt="ARMind Logo" height="24">
+                    </div>
                     <p>La herramienta definitiva para optimizar tu currículum y encontrar el trabajo ideal.</p>
                 </div>
                 <div class="col-md-6 text-md-end">
@@ -661,6 +666,14 @@
             
             return true;
         }
+        
+        // Initialize tooltips when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        });
         
         // Auto-hide alerts after 5 seconds
         setTimeout(function() {
