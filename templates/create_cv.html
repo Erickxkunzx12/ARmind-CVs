@@ -235,6 +235,9 @@
                     <div class="row align-items-center">
                         <div class="col-md-4">
                             <h4 class="mb-0"><i class="fas fa-file-alt"></i> Constructor de CV</h4>
+                            <div class="mt-2">
+                                <input type="text" id="cvName" class="form-control form-control-sm" placeholder="Nombre del CV" maxlength="100" style="background: rgba(255,255,255,0.9); border: 1px solid rgba(255,255,255,0.5);">
+                            </div>
                         </div>
                         <div class="col-md-4">
                             <div class="d-flex gap-3">
@@ -556,6 +559,72 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('summary-tech-start').addEventListener('change', updatePreview);
     document.getElementById('experience-tech-xyz').addEventListener('change', updatePreview);
     document.getElementById('experience-tech-start').addEventListener('change', updatePreview);
+    
+    // Event listeners para botones de agregar elementos
+    // Agregar educación
+    document.getElementById('addEducation').addEventListener('click', function() {
+        const container = document.getElementById('educationContainer');
+        const newItem = container.children[0].cloneNode(true);
+        
+        // Limpiar valores
+        newItem.querySelectorAll('input, textarea').forEach(input => input.value = '');
+        newItem.querySelector('.remove-education').style.display = 'inline-block';
+        
+        container.appendChild(newItem);
+        updateRemoveButtons();
+        updatePreview();
+    });
+    
+    // Agregar experiencia
+    document.getElementById('addExperience').addEventListener('click', function() {
+        const container = document.getElementById('experienceContainer');
+        const newItem = container.children[0].cloneNode(true);
+        
+        // Limpiar valores
+        newItem.querySelectorAll('input, textarea').forEach(input => {
+            if (input.type === 'checkbox') {
+                input.checked = false;
+            } else {
+                input.value = '';
+            }
+        });
+        newItem.querySelector('.remove-experience').style.display = 'inline-block';
+        
+        container.appendChild(newItem);
+        updateRemoveButtons();
+        updatePreview();
+    });
+    
+    // Agregar idioma
+    document.getElementById('addLanguage').addEventListener('click', function() {
+        const container = document.getElementById('languagesContainer');
+        const newItem = container.children[0].cloneNode(true);
+        
+        // Limpiar valores
+        newItem.querySelectorAll('input, select').forEach(input => input.value = '');
+        newItem.querySelector('.remove-language').style.display = 'inline-block';
+        
+        container.appendChild(newItem);
+        updateRemoveButtons();
+        updatePreview();
+    });
+    
+    // Agregar certificado
+    document.getElementById('addCertificate').addEventListener('click', function() {
+        const container = document.getElementById('certificatesContainer');
+        const newItem = container.children[0].cloneNode(true);
+        
+        // Limpiar valores
+        newItem.querySelectorAll('input').forEach(input => input.value = '');
+        newItem.querySelector('.remove-certificate').style.display = 'inline-block';
+        
+        container.appendChild(newItem);
+        updateRemoveButtons();
+        updatePreview();
+    });
+    
+    // Configurar event listeners para botones de eliminar
+    updateRemoveButtons();
 });
 
 // Función para actualizar vista previa cuando cambien los campos
@@ -758,63 +827,7 @@ function loadCertificatesData(certificatesData) {
     updateRemoveButtons();
 }
 
-// Agregar educación
-document.getElementById('addEducation').addEventListener('click', function() {
-    const container = document.getElementById('educationContainer');
-    const newItem = container.children[0].cloneNode(true);
-    
-    // Limpiar valores
-    newItem.querySelectorAll('input, textarea').forEach(input => input.value = '');
-    newItem.querySelector('.remove-education').style.display = 'inline-block';
-    
-    container.appendChild(newItem);
-    updateRemoveButtons();
-});
-
-// Agregar experiencia
-document.getElementById('addExperience').addEventListener('click', function() {
-    const container = document.getElementById('experienceContainer');
-    const newItem = container.children[0].cloneNode(true);
-    
-    // Limpiar valores
-    newItem.querySelectorAll('input, textarea').forEach(input => {
-        if (input.type === 'checkbox') {
-            input.checked = false;
-        } else {
-            input.value = '';
-        }
-    });
-    newItem.querySelector('.remove-experience').style.display = 'inline-block';
-    
-    container.appendChild(newItem);
-    updateRemoveButtons();
-});
-
-// Agregar idioma
-document.getElementById('addLanguage').addEventListener('click', function() {
-    const container = document.getElementById('languagesContainer');
-    const newItem = container.children[0].cloneNode(true);
-    
-    // Limpiar valores
-    newItem.querySelectorAll('input, select').forEach(input => input.value = '');
-    newItem.querySelector('.remove-language').style.display = 'inline-block';
-    
-    container.appendChild(newItem);
-    updateRemoveButtons();
-});
-
-// Agregar certificado
-document.getElementById('addCertificate').addEventListener('click', function() {
-    const container = document.getElementById('certificatesContainer');
-    const newItem = container.children[0].cloneNode(true);
-    
-    // Limpiar valores
-    newItem.querySelectorAll('input').forEach(input => input.value = '');
-    newItem.querySelector('.remove-certificate').style.display = 'inline-block';
-    
-    container.appendChild(newItem);
-    updateRemoveButtons();
-});
+// Los event listeners para agregar elementos ahora están en el DOMContentLoaded
 
 // Agregar habilidad
 document.getElementById('addSkill').addEventListener('click', function() {
@@ -1098,6 +1111,7 @@ function updatePreview() {
 // Recopilar datos del formulario
 function collectFormData() {
     const data = {
+        cv_name: document.getElementById('cvName').value || 'Mi CV',
         personal_info: {
             name: document.getElementById('name').value,
             email: document.getElementById('email').value,
@@ -1374,7 +1388,17 @@ let lastSaveData = '';
 
 // Función para guardar automáticamente
 function autoSave() {
-    const currentData = JSON.stringify(collectFormData());
+    const formData = collectFormData();
+    
+    // Obtener cv_id de la URL si existe
+    const urlParams = new URLSearchParams(window.location.search);
+    const cvId = urlParams.get('cv_id');
+    
+    if (cvId) {
+        formData.cv_id = cvId;
+    }
+    
+    const currentData = JSON.stringify(formData);
     
     // Solo guardar si los datos han cambiado
     if (currentData !== lastSaveData) {
@@ -1390,6 +1414,13 @@ function autoSave() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
+                // Si se devuelve un cv_id (nuevo CV), actualizar la URL
+                if (data.cv_id && !cvId) {
+                    const newUrl = new URL(window.location);
+                    newUrl.searchParams.set('cv_id', data.cv_id);
+                    window.history.replaceState({}, '', newUrl);
+                }
+                
                 // Mostrar indicador visual de guardado (opcional)
                 const saveIndicator = document.getElementById('saveIndicator');
                 if (saveIndicator) {
@@ -1409,11 +1440,25 @@ function autoSave() {
 
 // Función para cargar datos guardados
 function loadSavedData() {
-    fetch('/get_user_cv_data')
+    // Obtener cv_id de la URL si existe
+    const urlParams = new URLSearchParams(window.location.search);
+    const cvId = urlParams.get('cv_id');
+    
+    let url = '/get_user_cv_data';
+    if (cvId) {
+        url += `?cv_id=${cvId}`;
+    }
+    
+    fetch(url)
         .then(response => response.json())
         .then(result => {
             if (result.success && result.data) {
                 const data = result.data;
+                
+                // Cargar nombre del CV
+                if (data.cv_name) {
+                    document.getElementById('cvName').value = data.cv_name;
+                }
                 
                 // Cargar información personal
                 if (data.personal_info) {
@@ -1569,7 +1614,17 @@ document.addEventListener('change', function(e) {
 
 // Guardar antes de cerrar la página
 window.addEventListener('beforeunload', function(e) {
-    const currentData = JSON.stringify(collectFormData());
+    const formData = collectFormData();
+    
+    // Obtener cv_id de la URL si existe
+    const urlParams = new URLSearchParams(window.location.search);
+    const cvId = urlParams.get('cv_id');
+    
+    if (cvId) {
+        formData.cv_id = cvId;
+    }
+    
+    const currentData = JSON.stringify(formData);
     if (currentData !== lastSaveData) {
         // Intentar guardar de forma síncrona
         navigator.sendBeacon('/save_cv_draft', new Blob([currentData], {type: 'application/json'}));

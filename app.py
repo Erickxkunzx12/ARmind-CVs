@@ -231,10 +231,10 @@ def get_db_connection():
         )
         return connection
     except psycopg2.Error as err:
-        logger.error(f"Error de conexión a la base de datos: {err}")
+        app.logger.error(f"Error de conexión a la base de datos: {err}")
         return None
     except Exception as err:
-        logger.error(f"Error inesperado de base de datos: {err}")
+        app.logger.error(f"Error inesperado de base de datos: {err}")
         return None
 
 def get_db():
@@ -457,11 +457,63 @@ def validate_password_strength(password):
     
     return errors
 
+def init_default_content(cursor):
+    """Inicializar contenido por defecto del sitio"""
+    # Contenido del dashboard principal
+    default_content = [
+        ('hero', 'title', 'Optimiza tu Currículum con Inteligencia Artificial'),
+        ('hero', 'subtitle', 'ARMind CVs es una plataforma de análisis de currículums impulsada por IA para equipos de desarrollo ocupados.'),
+        ('hero', 'cta_primary', 'COMENZAR'),
+        ('hero', 'cta_secondary', 'DOCUMENTACIÓN'),
+        ('features', 'section_title', '¿Por qué elegir ARMind CVs?'),
+        ('features', 'section_subtitle', 'Herramientas profesionales para impulsar tu carrera'),
+        ('features', 'ai_analysis_title', 'Análisis con IA'),
+        ('features', 'ai_analysis_desc', 'Nuestro sistema de IA analiza tu CV como lo haría un ATS real, proporcionando puntuaciones y recomendaciones precisas.'),
+        ('features', 'cv_builder_title', 'Constructor de CV'),
+        ('features', 'cv_builder_desc', 'Crea currículums profesionales en formato Harvard con nuestro constructor guiado paso a paso.'),
+        ('features', 'job_search_title', 'Búsqueda de Empleos'),
+        ('features', 'job_search_desc', 'Encuentra oportunidades laborales relevantes en múltiples plataformas con nuestro motor de búsqueda inteligente.'),
+        ('how_it_works', 'section_title', '¿Cómo funciona?'),
+        ('how_it_works', 'section_subtitle', 'Tres simples pasos para optimizar tu currículum'),
+        ('how_it_works', 'step1_title', 'Sube tu CV'),
+        ('how_it_works', 'step1_desc', 'Carga tu currículum en formato PDF o Word. Nuestro sistema extraerá automáticamente toda la información.'),
+        ('how_it_works', 'step2_title', 'Análisis IA'),
+        ('how_it_works', 'step2_desc', 'Nuestra IA analiza tu CV como un sistema ATS profesional, evaluando cada sección y palabra clave.'),
+        ('how_it_works', 'step3_title', 'Mejora y Aplica'),
+        ('how_it_works', 'step3_desc', 'Recibe recomendaciones específicas, mejora tu CV y encuentra empleos que se ajusten a tu perfil.'),
+        ('stats', 'section_title', 'Resultados que Hablan por Sí Solos'),
+        ('cta_final', 'title', '¿Listo para Optimizar tu Carrera?'),
+        ('cta_final', 'subtitle', 'Únete a miles de profesionales que ya están usando ARMind CVs para mejorar sus oportunidades laborales.')
+    ]
+    
+    for section, key, value in default_content:
+        cursor.execute("""
+            INSERT INTO site_content (section, content_key, content_value) 
+            VALUES (%s, %s, %s) 
+            ON CONFLICT (section, content_key) DO NOTHING
+        """, (section, key, value))
+    
+    # Consejos del día por defecto
+    default_tips = [
+        ('Palabras Clave', 'Incluye palabras clave relevantes del sector en tu CV para mejorar tu puntuación ATS.', 'fas fa-key', 'primary'),
+        ('Cuantifica Logros', 'Usa números y porcentajes para demostrar el impacto de tus logros profesionales.', 'fas fa-chart-bar', 'success'),
+        ('Formato Limpio', 'Mantén un diseño limpio y profesional. Evita fuentes decorativas y colores excesivos.', 'fas fa-format-align-left', 'info'),
+        ('Formato Claro', 'Asegúrate de que tu CV tenga un formato limpio y sea fácil de leer.', 'fas fa-check-circle', 'success'),
+        ('Logros Cuantificados', 'Usa números y porcentajes para demostrar tus logros.', 'fas fa-chart-bar', 'info'),
+        ('Sin Errores', 'Revisa la ortografía y gramática antes de subir tu CV.', 'fas fa-spell-check', 'warning')
+    ]
+    
+    for title, description, icon, color in default_tips:
+        cursor.execute("""
+            INSERT INTO daily_tips (title, description, icon, color) 
+            VALUES (%s, %s, %s, %s)
+        """, (title, description, icon, color))
+
 def init_database():
     """Inicializar la base de datos y crear las tablas necesarias"""
     connection = get_db_connection()
     if not connection:
-        logger.error("No se pudo conectar a la base de datos para inicializar")
+        app.logger.error("No se pudo conectar a la base de datos para inicializar")
         return False
         
     try:
@@ -529,19 +581,69 @@ def init_database():
             )
         """)
         
-        # Crear tabla para guardar información del CV del usuario
+        # Crear tabla para guardar información del CV del usuario (múltiples CVs)
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS user_cv_data (
+            CREATE TABLE IF NOT EXISTS user_cvs (
                 id SERIAL PRIMARY KEY,
-                user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                cv_name VARCHAR(255) NOT NULL DEFAULT 'Mi CV',
                 personal_info TEXT,
                 professional_summary TEXT,
                 education TEXT,
                 experience TEXT,
                 skills TEXT,
                 languages TEXT,
+                certificates TEXT,
                 format_options TEXT,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT unique_user_cv_name UNIQUE(user_id, cv_name)
+            )
+        """)
+        
+        # Agregar columna certificates si no existe
+        cursor.execute("""
+            ALTER TABLE user_cvs 
+            ADD COLUMN IF NOT EXISTS certificates TEXT
+        """)
+        
+        # Migrar datos de user_cv_data a user_cvs si existe
+        cursor.execute("""
+            INSERT INTO user_cvs (user_id, cv_name, personal_info, professional_summary, education, experience, skills, languages, format_options, updated_at)
+            SELECT user_id, 'Mi CV Principal', personal_info, professional_summary, education, experience, skills, languages, format_options, updated_at
+            FROM user_cv_data
+            WHERE NOT EXISTS (
+                SELECT 1 FROM user_cvs WHERE user_cvs.user_id = user_cv_data.user_id
+            )
+        """)
+        
+        # Crear tabla para contenido editable del sitio
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS site_content (
+                id SERIAL PRIMARY KEY,
+                section VARCHAR(100) NOT NULL,
+                content_key VARCHAR(100) NOT NULL,
+                content_value TEXT NOT NULL,
+                content_type VARCHAR(50) DEFAULT 'text',
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_by INTEGER REFERENCES users(id),
+                UNIQUE(section, content_key)
+            )
+        """)
+        
+        # Crear tabla para consejos del día
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS daily_tips (
+                id SERIAL PRIMARY KEY,
+                title VARCHAR(255) NOT NULL,
+                description TEXT NOT NULL,
+                icon VARCHAR(100) DEFAULT 'fas fa-lightbulb',
+                color VARCHAR(50) DEFAULT 'primary',
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_by INTEGER REFERENCES users(id)
             )
         """)
         
@@ -574,6 +676,9 @@ def init_database():
             if not cursor.fetchone():
                 cursor.execute(f"ALTER TABLE users ADD COLUMN {column_name} {column_def}")
         
+        # Insertar contenido por defecto si no existe
+        init_default_content(cursor)
+        
         connection.commit()
         cursor.close()
         connection.close()
@@ -581,13 +686,13 @@ def init_database():
         return True
         
     except psycopg2.Error as e:
-        logger.error(f"Error de PostgreSQL al inicializar la base de datos: {e}")
+        app.logger.error(f"Error de PostgreSQL al inicializar la base de datos: {e}")
         if connection:
             connection.rollback()
             connection.close()
         return False
     except Exception as e:
-        logger.error(f"Error inesperado al inicializar la base de datos: {e}")
+        app.logger.error(f"Error inesperado al inicializar la base de datos: {e}")
         if connection:
             connection.rollback()
             connection.close()
@@ -1021,6 +1126,8 @@ def dashboard():
         'cvs_analyzed': 0,
         'jobs_found': 0
     }
+    daily_tips = []
+    site_content = {}
     
     if connection:
         cursor = connection.cursor()
@@ -1040,10 +1147,27 @@ def dashboard():
         result = cursor.fetchone()
         stats['jobs_found'] = result['count'] if result else 0
         
+        # Obtener consejos del día activos
+        cursor.execute(
+            "SELECT title, description, icon, color FROM daily_tips WHERE is_active = TRUE ORDER BY RANDOM() LIMIT 5"
+        )
+        daily_tips = cursor.fetchall()
+        
+        # Obtener contenido del sitio
+        cursor.execute(
+            "SELECT section, content_key, content_value FROM site_content"
+        )
+        content_rows = cursor.fetchall()
+        for row in content_rows:
+            section = row['section']
+            if section not in site_content:
+                site_content[section] = {}
+            site_content[section][row['content_key']] = row['content_value']
+        
         cursor.close()
         connection.close()
     
-    return render_template('dashboard.html', stats=stats)
+    return render_template('dashboard.html', stats=stats, daily_tips=daily_tips, site_content=site_content)
 
 @app.route('/analyze_cv', methods=['GET', 'POST'])
 def analyze_cv():
@@ -2322,13 +2446,25 @@ def get_user_cv_data():
     if not session.get('user_id'):
         return jsonify({'error': 'No autorizado'}), 401
     
+    cv_id = request.args.get('cv_id')
+    
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
-        cursor.execute(
-            "SELECT personal_info, professional_summary, education, experience, skills, languages, format_options FROM user_cv_data WHERE user_id = %s",
-            (session['user_id'],)
-        )
+        
+        if cv_id:
+            # Obtener CV específico
+            cursor.execute(
+                "SELECT cv_name, personal_info, professional_summary, education, experience, skills, languages, certificates, format_options FROM user_cvs WHERE user_id = %s AND id = %s AND is_active = TRUE",
+                (session['user_id'], cv_id)
+            )
+        else:
+            # Obtener el CV más reciente
+            cursor.execute(
+                "SELECT cv_name, personal_info, professional_summary, education, experience, skills, languages, certificates, format_options FROM user_cvs WHERE user_id = %s AND is_active = TRUE ORDER BY updated_at DESC LIMIT 1",
+                (session['user_id'],)
+            )
+        
         result = cursor.fetchone()
         cursor.close()
         connection.close()
@@ -2337,12 +2473,14 @@ def get_user_cv_data():
             return jsonify({
                 'success': True,
                 'data': {
+                    'cv_name': result['cv_name'] if result['cv_name'] else 'Mi CV',
                     'personal_info': result['personal_info'] if result['personal_info'] else {},
                     'professional_summary': result['professional_summary'] if result['professional_summary'] else '',
                     'education': result['education'] if result['education'] else [],
                     'experience': result['experience'] if result['experience'] else [],
                     'skills': result['skills'] if result['skills'] else [],
                     'languages': result['languages'] if result['languages'] else [],
+                    'certificates': result['certificates'] if result['certificates'] else [],
                     'format_options': result['format_options'] if result['format_options'] else {}
                 }
             })
@@ -2462,38 +2600,229 @@ def save_cv_draft():
     if 'format_options' not in data:
         data['format_options'] = {'format': 'hardware', 'tech_xyz': False, 'tech_start': False}
     
+    cv_id = data.get('cv_id')
+    cv_name = data.get('cv_name', 'Mi CV')
+    
     # Guardar en la base de datos sin validación estricta
     try:
         connection = get_db_connection()
         cursor = connection.cursor()
         
-        # Guardar/actualizar la información del usuario como borrador
+        if cv_id:
+            # Actualizar CV existente
+            cursor.execute(
+                """
+                UPDATE user_cvs SET 
+                    cv_name = %s,
+                    personal_info = %s,
+                    professional_summary = %s,
+                    education = %s,
+                    experience = %s,
+                    skills = %s,
+                    languages = %s,
+                    certificates = %s,
+                    format_options = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s AND user_id = %s
+                """,
+                (
+                    cv_name,
+                    json.dumps(data.get('personal_info', {})),
+                    data.get('professional_summary', ''),
+                    json.dumps(data.get('education', [])),
+                    json.dumps(data.get('experience', [])),
+                    json.dumps(data.get('skills', [])),
+                    json.dumps(data.get('languages', [])),
+                    json.dumps(data.get('certificates', [])),
+                    json.dumps(data.get('format_options', {})),
+                    cv_id,
+                    session['user_id']
+                )
+            )
+        else:
+            # Verificar límite de 10 CVs
+            cursor.execute(
+                "SELECT COUNT(*) FROM user_cvs WHERE user_id = %s AND is_active = TRUE",
+                (session['user_id'],)
+            )
+            cv_count = cursor.fetchone()[0]
+            
+            if cv_count >= 10:
+                return jsonify({'error': 'Has alcanzado el límite máximo de 10 CVs. Elimina uno para crear otro.'}), 400
+            
+            # Crear nuevo CV
+            cursor.execute(
+                """
+                INSERT INTO user_cvs (user_id, cv_name, personal_info, professional_summary, education, experience, skills, languages, certificates, format_options)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (
+                    session['user_id'],
+                    cv_name,
+                    json.dumps(data.get('personal_info', {})),
+                    data.get('professional_summary', ''),
+                    json.dumps(data.get('education', [])),
+                    json.dumps(data.get('experience', [])),
+                    json.dumps(data.get('skills', [])),
+                    json.dumps(data.get('languages', [])),
+                    json.dumps(data.get('certificates', [])),
+                    json.dumps(data.get('format_options', {}))
+                )
+            )
+            new_cv_id = cursor.fetchone()[0]
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        response_data = {
+            'success': True, 
+            'message': 'Borrador guardado exitosamente'
+        }
+        
+        if not cv_id:  # Si es un nuevo CV, devolver el ID
+            response_data['cv_id'] = new_cv_id
+            
+        return jsonify(response_data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/my_cvs')
+def my_cvs():
+    """Página para gestionar múltiples CVs del usuario"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    return render_template('my_cvs.html')
+
+@app.route('/get_user_cvs', methods=['GET'])
+def get_user_cvs():
+    """Obtener lista de CVs del usuario"""
+    if not session.get('user_id'):
+        return jsonify({'error': 'No autorizado'}), 401
+    
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute(
+            "SELECT id, cv_name, created_at, updated_at FROM user_cvs WHERE user_id = %s AND is_active = TRUE ORDER BY updated_at DESC",
+            (session['user_id'],)
+        )
+        cvs = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        
+        cv_list = []
+        for cv in cvs:
+            cv_list.append({
+                'id': cv[0],
+                'name': cv[1],
+                'created_at': cv[2].strftime('%d/%m/%Y %H:%M') if cv[2] else '',
+                'updated_at': cv[3].strftime('%d/%m/%Y %H:%M') if cv[3] else ''
+            })
+        
+        return jsonify({'cvs': cv_list})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/delete_cv/<int:cv_id>', methods=['DELETE'])
+def delete_cv(cv_id):
+    """Eliminar un CV específico"""
+    if not session.get('user_id'):
+        return jsonify({'error': 'No autorizado'}), 401
+    
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        
+        # Verificar que el CV pertenece al usuario
+        cursor.execute(
+            "SELECT id FROM user_cvs WHERE id = %s AND user_id = %s",
+            (cv_id, session['user_id'])
+        )
+        
+        if not cursor.fetchone():
+            return jsonify({'error': 'CV no encontrado'}), 404
+        
+        # Marcar como inactivo en lugar de eliminar
+        cursor.execute(
+            "UPDATE user_cvs SET is_active = FALSE WHERE id = %s AND user_id = %s",
+            (cv_id, session['user_id'])
+        )
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        return jsonify({'success': True, 'message': 'CV eliminado exitosamente'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/duplicate_cv/<int:cv_id>', methods=['POST'])
+def duplicate_cv(cv_id):
+    """Duplicar un CV existente"""
+    if not session.get('user_id'):
+        return jsonify({'error': 'No autorizado'}), 401
+    
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        
+        # Verificar límite de 10 CVs
+        cursor.execute(
+            "SELECT COUNT(*) FROM user_cvs WHERE user_id = %s AND is_active = TRUE",
+            (session['user_id'],)
+        )
+        cv_count = cursor.fetchone()[0]
+        
+        if cv_count >= 10:
+            return jsonify({'error': 'Has alcanzado el límite máximo de 10 CVs. Elimina uno para crear otro.'}), 400
+        
+        # Obtener datos del CV original
+        cursor.execute(
+            "SELECT cv_name, personal_info, professional_summary, education, experience, skills, languages, certificates, format_options FROM user_cvs WHERE id = %s AND user_id = %s AND is_active = TRUE",
+            (cv_id, session['user_id'])
+        )
+        
+        original_cv = cursor.fetchone()
+        if not original_cv:
+            return jsonify({'error': 'CV no encontrado'}), 404
+        
+        # Crear copia con nombre único
+        new_name = f"{original_cv[0]} - Copia"
+        counter = 1
+        while True:
+            cursor.execute(
+                "SELECT id FROM user_cvs WHERE user_id = %s AND cv_name = %s AND is_active = TRUE",
+                (session['user_id'], new_name)
+            )
+            if not cursor.fetchone():
+                break
+            counter += 1
+            new_name = f"{original_cv[0]} - Copia {counter}"
+        
+        # Insertar CV duplicado
         cursor.execute(
             """
-            INSERT INTO user_cv_data (user_id, personal_info, professional_summary, education, experience, skills, languages, format_options, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
-            ON CONFLICT (user_id) 
-            DO UPDATE SET 
-                personal_info = EXCLUDED.personal_info,
-                professional_summary = EXCLUDED.professional_summary,
-                education = EXCLUDED.education,
-                experience = EXCLUDED.experience,
-                skills = EXCLUDED.skills,
-                languages = EXCLUDED.languages,
-                format_options = EXCLUDED.format_options,
-                updated_at = CURRENT_TIMESTAMP
+            INSERT INTO user_cvs (user_id, cv_name, personal_info, professional_summary, education, experience, skills, languages, certificates, format_options)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
             """,
             (
                 session['user_id'],
-                json.dumps(data.get('personal_info', {})),
-                data.get('professional_summary', ''),
-                json.dumps(data.get('education', [])),
-                json.dumps(data.get('experience', [])),
-                json.dumps(data.get('skills', [])),
-                json.dumps(data.get('languages', [])),
-                json.dumps(data.get('format_options', {}))
+                new_name,
+                original_cv[1],  # personal_info
+                original_cv[2],  # professional_summary
+                original_cv[3],  # education
+                original_cv[4],  # experience
+                original_cv[5],  # skills
+                original_cv[6],  # languages
+                original_cv[7],  # certificates
+                original_cv[8]   # format_options
             )
         )
+        
+        new_cv_id = cursor.fetchone()[0]
         
         connection.commit()
         cursor.close()
@@ -2501,8 +2830,61 @@ def save_cv_draft():
         
         return jsonify({
             'success': True, 
-            'message': 'Borrador guardado exitosamente'
+            'message': 'CV duplicado exitosamente',
+            'new_cv_id': new_cv_id,
+            'new_cv_name': new_name
         })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/rename_cv/<int:cv_id>', methods=['PUT'])
+def rename_cv(cv_id):
+    """Renombrar un CV específico"""
+    if not session.get('user_id'):
+        return jsonify({'error': 'No autorizado'}), 401
+    
+    try:
+        data = request.get_json()
+        new_name = data.get('name', '').strip()
+        
+        if not new_name:
+            return jsonify({'error': 'El nombre no puede estar vacío'}), 400
+        
+        if len(new_name) > 100:
+            return jsonify({'error': 'El nombre no puede exceder 100 caracteres'}), 400
+        
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        
+        # Verificar que el CV pertenece al usuario
+        cursor.execute(
+            "SELECT id FROM user_cvs WHERE id = %s AND user_id = %s AND is_active = TRUE",
+            (cv_id, session['user_id'])
+        )
+        
+        if not cursor.fetchone():
+            return jsonify({'error': 'CV no encontrado'}), 404
+        
+        # Verificar que no existe otro CV con el mismo nombre
+        cursor.execute(
+            "SELECT id FROM user_cvs WHERE user_id = %s AND cv_name = %s AND id != %s AND is_active = TRUE",
+            (session['user_id'], new_name, cv_id)
+        )
+        
+        if cursor.fetchone():
+            return jsonify({'error': 'Ya existe un CV con ese nombre'}), 400
+        
+        # Actualizar el nombre
+        cursor.execute(
+            "UPDATE user_cvs SET cv_name = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s AND user_id = %s",
+            (new_name, cv_id, session['user_id'])
+        )
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        return jsonify({'success': True, 'message': 'CV renombrado exitosamente'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -2539,33 +2921,72 @@ def save_cv():
         )
         cv_id = cursor.fetchone()['id']
         
-        # Guardar/actualizar la información del usuario mejorada por IA para uso futuro
-        cursor.execute(
-            """
-            INSERT INTO user_cv_data (user_id, personal_info, professional_summary, education, experience, skills, languages, format_options, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
-            ON CONFLICT (user_id) 
-            DO UPDATE SET 
-                personal_info = EXCLUDED.personal_info,
-                professional_summary = EXCLUDED.professional_summary,
-                education = EXCLUDED.education,
-                experience = EXCLUDED.experience,
-                skills = EXCLUDED.skills,
-                languages = EXCLUDED.languages,
-                format_options = EXCLUDED.format_options,
-                updated_at = CURRENT_TIMESTAMP
-            """,
-            (
-                session['user_id'],
-                json.dumps(improved_data.get('personal_info', {})),
-                improved_data.get('professional_summary', ''),
-                json.dumps(improved_data.get('education', [])),
-                json.dumps(improved_data.get('experience', [])),
-                json.dumps(improved_data.get('skills', [])),
-                json.dumps(improved_data.get('languages', [])),
-                json.dumps(improved_data.get('format_options', {}))
+        # Verificar si hay un cv_id en los datos (para actualizar CV existente)
+        cv_data_id = data.get('cv_id')
+        
+        if cv_data_id:
+            # Actualizar CV existente
+            cursor.execute(
+                """
+                UPDATE user_cvs SET
+                    cv_name = %s,
+                    personal_info = %s,
+                    professional_summary = %s,
+                    education = %s,
+                    experience = %s,
+                    skills = %s,
+                    languages = %s,
+                    certificates = %s,
+                    format_options = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s AND user_id = %s AND is_active = TRUE
+                """,
+                (
+                    improved_data.get('cv_name', 'Mi CV'),
+                    json.dumps(improved_data.get('personal_info', {})),
+                    improved_data.get('professional_summary', ''),
+                    json.dumps(improved_data.get('education', [])),
+                    json.dumps(improved_data.get('experience', [])),
+                    json.dumps(improved_data.get('skills', [])),
+                    json.dumps(improved_data.get('languages', [])),
+                    json.dumps(improved_data.get('certificates', [])),
+                    json.dumps(improved_data.get('format_options', {})),
+                    cv_data_id,
+                    session['user_id']
+                )
             )
-        )
+            new_cv_id = cv_data_id
+        else:
+            # Verificar límite de CVs (máximo 10)
+            cursor.execute(
+                "SELECT COUNT(*) FROM user_cvs WHERE user_id = %s AND is_active = TRUE",
+                (session['user_id'],)
+            )
+            cv_count = cursor.fetchone()[0]
+            
+            if cv_count >= 10:
+                return jsonify({'error': 'Has alcanzado el límite máximo de 10 CVs. Elimina alguno para crear uno nuevo.'}), 400
+            
+            # Crear nuevo CV
+            cursor.execute(
+                """
+                INSERT INTO user_cvs (user_id, cv_name, personal_info, professional_summary, education, experience, skills, languages, certificates, format_options)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+                """,
+                (
+                    session['user_id'],
+                    improved_data.get('cv_name', 'Mi CV'),
+                    json.dumps(improved_data.get('personal_info', {})),
+                    improved_data.get('professional_summary', ''),
+                    json.dumps(improved_data.get('education', [])),
+                    json.dumps(improved_data.get('experience', [])),
+                    json.dumps(improved_data.get('skills', [])),
+                    json.dumps(improved_data.get('languages', [])),
+                    json.dumps(improved_data.get('certificates', [])),
+                    json.dumps(improved_data.get('format_options', {}))
+                )
+            )
+            new_cv_id = cursor.fetchone()[0]
         
         connection.commit()
         cursor.close()
@@ -2573,7 +2994,7 @@ def save_cv():
         
         return jsonify({
             'success': True, 
-            'cv_id': cv_id, 
+            'cv_id': new_cv_id, 
             'message': 'CV guardado y mejorado con IA. Datos del usuario actualizados.',
             'improved_data': improved_data,
             'cv_html': cv_html
@@ -4738,6 +5159,345 @@ def check_s3_connection():
             'success': False,
             'error': f'Unexpected error: {str(e)}'
         })
+
+@app.route('/admin/content')
+@admin_required
+def admin_content():
+    """Panel de edición de contenido del sitio"""
+    username = session.get('username', 'unknown')
+    add_console_log('INFO', f'Admin accedió a edición de contenido: {username}', 'ADMIN')
+    
+    connection = get_db_connection()
+    if not connection:
+        flash('Error de conexión a la base de datos', 'error')
+        return redirect(url_for('admin_dashboard'))
+    
+    try:
+        cursor = connection.cursor()
+        
+        # Obtener contenido del sitio
+        cursor.execute("""
+            SELECT section, content_key, content_value, updated_at 
+            FROM site_content 
+            ORDER BY section, content_key
+        """)
+        site_content = cursor.fetchall()
+        
+        # Obtener consejos del día
+        cursor.execute("""
+            SELECT id, title, description, icon, color, is_active, updated_at 
+            FROM daily_tips 
+            ORDER BY id
+        """)
+        daily_tips = cursor.fetchall()
+        
+        cursor.close()
+        connection.close()
+        
+        return render_template('admin/content.html', 
+                             site_content=site_content, 
+                             daily_tips=daily_tips)
+        
+    except Exception as e:
+        app.logger.error(f"Error obteniendo contenido: {e}")
+        flash('Error obteniendo contenido del sitio', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/content/update', methods=['POST'])
+@admin_required
+def admin_update_content():
+    """Actualizar contenido del sitio"""
+    username = session.get('username', 'unknown')
+    user_id = session.get('user_id')
+    
+    section = request.form.get('section')
+    content_key = request.form.get('content_key')
+    content_value = request.form.get('content_value')
+    
+    if not all([section, content_key, content_value]):
+        return jsonify({'success': False, 'message': 'Datos incompletos'})
+    
+    connection = get_db_connection()
+    if not connection:
+        return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'})
+    
+    try:
+        cursor = connection.cursor()
+        
+        cursor.execute("""
+            UPDATE site_content 
+            SET content_value = %s, updated_at = CURRENT_TIMESTAMP, updated_by = %s 
+            WHERE section = %s AND content_key = %s
+        """, (content_value, user_id, section, content_key))
+        
+        if cursor.rowcount == 0:
+            cursor.execute("""
+                INSERT INTO site_content (section, content_key, content_value, updated_by) 
+                VALUES (%s, %s, %s, %s)
+            """, (section, content_key, content_value, user_id))
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        add_console_log('INFO', f'Admin {username} actualizó contenido: {section}.{content_key}', 'CONTENT')
+        return jsonify({'success': True, 'message': 'Contenido actualizado correctamente'})
+        
+    except Exception as e:
+        app.logger.error(f"Error actualizando contenido: {e}")
+        return jsonify({'success': False, 'message': 'Error actualizando contenido'})
+
+@app.route('/admin/update_content', methods=['POST'])
+@admin_required
+def update_content_inline():
+    """Actualizar contenido desde edición directa de cuadros completos en dashboard"""
+    if 'user_id' not in session or session.get('user_role') != 'admin':
+        return jsonify({'success': False, 'message': 'No autorizado'})
+    
+    try:
+        # Obtener datos JSON del request
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'message': 'No se recibieron datos'})
+        
+        section = data.get('element_id')
+        
+        # Obtener todos los campos del cuadro
+        title = data.get('title')
+        description = data.get('description')
+        icon = data.get('icon')
+        icon_color = data.get('icon_color')
+        button_text = data.get('button_text')
+        button_icon = data.get('button_icon')
+        subtitle = data.get('subtitle')
+        section_title = data.get('section_title')
+        section_icon = data.get('section_icon')
+        section_icon_color = data.get('section_icon_color')
+        stats_label1 = data.get('stats_label1')
+        stats_label2 = data.get('stats_label2')
+        
+        if not section:
+            return jsonify({'success': False, 'message': 'Falta el identificador de sección'})
+        
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'})
+        
+        cursor = connection.cursor()
+        username = session.get('username', 'unknown')
+        user_id = session.get('user_id')
+        
+        # Manejar diferentes tipos de secciones
+        if section.startswith('daily_tip_'):
+            # Actualizar consejo del día específico
+            tip_index = int(section.split('_')[-1])
+            
+            # Obtener el ID del consejo basado en el índice
+            cursor.execute("SELECT id FROM daily_tips ORDER BY id LIMIT %s, 1", (tip_index - 1,))
+            result = cursor.fetchone()
+            
+            if result:
+                tip_id = result[0]
+                
+                if title:
+                    cursor.execute("UPDATE daily_tips SET title = %s WHERE id = %s", (title, tip_id))
+                
+                if description:
+                    cursor.execute("UPDATE daily_tips SET description = %s WHERE id = %s", (description, tip_id))
+                
+                if icon:
+                    cursor.execute("UPDATE daily_tips SET icon = %s WHERE id = %s", (icon, tip_id))
+                
+                if icon_color:
+                    # Limpiar el prefijo 'text-' si existe
+                    color_value = icon_color.replace('text-', '') if icon_color.startswith('text-') else icon_color
+                    cursor.execute("UPDATE daily_tips SET color = %s WHERE id = %s", (color_value, tip_id))
+        
+        elif section.startswith('quick_action_'):
+            # Actualizar acciones rápidas
+            action_type = section.replace('quick_action_', '')
+            
+            if title:
+                cursor.execute("""
+                    INSERT INTO site_content (section, content_key, content_value, updated_by) 
+                    VALUES (%s, %s, %s, %s) 
+                    ON CONFLICT (section, content_key) DO UPDATE SET 
+                    content_value = EXCLUDED.content_value, updated_at = CURRENT_TIMESTAMP
+                """, ('quick_actions', f'{action_type}_title', title, user_id))
+            
+            if description:
+                cursor.execute("""
+                    INSERT INTO site_content (section, content_key, content_value, updated_by) 
+                    VALUES (%s, %s, %s, %s) 
+                    ON CONFLICT (section, content_key) DO UPDATE SET 
+                    content_value = EXCLUDED.content_value, updated_at = CURRENT_TIMESTAMP
+                """, ('quick_actions', f'{action_type}_description', description, user_id))
+            
+            if icon:
+                cursor.execute("""
+                    INSERT INTO site_content (section, content_key, content_value, updated_by) 
+                    VALUES (%s, %s, %s, %s) 
+                    ON CONFLICT (section, content_key) DO UPDATE SET 
+                    content_value = EXCLUDED.content_value, updated_at = CURRENT_TIMESTAMP
+                """, ('quick_actions', f'{action_type}_icon', icon, user_id))
+            
+            if button_text:
+                cursor.execute("""
+                    INSERT INTO site_content (section, content_key, content_value, updated_by) 
+                    VALUES (%s, %s, %s, %s) 
+                    ON CONFLICT (section, content_key) DO UPDATE SET 
+                    content_value = EXCLUDED.content_value, updated_at = CURRENT_TIMESTAMP
+                """, ('quick_actions', f'{action_type}_button_text', button_text, user_id))
+        
+        elif section == 'welcome_section':
+            # Actualizar sección de bienvenida
+            if title:
+                cursor.execute("""
+                    INSERT INTO site_content (section, content_key, content_value, updated_by) 
+                    VALUES (%s, %s, %s, %s) 
+                    ON CONFLICT (section, content_key) DO UPDATE SET 
+                    content_value = EXCLUDED.content_value, updated_at = CURRENT_TIMESTAMP
+                """, ('welcome', 'title', title, user_id))
+            
+            if description:
+                cursor.execute("""
+                    INSERT INTO site_content (section, content_key, content_value, updated_by) 
+                    VALUES (%s, %s, %s, %s) 
+                    ON CONFLICT (section, content_key) DO UPDATE SET 
+                    content_value = EXCLUDED.content_value, updated_at = CURRENT_TIMESTAMP
+                """, ('welcome', 'subtitle', description, user_id))
+        
+        elif section == 'tips_section':
+            # Actualizar configuración general de la sección de consejos
+            if title:
+                cursor.execute("""
+                    INSERT INTO site_content (section, content_key, content_value, updated_by) 
+                    VALUES (%s, %s, %s, %s) 
+                    ON CONFLICT (section, content_key) DO UPDATE SET 
+                    content_value = EXCLUDED.content_value, updated_at = CURRENT_TIMESTAMP
+                """, ('tips', 'section_title', title, user_id))
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        add_console_log('INFO', f'Cuadro actualizado por edición directa - {username}: {section}', 'ADMIN')
+        
+        return jsonify({'success': True, 'message': 'Contenido actualizado exitosamente'})
+        
+    except Exception as e:
+        app.logger.error(f"Error actualizando contenido inline: {e}")
+        return jsonify({'success': False, 'message': str(e)})
+
+@app.route('/admin/tips/add', methods=['POST'])
+@admin_required
+def admin_add_tip():
+    """Agregar nuevo consejo del día"""
+    username = session.get('username', 'unknown')
+    user_id = session.get('user_id')
+    
+    title = request.form.get('title')
+    description = request.form.get('description')
+    icon = request.form.get('icon', 'fas fa-lightbulb')
+    color = request.form.get('color', 'primary')
+    
+    if not all([title, description]):
+        return jsonify({'success': False, 'message': 'Título y descripción son requeridos'})
+    
+    connection = get_db_connection()
+    if not connection:
+        return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'})
+    
+    try:
+        cursor = connection.cursor()
+        
+        cursor.execute("""
+            INSERT INTO daily_tips (title, description, icon, color, updated_by) 
+            VALUES (%s, %s, %s, %s, %s)
+        """, (title, description, icon, color, user_id))
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        add_console_log('INFO', f'Admin {username} agregó nuevo consejo: {title}', 'CONTENT')
+        return jsonify({'success': True, 'message': 'Consejo agregado correctamente'})
+        
+    except Exception as e:
+        app.logger.error(f"Error agregando consejo: {e}")
+        return jsonify({'success': False, 'message': 'Error agregando consejo'})
+
+@app.route('/admin/tips/update', methods=['POST'])
+@admin_required
+def admin_update_tip():
+    """Actualizar consejo del día"""
+    username = session.get('username', 'unknown')
+    user_id = session.get('user_id')
+    
+    tip_id = request.form.get('tip_id')
+    title = request.form.get('title')
+    description = request.form.get('description')
+    icon = request.form.get('icon')
+    color = request.form.get('color')
+    is_active = request.form.get('is_active') == 'true'
+    
+    if not all([tip_id, title, description]):
+        return jsonify({'success': False, 'message': 'Datos incompletos'})
+    
+    connection = get_db_connection()
+    if not connection:
+        return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'})
+    
+    try:
+        cursor = connection.cursor()
+        
+        cursor.execute("""
+            UPDATE daily_tips 
+            SET title = %s, description = %s, icon = %s, color = %s, 
+                is_active = %s, updated_at = CURRENT_TIMESTAMP, updated_by = %s 
+            WHERE id = %s
+        """, (title, description, icon, color, is_active, user_id, tip_id))
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        add_console_log('INFO', f'Admin {username} actualizó consejo ID {tip_id}', 'CONTENT')
+        return jsonify({'success': True, 'message': 'Consejo actualizado correctamente'})
+        
+    except Exception as e:
+        app.logger.error(f"Error actualizando consejo: {e}")
+        return jsonify({'success': False, 'message': 'Error actualizando consejo'})
+
+@app.route('/admin/tips/delete', methods=['POST'])
+@admin_required
+def admin_delete_tip():
+    """Eliminar consejo del día"""
+    username = session.get('username', 'unknown')
+    tip_id = request.form.get('tip_id')
+    
+    if not tip_id:
+        return jsonify({'success': False, 'message': 'ID de consejo requerido'})
+    
+    connection = get_db_connection()
+    if not connection:
+        return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'})
+    
+    try:
+        cursor = connection.cursor()
+        
+        cursor.execute("DELETE FROM daily_tips WHERE id = %s", (tip_id,))
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        add_console_log('INFO', f'Admin {username} eliminó consejo ID {tip_id}', 'CONTENT')
+        return jsonify({'success': True, 'message': 'Consejo eliminado correctamente'})
+        
+    except Exception as e:
+        app.logger.error(f"Error eliminando consejo: {e}")
+        return jsonify({'success': False, 'message': 'Error eliminando consejo'})
 
 if __name__ == '__main__':
     init_database()

@@ -112,14 +112,32 @@
         
         <div class="col-lg-4">
             <!-- Tips Section -->
-            <div class="card mb-4">
+            <div class="card mb-4 editable-card position-relative">
+                {% if session.user_role == 'admin' %}
+                <div class="card-edit-pencil" onclick="openEditModal('tips_section', 'Sección: Consejos para un Mejor Análisis', {
+                    section_title: 'Consejos para un Mejor Análisis',
+                    description: 'Sección de consejos para mejorar el análisis de CV'
+                })">
+                    <i class="fas fa-pencil-alt"></i>
+                </div>
+                {% endif %}
                 <div class="card-header">
                     <h5 class="mb-0">
                         <i class="fas fa-lightbulb me-2 text-warning"></i>Consejos para un Mejor Análisis
                     </h5>
                 </div>
                 <div class="card-body">
-                    <div class="tip-item mb-3">
+                    <div class="tip-item mb-3 editable-card position-relative">
+                        {% if session.user_role == 'admin' %}
+                        <div class="card-edit-pencil" onclick="openEditModal('tip_format', 'Consejo: Formato Claro', {
+                            title: 'Formato Claro',
+                            description: 'Asegúrate de que tu CV tenga un formato limpio y sea fácil de leer.',
+                            icon: 'fas fa-check-circle',
+                            icon_color: 'text-success'
+                        })">
+                            <i class="fas fa-pencil-alt"></i>
+                        </div>
+                        {% endif %}
                         <div class="d-flex">
                             <div class="tip-icon me-3">
                                 <i class="fas fa-check-circle text-success"></i>
@@ -133,7 +151,17 @@
                         </div>
                     </div>
                     
-                    <div class="tip-item mb-3">
+                    <div class="tip-item mb-3 editable-card position-relative">
+                        {% if session.user_role == 'admin' %}
+                        <div class="card-edit-pencil" onclick="openEditModal('tip_keywords', 'Consejo: Palabras Clave', {
+                            title: 'Palabras Clave',
+                            description: 'Incluye palabras clave relevantes para tu industria y puesto objetivo.',
+                            icon: 'fas fa-keywords',
+                            icon_color: 'text-primary'
+                        })">
+                            <i class="fas fa-pencil-alt"></i>
+                        </div>
+                        {% endif %}
                         <div class="d-flex">
                             <div class="tip-icon me-3">
                                 <i class="fas fa-keywords text-primary"></i>
@@ -147,7 +175,17 @@
                         </div>
                     </div>
                     
-                    <div class="tip-item mb-3">
+                    <div class="tip-item mb-3 editable-card position-relative">
+                        {% if session.user_role == 'admin' %}
+                        <div class="card-edit-pencil" onclick="openEditModal('tip_achievements', 'Consejo: Logros Cuantificados', {
+                            title: 'Logros Cuantificados',
+                            description: 'Usa números y porcentajes para demostrar tus logros.',
+                            icon: 'fas fa-chart-bar',
+                            icon_color: 'text-info'
+                        })">
+                            <i class="fas fa-pencil-alt"></i>
+                        </div>
+                        {% endif %}
                         <div class="d-flex">
                             <div class="tip-icon me-3">
                                 <i class="fas fa-chart-bar text-info"></i>
@@ -161,7 +199,17 @@
                         </div>
                     </div>
                     
-                    <div class="tip-item">
+                    <div class="tip-item editable-card position-relative">
+                        {% if session.user_role == 'admin' %}
+                        <div class="card-edit-pencil" onclick="openEditModal('tip_errors', 'Consejo: Sin Errores', {
+                            title: 'Sin Errores',
+                            description: 'Revisa la ortografía y gramática antes de subir tu CV.',
+                            icon: 'fas fa-spell-check',
+                            icon_color: 'text-warning'
+                        })">
+                            <i class="fas fa-pencil-alt"></i>
+                        </div>
+                        {% endif %}
                         <div class="d-flex">
                             <div class="tip-icon me-3">
                                 <i class="fas fa-spell-check text-warning"></i>
@@ -178,7 +226,17 @@
             </div>
             
             <!-- Sample Analysis -->
-            <div class="card">
+            <div class="card editable-card position-relative">
+                {% if session.user_role == 'admin' %}
+                <div class="card-edit-pencil" onclick="openEditModal('sample_analysis', 'Sección: Ejemplo de Análisis', {
+                    title: 'Ejemplo de Análisis',
+                    description: 'Muestra un ejemplo de cómo se ve un análisis de CV',
+                    icon: 'fas fa-eye',
+                    icon_color: 'text-info'
+                })">
+                    <i class="fas fa-pencil-alt"></i>
+                </div>
+                {% endif %}
                 <div class="card-header">
                     <h5 class="mb-0">
                         <i class="fas fa-eye me-2 text-info"></i>Ejemplo de Análisis
@@ -220,6 +278,97 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.editable-card {
+    position: relative;
+}
+
+.card-edit-pencil {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 30px;
+    height: 30px;
+    background: rgba(0, 123, 255, 0.1);
+    border: 1px solid #007bff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+    transition: all 0.3s ease;
+    opacity: 0;
+}
+
+.editable-card:hover .card-edit-pencil {
+    opacity: 1;
+}
+
+.card-edit-pencil:hover {
+    background: rgba(0, 123, 255, 0.2);
+    transform: scale(1.1);
+}
+
+.card-edit-pencil i {
+    color: #007bff;
+    font-size: 12px;
+}
+
+.section-edit-pencil {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    width: 35px;
+    height: 35px;
+    background: rgba(0, 123, 255, 0.1);
+    border: 1px solid #007bff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+    transition: all 0.3s ease;
+    opacity: 0;
+}
+
+.editable-card:hover .section-edit-pencil {
+    opacity: 1;
+}
+
+.section-edit-pencil:hover {
+    background: rgba(0, 123, 255, 0.2);
+    transform: scale(1.1);
+}
+
+.section-edit-pencil i {
+    color: #007bff;
+    font-size: 14px;
+}
+
+.success-message {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #28a745;
+    color: white;
+    padding: 15px 20px;
+    border-radius: 5px;
+    z-index: 1000;
+    opacity: 0;
+    transform: translateX(100%);
+    transition: all 0.3s ease;
+}
+
+.success-message.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+</style>
 {% endblock %}
 
 {% block extra_js %}
@@ -373,5 +522,137 @@
         // Global function for clear file button
         window.clearFile = clearFile;
     });
+    
+    // Funciones para edición de contenido
+    function openEditModal(section, title, data) {
+        document.getElementById('editModalTitle').textContent = title;
+        document.getElementById('editSection').value = section;
+        
+        // Llenar campos del modal
+        document.getElementById('editTitle').value = data.title || data.section_title || '';
+        document.getElementById('editDescription').value = data.description || '';
+        document.getElementById('editIcon').value = data.icon || '';
+        document.getElementById('editIconColor').value = data.icon_color || '';
+        document.getElementById('editButtonText').value = data.button_text || '';
+        document.getElementById('editButtonIcon').value = data.button_icon || '';
+        
+        // Mostrar modal
+        const modal = new bootstrap.Modal(document.getElementById('editModal'));
+        modal.show();
+    }
+    
+    function saveCardEdit() {
+        const formData = new FormData();
+        formData.append('element_id', document.getElementById('editSection').value);
+        formData.append('title', document.getElementById('editTitle').value);
+        formData.append('description', document.getElementById('editDescription').value);
+        formData.append('icon', document.getElementById('editIcon').value);
+        formData.append('icon_color', document.getElementById('editIconColor').value);
+        formData.append('button_text', document.getElementById('editButtonText').value);
+        formData.append('button_icon', document.getElementById('editButtonIcon').value);
+        
+        // Convertir FormData a JSON
+        const jsonData = {};
+        for (let [key, value] of formData.entries()) {
+            jsonData[key] = value;
+        }
+        
+        fetch('/admin/update_content', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(jsonData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showSuccessMessage('Contenido actualizado correctamente');
+                // Cerrar modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('editModal'));
+                modal.hide();
+                // Recargar página para mostrar cambios
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al actualizar el contenido');
+        });
+    }
+    
+    function showSuccessMessage(message) {
+        const successDiv = document.createElement('div');
+        successDiv.className = 'success-message';
+        successDiv.textContent = message;
+        document.body.appendChild(successDiv);
+        
+        setTimeout(() => successDiv.classList.add('show'), 100);
+        setTimeout(() => {
+            successDiv.classList.remove('show');
+            setTimeout(() => document.body.removeChild(successDiv), 300);
+        }, 3000);
+    }
 </script>
+
+<!-- Modal de Edición -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editModalTitle">Editar Contenido</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editForm">
+                    <input type="hidden" id="editSection" name="element_id">
+                    
+                    <div class="mb-3">
+                        <label for="editTitle" class="form-label">Título</label>
+                        <input type="text" class="form-control" id="editTitle" name="title">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editDescription" class="form-label">Descripción</label>
+                        <textarea class="form-control" id="editDescription" name="description" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editIcon" class="form-label">Icono (clase CSS)</label>
+                        <input type="text" class="form-control" id="editIcon" name="icon" placeholder="ej: fas fa-lightbulb">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editIconColor" class="form-label">Color del Icono</label>
+                        <select class="form-control" id="editIconColor" name="color">
+                            <option value="text-primary">Azul</option>
+                            <option value="text-success">Verde</option>
+                            <option value="text-warning">Amarillo</option>
+                            <option value="text-danger">Rojo</option>
+                            <option value="text-info">Cian</option>
+                            <option value="text-secondary">Gris</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editButtonText" class="form-label">Texto del Botón</label>
+                        <input type="text" class="form-control" id="editButtonText" name="button_text">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editButtonIcon" class="form-label">Icono del Botón</label>
+                        <input type="text" class="form-control" id="editButtonIcon" name="button_icon" placeholder="ej: fas fa-arrow-right">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="saveCardEdit()">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
