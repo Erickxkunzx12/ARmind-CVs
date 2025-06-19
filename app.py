@@ -608,6 +608,12 @@ def init_database():
             ADD COLUMN IF NOT EXISTS certificates TEXT
         """)
         
+        # Agregar columna ai_methodologies si no existe
+        cursor.execute("""
+            ALTER TABLE user_cvs 
+            ADD COLUMN IF NOT EXISTS ai_methodologies TEXT
+        """)
+        
         # Migrar datos de user_cv_data a user_cvs si existe
         cursor.execute("""
             INSERT INTO user_cvs (user_id, cv_name, personal_info, professional_summary, education, experience, skills, languages, format_options, updated_at)
@@ -2455,13 +2461,13 @@ def get_user_cv_data():
         if cv_id:
             # Obtener CV específico
             cursor.execute(
-                "SELECT cv_name, personal_info, professional_summary, education, experience, skills, languages, certificates, format_options FROM user_cvs WHERE user_id = %s AND id = %s AND is_active = TRUE",
+                "SELECT cv_name, personal_info, professional_summary, education, experience, skills, languages, certificates, format_options, ai_methodologies FROM user_cvs WHERE user_id = %s AND id = %s AND is_active = TRUE",
                 (session['user_id'], cv_id)
             )
         else:
             # Obtener el CV más reciente
             cursor.execute(
-                "SELECT cv_name, personal_info, professional_summary, education, experience, skills, languages, certificates, format_options FROM user_cvs WHERE user_id = %s AND is_active = TRUE ORDER BY updated_at DESC LIMIT 1",
+                "SELECT cv_name, personal_info, professional_summary, education, experience, skills, languages, certificates, format_options, ai_methodologies FROM user_cvs WHERE user_id = %s AND is_active = TRUE ORDER BY updated_at DESC LIMIT 1",
                 (session['user_id'],)
             )
         
@@ -2481,7 +2487,8 @@ def get_user_cv_data():
                     'skills': result['skills'] if result['skills'] else [],
                     'languages': result['languages'] if result['languages'] else [],
                     'certificates': result['certificates'] if result['certificates'] else [],
-                    'format_options': result['format_options'] if result['format_options'] else {}
+                    'format_options': result['format_options'] if result['format_options'] else {},
+                    'ai_methodologies': result['ai_methodologies'] if result['ai_methodologies'] else {}
                 }
             })
         else:
@@ -2588,13 +2595,22 @@ def improve_cv_with_ai(cv_data):
 @app.route('/save_cv_draft', methods=['POST'])
 def save_cv_draft():
     """Guardar borrador de CV sin validación estricta"""
-    if not session.get('user_id'):
-        return jsonify({'error': 'No autorizado'}), 401
-    
-    data = request.get_json()
-    
-    if not data:
-        return jsonify({'error': 'No se recibieron datos'}), 400
+    try:
+        print(f"[DEBUG] save_cv_draft iniciado - user_id: {session.get('user_id')}")
+        
+        if not session.get('user_id'):
+            print("[DEBUG] Error: No autorizado")
+            return jsonify({'error': 'No autorizado'}), 401
+        
+        data = request.get_json()
+        print(f"[DEBUG] Datos recibidos: {data is not None}")
+        
+        if not data:
+            print("[DEBUG] Error: No se recibieron datos")
+            return jsonify({'error': 'No se recibieron datos'}), 400
+    except Exception as e:
+        print(f"[DEBUG] Error en validación inicial: {str(e)}")
+        return jsonify({'error': f'Error en validación inicial: {str(e)}'}), 500
     
     # Validar que las opciones de formato estén presentes
     if 'format_options' not in data:
@@ -2602,14 +2618,18 @@ def save_cv_draft():
     
     cv_id = data.get('cv_id')
     cv_name = data.get('cv_name', 'Mi CV')
+    print(f"[DEBUG] cv_id: {cv_id}, cv_name: {cv_name}")
     
     # Guardar en la base de datos sin validación estricta
     try:
+        print("[DEBUG] Intentando conectar a la base de datos")
         connection = get_db_connection()
         cursor = connection.cursor()
+        print("[DEBUG] Conexión a base de datos exitosa")
         
         if cv_id:
             # Actualizar CV existente
+            print(f"[DEBUG] Actualizando CV existente con ID: {cv_id}")
             cursor.execute(
                 """
                 UPDATE user_cvs SET 
@@ -2622,6 +2642,7 @@ def save_cv_draft():
                     languages = %s,
                     certificates = %s,
                     format_options = %s,
+                    ai_methodologies = %s,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = %s AND user_id = %s
                 """,
@@ -2635,46 +2656,100 @@ def save_cv_draft():
                     json.dumps(data.get('languages', [])),
                     json.dumps(data.get('certificates', [])),
                     json.dumps(data.get('format_options', {})),
+                    json.dumps(data.get('ai_methodologies', {})),
                     cv_id,
                     session['user_id']
                 )
             )
+            print("[DEBUG] UPDATE ejecutado exitosamente")
         else:
             # Verificar límite de 10 CVs
+            print("[DEBUG] Creando nuevo CV - verificando límite")
             cursor.execute(
                 "SELECT COUNT(*) FROM user_cvs WHERE user_id = %s AND is_active = TRUE",
                 (session['user_id'],)
             )
-            cv_count = cursor.fetchone()[0]
+            cv_count = cursor.fetchone()['count']
+            print(f"[DEBUG] CVs actuales del usuario: {cv_count}")
             
             if cv_count >= 10:
+                print("[DEBUG] Límite de CVs alcanzado")
                 return jsonify({'error': 'Has alcanzado el límite máximo de 10 CVs. Elimina uno para crear otro.'}), 400
             
-            # Crear nuevo CV
+            # Verificar si ya existe un CV con el mismo nombre
+            print("[DEBUG] Verificando si existe CV con el mismo nombre")
             cursor.execute(
-                """
-                INSERT INTO user_cvs (user_id, cv_name, personal_info, professional_summary, education, experience, skills, languages, certificates, format_options)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                RETURNING id
-                """,
-                (
-                    session['user_id'],
-                    cv_name,
-                    json.dumps(data.get('personal_info', {})),
-                    data.get('professional_summary', ''),
-                    json.dumps(data.get('education', [])),
-                    json.dumps(data.get('experience', [])),
-                    json.dumps(data.get('skills', [])),
-                    json.dumps(data.get('languages', [])),
-                    json.dumps(data.get('certificates', [])),
-                    json.dumps(data.get('format_options', {}))
-                )
+                "SELECT id FROM user_cvs WHERE user_id = %s AND cv_name = %s AND is_active = TRUE",
+                (session['user_id'], cv_name)
             )
-            new_cv_id = cursor.fetchone()[0]
+            existing_cv = cursor.fetchone()
+            
+            if existing_cv:
+                # Actualizar CV existente
+                existing_cv_id = existing_cv['id']
+                print(f"[DEBUG] CV existente encontrado con ID: {existing_cv_id}, actualizando...")
+                cursor.execute(
+                    """
+                    UPDATE user_cvs SET 
+                        personal_info = %s,
+                        professional_summary = %s,
+                        education = %s,
+                        experience = %s,
+                        skills = %s,
+                        languages = %s,
+                        certificates = %s,
+                        format_options = %s,
+                        ai_methodologies = %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = %s AND user_id = %s
+                    """,
+                    (
+                        json.dumps(data.get('personal_info', {})),
+                        data.get('professional_summary', ''),
+                        json.dumps(data.get('education', [])),
+                        json.dumps(data.get('experience', [])),
+                        json.dumps(data.get('skills', [])),
+                        json.dumps(data.get('languages', [])),
+                        json.dumps(data.get('certificates', [])),
+                        json.dumps(data.get('format_options', {})),
+                        json.dumps(data.get('ai_methodologies', {})),
+                        existing_cv_id,
+                        session['user_id']
+                    )
+                )
+                new_cv_id = existing_cv_id
+                print(f"[DEBUG] CV existente actualizado con ID: {new_cv_id}")
+            else:
+                # Crear nuevo CV
+                print("[DEBUG] Insertando nuevo CV")
+                cursor.execute(
+                    """
+                    INSERT INTO user_cvs (user_id, cv_name, personal_info, professional_summary, education, experience, skills, languages, certificates, format_options, ai_methodologies)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                    """,
+                    (
+                        session['user_id'],
+                        cv_name,
+                        json.dumps(data.get('personal_info', {})),
+                        data.get('professional_summary', ''),
+                        json.dumps(data.get('education', [])),
+                        json.dumps(data.get('experience', [])),
+                        json.dumps(data.get('skills', [])),
+                        json.dumps(data.get('languages', [])),
+                        json.dumps(data.get('certificates', [])),
+                        json.dumps(data.get('format_options', {})),
+                        json.dumps(data.get('ai_methodologies', {}))
+                    )
+                )
+                new_cv_id = cursor.fetchone()['id']
+                print(f"[DEBUG] Nuevo CV creado con ID: {new_cv_id}")
         
+        print("[DEBUG] Haciendo commit a la base de datos")
         connection.commit()
         cursor.close()
         connection.close()
+        print("[DEBUG] Conexión cerrada exitosamente")
         
         response_data = {
             'success': True, 
@@ -2684,8 +2759,13 @@ def save_cv_draft():
         if not cv_id:  # Si es un nuevo CV, devolver el ID
             response_data['cv_id'] = new_cv_id
             
+        print(f"[DEBUG] Respuesta exitosa: {response_data}")
         return jsonify(response_data)
     except Exception as e:
+        print(f"[DEBUG] Error en save_cv_draft: {str(e)}")
+        print(f"[DEBUG] Tipo de error: {type(e).__name__}")
+        import traceback
+        print(f"[DEBUG] Traceback: {traceback.format_exc()}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/my_cvs')
@@ -2715,10 +2795,10 @@ def get_user_cvs():
         cv_list = []
         for cv in cvs:
             cv_list.append({
-                'id': cv[0],
-                'name': cv[1],
-                'created_at': cv[2].strftime('%d/%m/%Y %H:%M') if cv[2] else '',
-                'updated_at': cv[3].strftime('%d/%m/%Y %H:%M') if cv[3] else ''
+                'id': cv['id'],
+                'name': cv['cv_name'],
+                'created_at': cv['created_at'].strftime('%d/%m/%Y %H:%M') if cv['created_at'] else '',
+                'updated_at': cv['updated_at'].strftime('%d/%m/%Y %H:%M') if cv['updated_at'] else ''
             })
         
         return jsonify({'cvs': cv_list})
@@ -2773,7 +2853,7 @@ def duplicate_cv(cv_id):
             "SELECT COUNT(*) FROM user_cvs WHERE user_id = %s AND is_active = TRUE",
             (session['user_id'],)
         )
-        cv_count = cursor.fetchone()[0]
+        cv_count = cursor.fetchone()['count']
         
         if cv_count >= 10:
             return jsonify({'error': 'Has alcanzado el límite máximo de 10 CVs. Elimina uno para crear otro.'}), 400
@@ -2789,7 +2869,7 @@ def duplicate_cv(cv_id):
             return jsonify({'error': 'CV no encontrado'}), 404
         
         # Crear copia con nombre único
-        new_name = f"{original_cv[0]} - Copia"
+        new_name = f"{original_cv['cv_name']} - Copia"
         counter = 1
         while True:
             cursor.execute(
@@ -2799,7 +2879,7 @@ def duplicate_cv(cv_id):
             if not cursor.fetchone():
                 break
             counter += 1
-            new_name = f"{original_cv[0]} - Copia {counter}"
+            new_name = f"{original_cv['cv_name']} - Copia {counter}"
         
         # Insertar CV duplicado
         cursor.execute(
@@ -2811,18 +2891,18 @@ def duplicate_cv(cv_id):
             (
                 session['user_id'],
                 new_name,
-                original_cv[1],  # personal_info
-                original_cv[2],  # professional_summary
-                original_cv[3],  # education
-                original_cv[4],  # experience
-                original_cv[5],  # skills
-                original_cv[6],  # languages
-                original_cv[7],  # certificates
-                original_cv[8]   # format_options
+                original_cv['personal_info'],
+                original_cv['professional_summary'],
+                original_cv['education'],
+                original_cv['experience'],
+                original_cv['skills'],
+                original_cv['languages'],
+                original_cv['certificates'],
+                original_cv['format_options']
             )
         )
         
-        new_cv_id = cursor.fetchone()[0]
+        new_cv_id = cursor.fetchone()['id']
         
         connection.commit()
         cursor.close()
@@ -2938,6 +3018,7 @@ def save_cv():
                     languages = %s,
                     certificates = %s,
                     format_options = %s,
+                    ai_methodologies = %s,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = %s AND user_id = %s AND is_active = TRUE
                 """,
@@ -2951,6 +3032,7 @@ def save_cv():
                     json.dumps(improved_data.get('languages', [])),
                     json.dumps(improved_data.get('certificates', [])),
                     json.dumps(improved_data.get('format_options', {})),
+                    json.dumps(improved_data.get('ai_methodologies', {})),
                     cv_data_id,
                     session['user_id']
                 )
@@ -2962,20 +3044,36 @@ def save_cv():
                 "SELECT COUNT(*) FROM user_cvs WHERE user_id = %s AND is_active = TRUE",
                 (session['user_id'],)
             )
-            cv_count = cursor.fetchone()[0]
+            cv_count = cursor.fetchone()['count']
             
             if cv_count >= 10:
                 return jsonify({'error': 'Has alcanzado el límite máximo de 10 CVs. Elimina alguno para crear uno nuevo.'}), 400
             
             # Crear nuevo CV
+            # Generar nombre único para el CV
+            base_cv_name = improved_data.get('cv_name', 'Mi CV')
+            cv_name = base_cv_name
+            counter = 1
+            
+            # Verificar si ya existe un CV con ese nombre
+            while True:
+                cursor.execute(
+                    "SELECT id FROM user_cvs WHERE user_id = %s AND cv_name = %s AND is_active = TRUE",
+                    (session['user_id'], cv_name)
+                )
+                if not cursor.fetchone():
+                    break
+                cv_name = f"{base_cv_name} ({counter})"
+                counter += 1
+            
             cursor.execute(
                 """
-                INSERT INTO user_cvs (user_id, cv_name, personal_info, professional_summary, education, experience, skills, languages, certificates, format_options)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+                INSERT INTO user_cvs (user_id, cv_name, personal_info, professional_summary, education, experience, skills, languages, certificates, format_options, ai_methodologies)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
                 """,
                 (
                     session['user_id'],
-                    improved_data.get('cv_name', 'Mi CV'),
+                    cv_name,
                     json.dumps(improved_data.get('personal_info', {})),
                     improved_data.get('professional_summary', ''),
                     json.dumps(improved_data.get('education', [])),
@@ -2983,10 +3081,11 @@ def save_cv():
                     json.dumps(improved_data.get('skills', [])),
                     json.dumps(improved_data.get('languages', [])),
                     json.dumps(improved_data.get('certificates', [])),
-                    json.dumps(improved_data.get('format_options', {}))
+                    json.dumps(improved_data.get('format_options', {})),
+                    json.dumps(improved_data.get('ai_methodologies', {}))
                 )
             )
-            new_cv_id = cursor.fetchone()[0]
+            new_cv_id = cursor.fetchone()['id']
         
         connection.commit()
         cursor.close()
@@ -3012,24 +3111,10 @@ def export_cv(cv_id):
         connection = get_db_connection()
         cursor = connection.cursor()
         
-        # Primero verificar que el CV existe en la tabla resumes
+        # Obtener los datos estructurados del CV directamente desde user_cvs
         cursor.execute(
-            "SELECT filename FROM resumes WHERE id = %s AND user_id = %s",
+            "SELECT cv_name, personal_info, professional_summary, education, experience, skills, languages, certificates, format_options, ai_methodologies FROM user_cvs WHERE id = %s AND user_id = %s AND is_active = TRUE",
             (cv_id, session['user_id'])
-        )
-        resume_result = cursor.fetchone()
-        
-        if not resume_result:
-            cursor.close()
-            connection.close()
-            return jsonify({'error': 'CV no encontrado'}), 404
-        
-        cv_title = resume_result['filename']
-        
-        # Obtener los datos estructurados del CV desde user_cv_data
-        cursor.execute(
-            "SELECT personal_info, professional_summary, education, experience, skills, languages, format_options FROM user_cv_data WHERE user_id = %s",
-            (session['user_id'],)
         )
         result = cursor.fetchone()
         
@@ -3043,13 +3128,16 @@ def export_cv(cv_id):
         
         # Reconstruir los datos del CV
         cv_data = {
+            'cv_name': result['cv_name'] if result['cv_name'] else 'Mi CV',
             'personal_info': result['personal_info'] if result['personal_info'] else {},
             'professional_summary': result['professional_summary'] if result['professional_summary'] else '',
             'education': result['education'] if result['education'] else [],
             'experience': result['experience'] if result['experience'] else [],
             'skills': result['skills'] if result['skills'] else [],
             'languages': result['languages'] if result['languages'] else [],
-            'format_options': result['format_options'] if result['format_options'] else {'format': 'hardware', 'tech_xyz': False, 'tech_start': False}
+            'certificates': result['certificates'] if result['certificates'] else [],
+            'format_options': result['format_options'] if result['format_options'] else {'format': 'hardware', 'tech_xyz': False, 'tech_start': False},
+            'ai_methodologies': result['ai_methodologies'] if result['ai_methodologies'] else {}
         }
         
         # Generar el HTML exactamente igual que en la vista previa
@@ -3061,7 +3149,7 @@ def export_cv(cv_id):
         <html>
         <head>
             <meta charset="UTF-8">
-            <title>CV</title>
+            <title>{cv_data['cv_name']}</title>
             <style>
                 @page {{
                     margin: 0;
