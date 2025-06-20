@@ -2455,24 +2455,64 @@ def get_user_cv_data():
         connection.close()
         
         if result:
-            return jsonify({
-                'success': True,
-                'data': {
-                    'cv_name': result['cv_name'] if result['cv_name'] else 'Mi CV',
-                    'personal_info': result['personal_info'] if result['personal_info'] else {},
-                    'professional_summary': result['professional_summary'] if result['professional_summary'] else '',
-                    'education': result['education'] if result['education'] else [],
-                    'experience': result['experience'] if result['experience'] else [],
-                    'skills': result['skills'] if result['skills'] else [],
-                    'languages': result['languages'] if result['languages'] else [],
-                    'certificates': result['certificates'] if result['certificates'] else [],
-                    'format_options': result['format_options'] if result['format_options'] else {},
-                    'ai_methodologies': result['ai_methodologies'] if result['ai_methodologies'] else {}
-                }
-            })
+            # Función para deserializar JSON de forma segura
+            def safe_json_loads(data, default):
+                if data is None:
+                    return default
+                if isinstance(data, str):
+                    try:
+                        return json.loads(data)
+                    except (json.JSONDecodeError, TypeError):
+                        return default
+                return data if isinstance(data, (dict, list)) else default
+            
+            # Asegurar que todos los campos JSON sean válidos
+            try:
+                personal_info = safe_json_loads(result['personal_info'], {})
+                education = safe_json_loads(result['education'], [])
+                experience = safe_json_loads(result['experience'], [])
+                skills = safe_json_loads(result['skills'], [])
+                languages = safe_json_loads(result['languages'], [])
+                certificates = safe_json_loads(result['certificates'], [])
+                format_options = safe_json_loads(result['format_options'], {})
+                ai_methodologies = safe_json_loads(result['ai_methodologies'], {})
+                
+                return jsonify({
+                    'success': True,
+                    'data': {
+                        'cv_name': result['cv_name'] if result['cv_name'] else 'Mi CV',
+                        'personal_info': personal_info,
+                        'professional_summary': result['professional_summary'] if result['professional_summary'] else '',
+                        'education': education,
+                        'experience': experience,
+                        'skills': skills,
+                        'languages': languages,
+                        'certificates': certificates,
+                        'format_options': format_options,
+                        'ai_methodologies': ai_methodologies
+                    }
+                })
+            except Exception as json_error:
+                print(f"Error procesando datos JSON: {json_error}")
+                return jsonify({
+                    'success': True,
+                    'data': {
+                        'cv_name': result['cv_name'] if result['cv_name'] else 'Mi CV',
+                        'personal_info': {},
+                        'professional_summary': result['professional_summary'] if result['professional_summary'] else '',
+                        'education': [],
+                        'experience': [],
+                        'skills': [],
+                        'languages': [],
+                        'certificates': [],
+                        'format_options': {},
+                        'ai_methodologies': {}
+                    }
+                })
         else:
             return jsonify({'success': True, 'data': None})
     except Exception as e:
+        print(f"Error en get_user_cv_data: {e}")
         return jsonify({'error': str(e)}), 500
 
 def improve_cv_with_ai(cv_data):
@@ -2931,6 +2971,8 @@ def rename_cv(cv_id):
         )
         
         if not cursor.fetchone():
+            cursor.close()
+            connection.close()
             return jsonify({'error': 'CV no encontrado'}), 404
         
         # Verificar que no existe otro CV con el mismo nombre
@@ -2940,6 +2982,8 @@ def rename_cv(cv_id):
         )
         
         if cursor.fetchone():
+            cursor.close()
+            connection.close()
             return jsonify({'error': 'Ya existe un CV con ese nombre'}), 400
         
         # Actualizar el nombre
@@ -2955,6 +2999,80 @@ def rename_cv(cv_id):
         return jsonify({'success': True, 'message': 'CV renombrado exitosamente'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/preview_cv/<int:cv_id>')
+def preview_cv(cv_id):
+    """Generar preview HTML del CV para mostrar en modal"""
+    if not session.get('user_id'):
+        return redirect(url_for('login'))
+    
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        
+        # Obtener los datos del CV
+        cursor.execute(
+            "SELECT cv_name, personal_info, professional_summary, education, experience, skills, languages, certificates, format_options, ai_methodologies FROM user_cvs WHERE id = %s AND user_id = %s AND is_active = TRUE",
+            (cv_id, session['user_id'])
+        )
+        result = cursor.fetchone()
+        
+        if not result:
+            return '<div class="alert alert-danger m-3">CV no encontrado</div>', 404
+        
+        # Reconstruir los datos del CV - deserializar JSON strings
+        def safe_json_loads(data, default):
+            if data is None:
+                return default
+            if isinstance(data, str):
+                try:
+                    return json.loads(data)
+                except (json.JSONDecodeError, TypeError):
+                    return default
+            return data if isinstance(data, (dict, list)) else default
+        
+        cv_data = {
+            'cv_name': result['cv_name'] if result['cv_name'] else 'Mi CV',
+            'personal_info': safe_json_loads(result['personal_info'], {}),
+            'professional_summary': result['professional_summary'] if result['professional_summary'] else '',
+            'education': safe_json_loads(result['education'], []),
+            'experience': safe_json_loads(result['experience'], []),
+            'skills': safe_json_loads(result['skills'], []),
+            'languages': safe_json_loads(result['languages'], []),
+            'certificates': safe_json_loads(result['certificates'], []),
+            'format_options': safe_json_loads(result['format_options'], {'format': 'hardware', 'tech_xyz': False, 'tech_start': False}),
+            'ai_methodologies': safe_json_loads(result['ai_methodologies'], {})
+        }
+        
+        # Generar el HTML del CV
+        cv_html = generate_cv_html(cv_data)
+        
+        # Crear HTML optimizado para preview con estilos responsivos
+        preview_html = f"""
+        <div style="background: white; padding: 20px; font-family: 'Times New Roman', serif; line-height: 1.4; color: #000; max-width: 100%; overflow-x: auto;">
+            {cv_html}
+        </div>
+        """
+        
+        return preview_html
+        
+    except Exception as e:
+        print(f"Error en preview_cv: {e}")
+        return '<div class="alert alert-danger m-3">Error al generar el preview</div>', 500
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if 'connection' in locals():
+            connection.close()
+
+@app.route('/generate_pdf/<int:cv_id>')
+def generate_pdf_route(cv_id):
+    """Generar y descargar PDF del CV"""
+    if not session.get('user_id'):
+        return redirect(url_for('login'))
+    
+    # Redirigir a la función export_cv existente
+    return export_cv(cv_id)
 
 @app.route('/save_cv', methods=['POST'])
 def save_cv():

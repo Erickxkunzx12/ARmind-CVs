@@ -965,74 +965,159 @@ function loadUserData() {
     const urlParams = new URLSearchParams(window.location.search);
     const editingCvId = urlParams.get('cv_id');
     
+    console.log('loadUserData called, editingCvId:', editingCvId);
+    
     // Establecer cvId global si estamos editando
     if (editingCvId) {
         cvId = editingCvId;
+        console.log('Set global cvId to:', cvId);
     }
     
     let url = '/get_user_cv_data';
     if (editingCvId) url += `?cv_id=${editingCvId}`;
     
+    console.log('Fetching data from:', url);
+    
     fetch(url)
-    .then(response => response.json())
+    .then(response => {
+        console.log('Response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(result => {
+        console.log('Received result:', result);
+        
         if (result.success && result.data) {
             const data = result.data;
+            console.log('CV data to load:', data);
             
             // Cargar datos básicos
-            if (data.cv_name) document.getElementById('cvName').value = data.cv_name;
+            if (data.cv_name) {
+                const cvNameInput = document.getElementById('cvName');
+                if (cvNameInput) {
+                    cvNameInput.value = data.cv_name;
+                    console.log('Set CV name:', data.cv_name);
+                } else {
+                    console.warn('cvName input not found');
+                }
+            }
             
             if (data.personal_info) {
+                console.log('Loading personal info:', data.personal_info);
                 const pi = data.personal_info;
-                if (pi.name) document.getElementById('name').value = pi.name;
-                if (pi.email) document.getElementById('email').value = pi.email;
-                if (pi.phone) document.getElementById('phone').value = pi.phone;
-                if (pi.address) document.getElementById('address').value = pi.address;
-                if (pi.linkedin) document.getElementById('linkedin').value = pi.linkedin;
-                if (pi.github) document.getElementById('github').value = pi.github;
-                if (pi.website) document.getElementById('website').value = pi.website;
+                
+                if (pi.name) {
+                    const nameInput = document.getElementById('name');
+                    if (nameInput) {
+                        nameInput.value = pi.name;
+                        console.log('Set name:', pi.name);
+                    } else {
+                        console.warn('name input not found');
+                    }
+                }
+                
+                if (pi.email) {
+                    const emailInput = document.getElementById('email');
+                    if (emailInput) emailInput.value = pi.email;
+                }
+                if (pi.phone) {
+                    const phoneInput = document.getElementById('phone');
+                    if (phoneInput) phoneInput.value = pi.phone;
+                }
+                if (pi.address) {
+                    const addressInput = document.getElementById('address');
+                    if (addressInput) addressInput.value = pi.address;
+                }
+                if (pi.linkedin) {
+                    const linkedinInput = document.getElementById('linkedin');
+                    if (linkedinInput) linkedinInput.value = pi.linkedin;
+                }
+                if (pi.github) {
+                    const githubInput = document.getElementById('github');
+                    if (githubInput) githubInput.value = pi.github;
+                }
+                if (pi.website) {
+                    const websiteInput = document.getElementById('website');
+                    if (websiteInput) websiteInput.value = pi.website;
+                }
             }
             
             if (data.professional_summary) {
-                document.getElementById('professionalSummary').value = data.professional_summary;
+                const summaryInput = document.getElementById('professionalSummary');
+                if (summaryInput) {
+                    summaryInput.value = data.professional_summary;
+                    console.log('Set professional summary:', data.professional_summary);
+                } else {
+                    console.warn('professionalSummary input not found');
+                }
             }
             
             // Cargar metodologías de IA
             if (data.ai_methodologies) {
+                console.log('Loading AI methodologies:', data.ai_methodologies);
                 const methodologies = data.ai_methodologies;
                 
                 // Cargar metodología de resumen
                 if (methodologies.summary_methodology) {
                     const summaryRadio = document.querySelector(`input[name="summaryMethodology"][value="${methodologies.summary_methodology}"]`);
-                    if (summaryRadio) summaryRadio.checked = true;
+                    if (summaryRadio) {
+                        summaryRadio.checked = true;
+                        console.log('Set summary methodology:', methodologies.summary_methodology);
+                    }
                 }
                 
                 // Cargar metodología de experiencia
                 if (methodologies.experience_methodology) {
                     const experienceRadio = document.querySelector(`input[name="experienceMethodology"][value="${methodologies.experience_methodology}"]`);
-                    if (experienceRadio) experienceRadio.checked = true;
+                    if (experienceRadio) {
+                        experienceRadio.checked = true;
+                        console.log('Set experience methodology:', methodologies.experience_methodology);
+                    }
                 }
             }
             
             if (data.format_options && data.format_options.format) {
                 const formatRadio = document.querySelector(`input[name="cv-format"][value="${data.format_options.format}"]`);
-                if (formatRadio) formatRadio.checked = true;
+                if (formatRadio) {
+                    formatRadio.checked = true;
+                    console.log('Set format:', data.format_options.format);
+                }
             }
             
             // Cargar secciones dinámicas
-            loadSectionData('education', data.education);
-            loadSectionData('experience', data.experience);
-            loadSectionData('languages', data.languages);
-            loadSectionData('certificates', data.certificates);
+            console.log('Loading dynamic sections...');
+            if (data.education) {
+                console.log('Loading education data:', data.education);
+                loadSectionData('education', data.education);
+            }
+            if (data.experience) {
+                console.log('Loading experience data:', data.experience);
+                loadSectionData('experience', data.experience);
+            }
+            if (data.languages) {
+                console.log('Loading languages data:', data.languages);
+                loadSectionData('languages', data.languages);
+            }
+            if (data.certificates) {
+                console.log('Loading certificates data:', data.certificates);
+                loadSectionData('certificates', data.certificates);
+            }
             
             // Habilitar botón de exportar PDF si estamos editando un CV existente
             if (editingCvId) {
-                document.getElementById('exportPdf').disabled = false;
+                const exportButton = document.getElementById('exportPdf');
+                if (exportButton) {
+                    exportButton.disabled = false;
+                    console.log('Export button enabled for CV:', editingCvId);
+                }
             }
             
             if (data.skills && data.skills.length > 0) {
                 skills = data.skills;
                 updateSkillsDisplay();
+                console.log('Loaded skills:', data.skills);
             }
             
             updatePreview();
@@ -1040,17 +1125,58 @@ function loadUserData() {
             
             // Habilitar botón de exportar PDF si estamos editando un CV existente
             if (cvId) {
-                document.getElementById('exportPdf').disabled = false;
+                const exportButton = document.getElementById('exportPdf');
+                if (exportButton) {
+                    exportButton.disabled = false;
+                }
+            }
+            
+            console.log('Data loading completed successfully');
+        } else {
+            console.error('Invalid response or no data:', result);
+            if (result.error) {
+                console.error('Server error:', result.error);
             }
         }
     })
-    .catch(error => console.error('Error al cargar datos del usuario:', error));
+    .catch(error => {
+        console.error('Error al cargar datos del usuario:', error);
+        // Mostrar mensaje de error al usuario
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+        alertDiv.innerHTML = `
+            Error al cargar los datos del CV: ${error.message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        const container = document.querySelector('.container');
+        if (container) {
+            container.insertBefore(alertDiv, container.firstChild);
+        }
+    });
 }
 
 function loadSectionData(sectionName, sectionData) {
     if (!sectionData || sectionData.length === 0) return;
     
-    const container = document.getElementById(`${sectionName}Container`);
+    // Mapear nombres de sección a nombres de contenedor
+    const containerMap = {
+        'education': 'educationContainer',
+        'experience': 'experienceContainer', 
+        'languages': 'languagesContainer',
+        'certificates': 'certificatesContainer'
+    };
+    
+    const containerId = containerMap[sectionName];
+    if (!containerId) {
+        console.error(`No se encontró contenedor para la sección: ${sectionName}`);
+        return;
+    }
+    
+    const container = document.getElementById(containerId);
+    if (!container) {
+        console.error(`No se encontró el elemento con ID: ${containerId}`);
+        return;
+    }
     
     // Limpiar contenedor excepto el primer elemento
     while (container.children.length > 1) {
@@ -1063,34 +1189,96 @@ function loadSectionData(sectionName, sectionData) {
             sectionItem = container.children[0];
         } else {
             sectionItem = container.children[0].cloneNode(true);
-            sectionItem.querySelector(`.remove-${sectionName.slice(0, -1)}`).style.display = 'inline-block';
+            // Mapear nombres de botón de eliminar
+            const removeButtonMap = {
+                'education': '.remove-education',
+                'experience': '.remove-experience',
+                'languages': '.remove-language',
+                'certificates': '.remove-certificate'
+            };
+            const removeButtonSelector = removeButtonMap[sectionName];
+            if (removeButtonSelector) {
+                const removeButton = sectionItem.querySelector(removeButtonSelector);
+                if (removeButton) {
+                    removeButton.style.display = 'inline-block';
+                }
+            }
             container.appendChild(sectionItem);
         }
         
         // Llenar datos específicos por sección
-        if (sectionName === 'education') {
-            if (item.career) sectionItem.querySelector('.education-career').value = item.career;
-            if (item.institution) sectionItem.querySelector('.education-institution').value = item.institution;
-            if (item.start_year) sectionItem.querySelector('.education-start-year').value = item.start_year;
-            if (item.end_year) sectionItem.querySelector('.education-end-year').value = item.end_year;
-        } else if (sectionName === 'experience') {
-            if (item.position) sectionItem.querySelector('.experience-position').value = item.position;
-            if (item.company) sectionItem.querySelector('.experience-company').value = item.company;
-            if (item.start_date) sectionItem.querySelector('.experience-start-date').value = item.start_date;
-            if (item.end_date) sectionItem.querySelector('.experience-end-date').value = item.end_date;
-            if (item.description) sectionItem.querySelector('.experience-description').value = item.description;
-            if (item.current) {
-                const currentCheckbox = sectionItem.querySelector('.experience-current');
-                currentCheckbox.checked = true;
-                sectionItem.querySelector('.experience-end-date').disabled = true;
+        try {
+            if (sectionName === 'education') {
+                if (item.career) {
+                    const careerInput = sectionItem.querySelector('.education-career');
+                    if (careerInput) careerInput.value = item.career;
+                }
+                if (item.institution) {
+                    const institutionInput = sectionItem.querySelector('.education-institution');
+                    if (institutionInput) institutionInput.value = item.institution;
+                }
+                if (item.start_year) {
+                    const startYearInput = sectionItem.querySelector('.education-start-year');
+                    if (startYearInput) startYearInput.value = item.start_year;
+                }
+                if (item.end_year) {
+                    const endYearInput = sectionItem.querySelector('.education-end-year');
+                    if (endYearInput) endYearInput.value = item.end_year;
+                }
+            } else if (sectionName === 'experience') {
+                if (item.position) {
+                    const positionInput = sectionItem.querySelector('.experience-position');
+                    if (positionInput) positionInput.value = item.position;
+                }
+                if (item.company) {
+                    const companyInput = sectionItem.querySelector('.experience-company');
+                    if (companyInput) companyInput.value = item.company;
+                }
+                if (item.start_date) {
+                    const startDateInput = sectionItem.querySelector('.experience-start-date');
+                    if (startDateInput) startDateInput.value = item.start_date;
+                }
+                if (item.end_date) {
+                    const endDateInput = sectionItem.querySelector('.experience-end-date');
+                    if (endDateInput) endDateInput.value = item.end_date;
+                }
+                if (item.description) {
+                    const descriptionInput = sectionItem.querySelector('.experience-description');
+                    if (descriptionInput) descriptionInput.value = item.description;
+                }
+                if (item.current) {
+                    const currentCheckbox = sectionItem.querySelector('.experience-current');
+                    const endDateInput = sectionItem.querySelector('.experience-end-date');
+                    if (currentCheckbox) {
+                        currentCheckbox.checked = true;
+                        if (endDateInput) endDateInput.disabled = true;
+                    }
+                }
+            } else if (sectionName === 'languages') {
+                if (item.language) {
+                    const languageInput = sectionItem.querySelector('.language-name');
+                    if (languageInput) languageInput.value = item.language;
+                }
+                if (item.level) {
+                    const levelInput = sectionItem.querySelector('.language-level');
+                    if (levelInput) levelInput.value = item.level;
+                }
+            } else if (sectionName === 'certificates') {
+                if (item.title) {
+                    const titleInput = sectionItem.querySelector('.certificate-title');
+                    if (titleInput) titleInput.value = item.title;
+                }
+                if (item.institution) {
+                    const institutionInput = sectionItem.querySelector('.certificate-institution');
+                    if (institutionInput) institutionInput.value = item.institution;
+                }
+                if (item.date) {
+                    const dateInput = sectionItem.querySelector('.certificate-date');
+                    if (dateInput) dateInput.value = item.date;
+                }
             }
-        } else if (sectionName === 'languages') {
-            if (item.language) sectionItem.querySelector('.language-name').value = item.language;
-            if (item.level) sectionItem.querySelector('.language-level').value = item.level;
-        } else if (sectionName === 'certificates') {
-            if (item.title) sectionItem.querySelector('.certificate-title').value = item.title;
-            if (item.institution) sectionItem.querySelector('.certificate-institution').value = item.institution;
-            if (item.date) sectionItem.querySelector('.certificate-date').value = item.date;
+        } catch (error) {
+            console.error(`Error cargando datos para ${sectionName}:`, error, item);
         }
     });
     
