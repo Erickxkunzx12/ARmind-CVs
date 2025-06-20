@@ -3232,18 +3232,29 @@ def export_cv(cv_id):
         cursor.close()
         connection.close()
         
-        # Reconstruir los datos del CV
+        # Función para deserializar JSON de forma segura
+        def safe_json_loads(data, default):
+            if data is None:
+                return default
+            if isinstance(data, str):
+                try:
+                    return json.loads(data)
+                except (json.JSONDecodeError, TypeError):
+                    return default
+            return data if isinstance(data, (dict, list)) else default
+        
+        # Reconstruir los datos del CV - deserializar JSON strings
         cv_data = {
             'cv_name': result['cv_name'] if result['cv_name'] else 'Mi CV',
-            'personal_info': result['personal_info'] if result['personal_info'] else {},
+            'personal_info': safe_json_loads(result['personal_info'], {}),
             'professional_summary': result['professional_summary'] if result['professional_summary'] else '',
-            'education': result['education'] if result['education'] else [],
-            'experience': result['experience'] if result['experience'] else [],
-            'skills': result['skills'] if result['skills'] else [],
-            'languages': result['languages'] if result['languages'] else [],
-            'certificates': result['certificates'] if result['certificates'] else [],
-            'format_options': result['format_options'] if result['format_options'] else {'format': 'hardware', 'tech_xyz': False, 'tech_start': False},
-            'ai_methodologies': result['ai_methodologies'] if result['ai_methodologies'] else {}
+            'education': safe_json_loads(result['education'], []),
+            'experience': safe_json_loads(result['experience'], []),
+            'skills': safe_json_loads(result['skills'], []),
+            'languages': safe_json_loads(result['languages'], []),
+            'certificates': safe_json_loads(result['certificates'], []),
+            'format_options': safe_json_loads(result['format_options'], {'format': 'hardware', 'tech_xyz': False, 'tech_start': False}),
+            'ai_methodologies': safe_json_loads(result['ai_methodologies'], {})
         }
         
         # Generar el HTML exactamente igual que en la vista previa
@@ -3772,6 +3783,7 @@ def generate_cv_html(cv_data):
     experience = cv_data.get('experience', [])
     skills = cv_data.get('skills', [])
     languages = cv_data.get('languages', [])
+    certificates = cv_data.get('certificates', [])
     format_options = cv_data.get('format_options', {'format': 'hardware', 'summary_tech_xyz': False, 'summary_tech_start': False, 'experience_tech_xyz': False, 'experience_tech_start': False})
     
     # Determinar el formato seleccionado
@@ -3995,6 +4007,23 @@ def generate_cv_html(cv_data):
         
         for lang in languages:
             html += f'<div class="language-item">{lang.get("language", "")} - {lang.get("level", "")}</div>'
+    
+    if certificates:
+        html += """
+        </div>
+        
+        <div class="section">
+            <div class="section-title">CERTIFICACIONES</div>
+        """
+        
+        for cert in certificates:
+            html += f"""
+            <div class="item">
+                <div class="item-date">{cert.get('date', '')}</div>
+                <div class="item-title">{cert.get('title', '')}</div>
+                <div class="item-subtitle">{cert.get('institution', '')}</div>
+            </div>
+        """
     
     html += """
         </div>
@@ -5692,6 +5721,17 @@ def admin_delete_tip():
     except Exception as e:
         app.logger.error(f"Error eliminando consejo: {e}")
         return jsonify({'success': False, 'message': 'Error eliminando consejo'})
+
+# Manejadores de errores
+@app.errorhandler(404)
+def page_not_found(error):
+    """Manejar errores 404"""
+    return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def internal_server_error(error):
+    """Manejar errores 500"""
+    return render_template('500.html'), 500
 
 if __name__ == '__main__':
     init_database()
