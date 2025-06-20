@@ -5,7 +5,10 @@ import sqlite3
 # SQLite no necesita RealDictCursor
 import os
 import openai
-from database_config import DB_CONFIG
+from config_manager import ConfigManager
+
+# Initialize configuration manager
+config_manager = ConfigManager()
 import PyPDF2
 # from docx import Document  # Temporarily disabled
 from datetime import datetime

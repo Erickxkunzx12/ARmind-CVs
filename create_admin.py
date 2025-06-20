@@ -7,7 +7,10 @@ from werkzeug.security import generate_password_hash
 from datetime import datetime
 import os
 from dotenv import load_dotenv
-from database_config import DB_CONFIG
+from config_manager import ConfigManager
+
+# Initialize configuration manager
+config_manager = ConfigManager()
 
 # Cargar variables de entorno
 load_dotenv()
@@ -18,7 +21,8 @@ def create_admin_user():
     try:
         # Conectar a la base de datos PostgreSQL
         print("Conectando a la base de datos PostgreSQL...")
-        conn = psycopg2.connect(**DB_CONFIG)
+        db_config = config_manager.get_database_config()
+        conn = psycopg2.connect(**db_config)
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         
         # Verificar si la tabla users existe

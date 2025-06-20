@@ -1,5 +1,8 @@
 import psycopg2
-from database_config import DB_CONFIG
+from config_manager import ConfigManager
+
+# Initialize configuration manager
+config_manager = ConfigManager()
 import json
 
 def test_zero_error_scenario():
@@ -16,7 +19,8 @@ def test_zero_error_scenario():
     
     # Escenario 2: Error de base de datos con código 0
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
+        db_config = config_manager.get_database_config()
+        conn = psycopg2.connect(**db_config)
         cur = conn.cursor()
         
         # Intentar una consulta que podría fallar
@@ -30,7 +34,8 @@ def test_zero_error_scenario():
     
     # Escenario 3: Error de conexión
     try:
-        bad_config = DB_CONFIG.copy()
+        db_config = config_manager.get_database_config()
+        bad_config = db_config.copy()
         bad_config['port'] = 0  # Puerto inválido
         conn = psycopg2.connect(**bad_config)
         
@@ -87,7 +92,8 @@ def test_database_connection_error():
     
     # Escenario 1: Conexión cerrada prematuramente
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
+        db_config = config_manager.get_database_config()
+        conn = psycopg2.connect(**db_config)
         cur = conn.cursor()
         conn.close()  # Cerrar conexión
         
@@ -100,7 +106,8 @@ def test_database_connection_error():
     
     # Escenario 2: Cursor cerrado
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
+        db_config = config_manager.get_database_config()
+        conn = psycopg2.connect(**db_config)
         cur = conn.cursor()
         cur.close()  # Cerrar cursor
         
@@ -118,7 +125,8 @@ def test_specific_export_error():
     print("\n=== PROBANDO ERROR ESPECÍFICO DE EXPORT ===")
     
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
+        db_config = config_manager.get_database_config()
+        conn = psycopg2.connect(**db_config)
         cur = conn.cursor()
         
         # Simular la consulta de export_cv con datos que podrían causar error

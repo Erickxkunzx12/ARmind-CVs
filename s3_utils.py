@@ -1,18 +1,22 @@
 import boto3
 import json
 import os
+import boto3
 from datetime import datetime
 from botocore.exceptions import ClientError, NoCredentialsError
-from config import Config
+from config_manager import ConfigManager
 
 def get_s3_client():
     """Crear cliente S3 con las credenciales configuradas"""
     try:
+        config_manager = ConfigManager()
+        config = config_manager.get_config()
+        
         return boto3.client(
             's3',
-            aws_access_key_id=Config.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=Config.AWS_SECRET_ACCESS_KEY,
-            region_name=Config.AWS_REGION
+            aws_access_key_id=config.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=config.AWS_SECRET_ACCESS_KEY,
+            region_name=config.AWS_REGION
         )
     except NoCredentialsError:
         print("Error: Credenciales de AWS no configuradas")
@@ -23,8 +27,10 @@ def get_s3_client():
 
 def generate_s3_key(user_id, analysis_type, ai_provider):
     """Generar clave S3 única para el análisis"""
+    config_manager = ConfigManager()
+    config = config_manager.get_config()
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    return f"{Config.S3_FOLDER_PREFIX}user_{user_id}/{analysis_type}_{ai_provider}_{timestamp}.json"
+    return f"{config.S3_FOLDER_PREFIX}user_{user_id}/{analysis_type}_{ai_provider}_{timestamp}.json"
 
 def save_analysis_to_s3(user_id, analysis_data, analysis_type, ai_provider):
     """Guardar análisis de CV en S3"""
@@ -33,6 +39,9 @@ def save_analysis_to_s3(user_id, analysis_data, analysis_type, ai_provider):
         return None
     
     try:
+        config_manager = ConfigManager()
+        config = config_manager.get_config()
+        
         # Generar clave S3
         s3_key = generate_s3_key(user_id, analysis_type, ai_provider)
         
@@ -47,7 +56,7 @@ def save_analysis_to_s3(user_id, analysis_data, analysis_type, ai_provider):
         
         # Subir a S3
         s3_client.put_object(
-            Bucket=Config.S3_BUCKET_NAME,
+            Bucket=config.S3_BUCKET_NAME,
             Key=s3_key,
             Body=json.dumps(s3_data, ensure_ascii=False, indent=2),
             ContentType='application/json',
@@ -75,8 +84,11 @@ def get_analysis_from_s3(s3_key):
         return None
     
     try:
+        config_manager = ConfigManager()
+        config = config_manager.get_config()
+        
         response = s3_client.get_object(
-            Bucket=Config.S3_BUCKET_NAME,
+            Bucket=config.S3_BUCKET_NAME,
             Key=s3_key
         )
         
@@ -100,8 +112,11 @@ def delete_analysis_from_s3(s3_key):
         return False
     
     try:
+        config_manager = ConfigManager()
+        config = config_manager.get_config()
+        
         s3_client.delete_object(
-            Bucket=Config.S3_BUCKET_NAME,
+            Bucket=config.S3_BUCKET_NAME,
             Key=s3_key
         )
         print(f"Análisis eliminado de S3: {s3_key}")
@@ -121,10 +136,13 @@ def list_user_analyses_in_s3(user_id):
         return []
     
     try:
-        prefix = f"{Config.S3_FOLDER_PREFIX}user_{user_id}/"
+        config_manager = ConfigManager()
+        config = config_manager.get_config()
+        
+        prefix = f"{config.S3_FOLDER_PREFIX}user_{user_id}/"
         
         response = s3_client.list_objects_v2(
-            Bucket=Config.S3_BUCKET_NAME,
+            Bucket=config.S3_BUCKET_NAME,
             Prefix=prefix
         )
         
@@ -195,7 +213,10 @@ def create_bucket_if_not_exists():
         if not s3_client:
             return {'success': False, 'error': 'Failed to create S3 client'}
         
-        bucket_name = Config.S3_BUCKET_NAME
+        config_manager = ConfigManager()
+        config = config_manager.get_config()
+        
+        bucket_name = config.S3_BUCKET_NAME
         
         # Check if bucket exists
         try:
@@ -210,13 +231,13 @@ def create_bucket_if_not_exists():
             if error_code == 404:
                 # Bucket doesn't exist, create it
                 try:
-                    if Config.AWS_REGION == 'us-east-1':
+                    if config.AWS_REGION == 'us-east-1':
                         # us-east-1 doesn't need LocationConstraint
                         s3_client.create_bucket(Bucket=bucket_name)
                     else:
                         s3_client.create_bucket(
                             Bucket=bucket_name,
-                            CreateBucketConfiguration={'LocationConstraint': Config.AWS_REGION}
+                            CreateBucketConfiguration={'LocationConstraint': config.AWS_REGION}
                         )
                     
                     return {

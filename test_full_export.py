@@ -1,5 +1,8 @@
 import psycopg2
-from database_config import DB_CONFIG
+from config_manager import ConfigManager
+
+# Initialize configuration manager
+config_manager = ConfigManager()
 import json
 import traceback
 
@@ -63,7 +66,8 @@ def test_full_export_cv(cv_id, user_id):
         print(f"=== PROBANDO EXPORT CV COMPLETO: ID {cv_id}, USER {user_id} ===")
         
         # Conectar a la base de datos
-        connection = psycopg2.connect(**DB_CONFIG)
+        db_config = config_manager.get_database_config()
+        connection = psycopg2.connect(**db_config)
         cursor = connection.cursor()
         
         # Verificar que el CV existe y pertenece al usuario

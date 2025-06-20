@@ -1,11 +1,15 @@
 import psycopg2
-from database_config import DB_CONFIG
+from config_manager import ConfigManager
+
+# Initialize configuration manager
+config_manager = ConfigManager()
 import json
 
 def check_database():
     try:
         # Conectar a la base de datos
-        conn = psycopg2.connect(**DB_CONFIG)
+        db_config = config_manager.get_database_config()
+        conn = psycopg2.connect(**db_config)
         cur = conn.cursor()
         
         print("=== DIAGNÓSTICO DE BASE DE DATOS ===")

@@ -7,7 +7,10 @@ Este script migra todos los datos de la base de datos SQLite existente a Postgre
 import sqlite3
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from database_config import DB_CONFIG
+from config_manager import ConfigManager
+
+# Initialize configuration manager
+config_manager = ConfigManager()
 import sys
 
 def connect_sqlite():
@@ -23,12 +26,13 @@ def connect_sqlite():
 def connect_postgresql():
     """Conectar a la base de datos PostgreSQL"""
     try:
+        db_config = config_manager.get_database_config()
         conn = psycopg2.connect(
-            host=DB_CONFIG['host'],
-            database=DB_CONFIG['database'],
-            user=DB_CONFIG['user'],
-            password=DB_CONFIG['password'],
-            port=DB_CONFIG['port'],
+            host=db_config['host'],
+            database=db_config['database'],
+            user=db_config['user'],
+            password=db_config['password'],
+            port=db_config['port'],
             cursor_factory=RealDictCursor
         )
         return conn

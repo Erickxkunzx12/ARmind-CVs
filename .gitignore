@@ -74,3 +74,29 @@ backup_old_files/
 
 # Archivos de fuentes (si son muy grandes)
 # fonts/*.ttf
+
+# Archivos de configuración por entorno
+.env
+.env.local
+.env.*.local
+.env.backup
+
+# Logs por entorno
+logs/
+test_logs/
+*.log
+
+# Uploads por entorno
+uploads_dev/
+test_uploads/
+
+# Configuración de seguridad
+security.log
+security_audit.json
+credentials_metadata.json
+aws_iam_config.json
+
+# Archivos temporales de testing
+.pytest_cache/
+.coverage
+htmlcov/

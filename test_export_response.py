@@ -1,5 +1,8 @@
 import psycopg2
-from database_config import DB_CONFIG
+from config_manager import ConfigManager
+
+# Initialize configuration manager
+config_manager = ConfigManager()
 import json
 import traceback
 from flask import Flask, session, jsonify, Response
@@ -10,7 +13,8 @@ app.secret_key = 'test_key'
 
 def get_db_connection():
     """Función para obtener conexión a la base de datos"""
-    return psycopg2.connect(**DB_CONFIG)
+    db_config = config_manager.get_database_config()
+    return psycopg2.connect(**db_config)
 
 def generate_professional_summary_section(summary, tech_xyz=False, tech_start=False):
     """Función auxiliar para generar la sección de resumen profesional"""

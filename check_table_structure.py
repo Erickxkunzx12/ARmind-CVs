@@ -3,7 +3,10 @@
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from database_config import DB_CONFIG
+from config_manager import ConfigManager
+
+# Initialize configuration manager
+config_manager = ConfigManager()
 from dotenv import load_dotenv
 
 # Cargar variables de entorno
@@ -14,7 +17,8 @@ def check_users_table():
     try:
         # Conectar a la base de datos PostgreSQL
         print("Conectando a la base de datos PostgreSQL...")
-        conn = psycopg2.connect(**DB_CONFIG)
+        db_config = config_manager.get_database_config()
+        conn = psycopg2.connect(**db_config)
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         
         # Verificar si la tabla users existe

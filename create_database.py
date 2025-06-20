@@ -1,15 +1,26 @@
 import psycopg2
+from psycopg2 import sql
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 def create_database():
+    # Configuración de conexión (sin especificar base de datos)
+    conn_params = {
+        'host': os.getenv('DB_HOST', 'localhost'),
+        'port': os.getenv('DB_PORT', '5432'),
+        'user': os.getenv('DB_USER', 'postgres'),
+        'password': os.getenv('DB_PASSWORD'),
+    }
+    
     # Primero conectamos a la base de datos predeterminada 'postgres'
     try:
         print("Conectando a PostgreSQL...")
         conn = psycopg2.connect(
-            host='localhost',
             database='postgres',  # Base de datos predeterminada
-            user='postgres',
-            password='Solido123',
-            port='5432'
+            **conn_params
         )
         conn.autocommit = True  # Necesario para crear bases de datos
         cursor = conn.cursor()

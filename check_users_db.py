@@ -1,15 +1,20 @@
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from config_manager import get_config
 
 def check_users():
     """Verificar usuarios en la base de datos"""
     try:
+        # Usar configuración centralizada
+        config = get_config()
+        db_config = config.DATABASE_CONFIG
+        
         conn = psycopg2.connect(
-            host='localhost',
-            database='cv_analyzer',
-            user='postgres',
-            password='Solido123',
-            port='5432',
+            host=db_config['host'],
+            database=db_config['database'],
+            user=db_config['user'],
+            password=db_config['password'],
+            port=db_config['port'],
             cursor_factory=RealDictCursor
         )
         

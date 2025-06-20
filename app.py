@@ -5,7 +5,6 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import os
 import openai
-from database_config import DB_CONFIG
 import PyPDF2
 from docx import Document
 from datetime import datetime
@@ -19,63 +18,27 @@ from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
 load_dotenv()  # Carga las variables de entorno desde .env
 
+# Importar sistema de configuración centralizada
+from config_manager import ConfigManager
+from security_manager import SecurityLogger
+
+# Inicializar gestores
+config_manager = ConfigManager()
+security_logger = SecurityLogger()
+
 # Importar funciones de scraping
 from job_search_service import scrape_linkedin, scrape_computrabajo as scrape_computrabajo_service, scrape_indeed_api
 
-# Configuración de email usando variables de entorno
-import os
-from dotenv import load_dotenv
-
-# Cargar variables de entorno desde archivo .env
-load_dotenv()
-
-# Intentar importar configuración de email desde archivo local
-try:
-    from email_config import EMAIL_CONFIG as CONFIG_FROM_FILE
-    # Verificar si la configuración del archivo tiene valores de ejemplo
-    example_values = ['tu_email@gmail.com', 'tu_email@outlook.com', 'tu_email@yahoo.com', 'tu_app_password', 'tu_contraseña']
-    
-    if (CONFIG_FROM_FILE['email'] in example_values or CONFIG_FROM_FILE['password'] in example_values):
-        print("⚠️ email_config.py contiene valores de ejemplo, usando variables de entorno")
-        # Usar variables de entorno si el archivo tiene valores de ejemplo
-        EMAIL_CONFIG = {
-            'smtp_server': os.getenv('SMTP_SERVER', 'smtp.gmail.com'),
-            'smtp_port': int(os.getenv('SMTP_PORT', '587')),
-            'email': os.getenv('EMAIL_USER'),
-            'password': os.getenv('EMAIL_PASSWORD'),
-            'use_tls': os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
-        }
-        print("✅ Configuración de email cargada desde archivo .env")
-    else:
-        EMAIL_CONFIG = CONFIG_FROM_FILE
-        print("✅ Configuración de email cargada desde email_config.py")
-except ImportError:
-    # Usar variables de entorno como respaldo
-    EMAIL_CONFIG = {
-        'smtp_server': os.getenv('SMTP_SERVER', 'smtp.gmail.com'),
-        'smtp_port': int(os.getenv('SMTP_PORT', '587')),
-        'email': os.getenv('EMAIL_USER'),
-        'password': os.getenv('EMAIL_PASSWORD'),
-        'use_tls': os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
-    }
-    print("✅ Configuración de email cargada desde archivo .env (email_config.py no encontrado)")
-
-# Verificar si la configuración de email está completa
-# Lista de valores de ejemplo que indican configuración incompleta
-example_values = ['tu_email@gmail.com', 'tu_email@outlook.com', 'tu_email@yahoo.com', 'tu_app_password', 'tu_contraseña']
-
-if (not EMAIL_CONFIG['email'] or not EMAIL_CONFIG['password'] or 
-    EMAIL_CONFIG['email'] in example_values or EMAIL_CONFIG['password'] in example_values):
-    print("❌ ADVERTENCIA: Configuración de email incompleta o usando valores de ejemplo")
-    print("   Para habilitar el envío de emails:")
-    print("   1. Edita 'email_config.py'")
-    print("   2. Reemplaza 'tu_email@gmail.com' con tu email real")
-    print("   3. Reemplaza 'tu_app_password' con tu contraseña de aplicación real")
-    print("   4. Reinicia el servidor")
-    EMAIL_CONFIG_COMPLETE = False
+# Validar configuración de email usando el gestor centralizado
+if config_manager.validate_email_config():
+    email_config = config_manager.get_email_config()
+    print(f"✅ Email configurado: {email_config['email']}")
+    security_logger.log_config_access('EMAIL')
 else:
-    EMAIL_CONFIG_COMPLETE = True
-    print(f"✅ Email configurado: {EMAIL_CONFIG['email']}")
+    print("❌ ADVERTENCIA: Configuración de email incompleta")
+    print("   Configura las variables de entorno EMAIL_USER, EMAIL_PASSWORD, etc.")
+    security_logger.log_security_event('EMAIL_CONFIG_INCOMPLETE', 'Email configuration missing or invalid', 'WARNING')
+
 # Intentar usar pdfkit como alternativa a WeasyPrint
 try:
     import pdfkit
@@ -102,21 +65,29 @@ import re
 import tempfile  # Added for temporary file handling
 
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY', 'fallback_secret_key')
-app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+# Configurar Flask usando el gestor centralizado
+flask_config = config_manager.get_flask_config()
+app.secret_key = flask_config['SECRET_KEY']
+app.config['UPLOAD_FOLDER'] = flask_config['UPLOAD_FOLDER']
+app.config['MAX_CONTENT_LENGTH'] = flask_config['MAX_CONTENT_LENGTH']
 
 # Hacer datetime disponible en todas las plantillas
 app.jinja_env.globals['datetime'] = datetime
 
-# Configuracion de OpenAI
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-if OPENAI_API_KEY:
-    openai.api_key = OPENAI_API_KEY
+# Configuración de APIs usando el gestor centralizado
+api_config = config_manager.get_api_config()
+if api_config['OPENAI_API_KEY']:
+    openai.api_key = api_config['OPENAI_API_KEY']
+    print("✅ OpenAI API configurada")
+    security_logger.log_config_access('OPENAI_API')
 else:
-    print("Advertencia: OpenAI API Key no configurada en variables de entorno")
+    print("⚠️ OpenAI API Key no configurada")
+    security_logger.log_security_event('OPENAI_API_MISSING', 'OpenAI API key not configured', 'WARNING')
 
-# La configuracion de PostgreSQL se importa desde database_config.py
+# Configuración de base de datos usando el gestor centralizado
+DB_CONFIG = config_manager.get_database_config()
+security_logger.log_config_access('DATABASE')
 
 # Crear directorio de uploads si no existe
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
@@ -206,15 +177,8 @@ def generate_pdf_with_reportlab(html_content, title):
 def get_db_connection():
     """Obtener conexión a la base de datos PostgreSQL con manejo de errores mejorado"""
     try:
-        # Configuración manual para evitar problemas de codificación
-        db_config = {
-            'host': 'localhost',
-            'database': 'cv_analyzer',
-            'user': 'postgres',
-            'password': 'Solido123',
-            'port': '5432',
-            'cursor_factory': RealDictCursor
-        }
+        # Usar configuración centralizada
+        db_config = config_manager.get_database_config()
         
         # Usar opciones adicionales para manejar problemas de codificación
         os.environ['PGCLIENTENCODING'] = 'UTF8'
@@ -225,16 +189,20 @@ def get_db_connection():
             user=db_config['user'],
             password=db_config['password'],
             port=db_config['port'],
-            cursor_factory=db_config['cursor_factory'],
+            cursor_factory=RealDictCursor,
             client_encoding='UTF8',
             options="-c client_encoding=UTF8"
         )
+        
+        security_logger.log_database_access('CONNECTION_SUCCESS')
         return connection
     except psycopg2.Error as err:
         app.logger.error(f"Error de conexión a la base de datos: {err}")
+        security_logger.log_security_event('DATABASE_CONNECTION_FAILED', str(err), 'ERROR')
         return None
     except Exception as err:
         app.logger.error(f"Error inesperado de base de datos: {err}")
+        security_logger.log_security_event('DATABASE_UNEXPECTED_ERROR', str(err), 'ERROR')
         return None
 
 def get_db():
@@ -248,10 +216,13 @@ def generate_verification_token():
 def send_verification_email(email, username, token):
     """Enviar email de verificación"""
     try:
+        # Obtener configuración de email
+        email_config = config_manager.get_email_config()
+        
         # Crear mensaje
         msg = MIMEMultipart('alternative')
         msg['Subject'] = 'Verifica tu cuenta de ARMind CVs'
-        msg['From'] = EMAIL_CONFIG['email']
+        msg['From'] = email_config['email']
         msg['To'] = email
         
         # Versión texto plano
@@ -310,16 +281,18 @@ El equipo de ARMind CVs
         msg.attach(part2)
         
         # Conectar al servidor SMTP
-        server = smtplib.SMTP(EMAIL_CONFIG['smtp_server'], EMAIL_CONFIG['smtp_port'])
-        if EMAIL_CONFIG['use_tls']:
+        server = smtplib.SMTP(email_config['smtp_server'], email_config['smtp_port'])
+        if email_config['use_tls']:
             server.starttls()
         
         # Iniciar sesión
-        server.login(EMAIL_CONFIG['email'], EMAIL_CONFIG['password'])
+        server.login(email_config['email'], email_config['password'])
         
         # Enviar email
-        server.sendmail(EMAIL_CONFIG['email'], email, msg.as_string())
+        server.sendmail(email_config['email'], email, msg.as_string())
         server.quit()
+        
+        security_logger.log_security_event('EMAIL_SENT', f'Verification email sent to {email}', 'INFO')
         
         print(f"✅ Email de verificación enviado exitosamente a: {email}")
         print(f"   Usuario: {username}")
@@ -330,7 +303,8 @@ El equipo de ARMind CVs
         print(f"Email destino: {email}")
         print(f"Username: {username}")
         print(f"Token: {token}")
-        print(f"Configuración SMTP: {EMAIL_CONFIG['smtp_server']}:{EMAIL_CONFIG['smtp_port']}")
+        email_config = config_manager.get_email_config()
+        print(f"Configuración SMTP: {email_config['smtp_server']}:{email_config['smtp_port']}")
         import traceback
         traceback.print_exc()
         return False
@@ -342,10 +316,13 @@ def generate_reset_token():
 def send_password_reset_email(email, username, token):
     """Enviar email de recuperación de contraseña"""
     try:
+        # Obtener configuración de email
+        email_config = config_manager.get_email_config()
+        
         # Crear mensaje
         msg = MIMEMultipart('alternative')
         msg['Subject'] = 'Recuperar contraseña - ARMind CVs'
-        msg['From'] = EMAIL_CONFIG['email']
+        msg['From'] = email_config['email']
         msg['To'] = email
         
         # Versión texto plano
@@ -412,16 +389,18 @@ El equipo de ARMind CVs
         msg.attach(part2)
         
         # Conectar al servidor SMTP
-        server = smtplib.SMTP(EMAIL_CONFIG['smtp_server'], EMAIL_CONFIG['smtp_port'])
-        if EMAIL_CONFIG['use_tls']:
+        server = smtplib.SMTP(email_config['smtp_server'], email_config['smtp_port'])
+        if email_config['use_tls']:
             server.starttls()
         
         # Iniciar sesión
-        server.login(EMAIL_CONFIG['email'], EMAIL_CONFIG['password'])
+        server.login(email_config['email'], email_config['password'])
         
         # Enviar email
-        server.sendmail(EMAIL_CONFIG['email'], email, msg.as_string())
+        server.sendmail(email_config['email'], email, msg.as_string())
         server.quit()
+        
+        security_logger.log_security_event('PASSWORD_RESET_EMAIL_SENT', f'Password reset email sent to {email}', 'INFO')
         
         print(f"✅ Email de recuperación enviado exitosamente a: {email}")
         print(f"   Usuario: {username}")
@@ -2531,18 +2510,23 @@ def improve_cv_with_ai(cv_data):
             - Responde solo con el resumen mejorado, sin explicaciones adicionales
             """
             
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "Eres un experto en recursos humanos especializado en optimización de CVs."},
-                    {"role": "user", "content": summary_prompt}
-                ],
-                max_tokens=300,
-                temperature=0.7
-            )
+            try:
+                response = openai.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": "Eres un experto en recursos humanos especializado en optimización de CVs."},
+                        {"role": "user", "content": summary_prompt}
+                    ],
+                    max_tokens=300,
+                    temperature=0.7
+                )
+                improved_summary = response.choices[0].message.content.strip()
+                cv_data['professional_summary'] = improved_summary
+            except Exception as openai_error:
+                print(f"Error con OpenAI API en resumen: {str(openai_error)}")
+                # Mantener el resumen original si hay error con la API
             
-            improved_summary = response.choices[0].message.content.strip()
-            cv_data['professional_summary'] = improved_summary
+
         
         # Mejorar experiencia laboral usando metodología STAR
         if experience:
@@ -2569,18 +2553,22 @@ def improve_cv_with_ai(cv_data):
                     - Responde solo con la descripción mejorada, sin explicaciones adicionales
                     """
                     
-                    response = openai.ChatCompletion.create(
-                        model="gpt-3.5-turbo",
-                        messages=[
-                            {"role": "system", "content": "Eres un experto en recursos humanos especializado en optimización de CVs."},
-                            {"role": "user", "content": exp_prompt}
-                        ],
-                        max_tokens=400,
-                        temperature=0.7
-                    )
-                    
-                    improved_description = response.choices[0].message.content.strip()
-                    exp['description'] = improved_description
+                    try:
+                        response = openai.ChatCompletion.create(
+                            model="gpt-3.5-turbo",
+                            messages=[
+                                {"role": "system", "content": "Eres un experto en recursos humanos especializado en optimización de CVs."},
+                                {"role": "user", "content": exp_prompt}
+                            ],
+                            max_tokens=400,
+                            temperature=0.7
+                        )
+                        
+                        improved_description = response.choices[0].message.content.strip()
+                        exp['description'] = improved_description
+                    except Exception as openai_error:
+                        print(f"Error con OpenAI API en experiencia: {str(openai_error)}")
+                        # Mantener la descripción original si hay error con la API
                 
                 improved_experience.append(exp)
             

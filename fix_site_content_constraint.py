@@ -4,13 +4,17 @@ Script para agregar la restricción única compuesta a la tabla site_content
 """
 
 import psycopg2
-from database_config import DB_CONFIG
+from config_manager import ConfigManager
+
+# Initialize configuration manager
+config_manager = ConfigManager()
 
 def fix_site_content_constraint():
     """Agregar restricción única compuesta (section, content_key) a site_content"""
     try:
         # Conectar a la base de datos
-        connection = psycopg2.connect(**DB_CONFIG)
+        db_config = config_manager.get_database_config()
+        connection = psycopg2.connect(**db_config)
         cursor = connection.cursor()
         
         print("Conectado a la base de datos...")

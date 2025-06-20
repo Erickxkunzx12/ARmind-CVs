@@ -1,15 +1,19 @@
 import psycopg2
-from database_config import DB_CONFIG
+from config_manager import ConfigManager
+
+# Initialize configuration manager
+config_manager = ConfigManager()
 
 def init_tables():
     try:
         print("Conectando a PostgreSQL...")
+        db_config = config_manager.get_database_config()
         conn = psycopg2.connect(
-            host=DB_CONFIG['host'],
-            database=DB_CONFIG['database'],
-            user=DB_CONFIG['user'],
-            password=DB_CONFIG['password'],
-            port=DB_CONFIG['port']
+            host=db_config['host'],
+            database=db_config['database'],
+            user=db_config['user'],
+            password=db_config['password'],
+            port=db_config['port']
         )
         conn.autocommit = False
         cursor = conn.cursor()
