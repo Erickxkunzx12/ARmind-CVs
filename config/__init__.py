@@ -6,24 +6,14 @@ Cargador de Configuración por Entorno - ARMind
 import os
 from dotenv import load_dotenv
 
+# Cargar variables de entorno desde .env
+load_dotenv('.env')
+
 def load_config():
     """Cargar configuración basada en el entorno"""
     
     # Determinar entorno
     env = os.getenv('FLASK_ENV', 'development').lower()
-    
-    # Cargar archivo .env específico del entorno
-    env_file = f'.env.{env}'
-    if os.path.exists(env_file):
-        load_dotenv(env_file)
-        print(f"✅ Configuración cargada desde: {env_file}")
-    else:
-        # Fallback a .env general
-        if os.path.exists('.env'):
-            load_dotenv('.env')
-            print("⚠️ Usando .env general (crear .env específicos por entorno)")
-        else:
-            print("❌ No se encontró archivo .env")
     
     # Importar configuración específica
     if env == 'production':

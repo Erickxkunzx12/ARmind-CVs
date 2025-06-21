@@ -1948,10 +1948,13 @@ def analyze_cv_with_anthropic(cv_text, analysis_type):
     try:
         import anthropic
         
-        # Configurar cliente de Anthropic
-        client = anthropic.Anthropic(
-            api_key=os.getenv('ANTHROPIC_API_KEY')
-        )
+        # Verificar API key
+        api_key = os.getenv('ANTHROPIC_API_KEY')
+        if not api_key or api_key == 'your_anthropic_api_key_here':
+            return get_error_analysis(analysis_type, "anthropic", "API Key de Anthropic no configurada")
+        
+        # Configurar cliente de Anthropic v0.25.0 - sin proxies
+        client = anthropic.Anthropic(api_key=api_key)
         
         prompt = get_analysis_prompt(analysis_type, cv_text)
         
@@ -1959,7 +1962,7 @@ def analyze_cv_with_anthropic(cv_text, analysis_type):
         Responde SIEMPRE en formato JSON válido con la estructura especificada."""
         
         message = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-sonnet-4-20250514",
             max_tokens=2000,
             temperature=0.7,
             system=system_prompt,
@@ -1998,10 +2001,22 @@ def analyze_cv_with_anthropic(cv_text, analysis_type):
 def analyze_cv_with_gemini(cv_text, analysis_type):
     """Analizar CV usando Google Gemini"""
     try:
-        import google.generativeai as genai
+        # Intentar importar con diferentes métodos
+        try:
+            import google.generativeai as genai
+        except ImportError:
+            try:
+                from google import generativeai as genai
+            except ImportError:
+                return get_error_analysis(analysis_type, "gemini", "Librería de Google Generative AI no disponible. Ejecute: pip install google-generativeai")
+        
+        # Verificar API key
+        api_key = os.getenv('GEMINI_API_KEY')
+        if not api_key or api_key == 'your_gemini_api_key_here':
+            return get_error_analysis(analysis_type, "gemini", "API Key de Gemini no configurada")
         
         # Configurar Gemini
-        genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
+        genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-1.5-pro')
         
         prompt = get_analysis_prompt(analysis_type, cv_text)

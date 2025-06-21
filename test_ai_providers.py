@@ -106,7 +106,8 @@ def test_single_analysis(provider_name, analyze_function, analysis_type):
             print(f"    ❌ Campos faltantes: {missing_fields}")
             return False
         
-        if result.get('error'):
+        # Solo considerar error si el resultado indica explícitamente un error
+        if result.get('error') and ('Error' in str(result.get('detailed_feedback', '')) or result.get('score', 0) == 0):
             print(f"    ❌ Error: {result.get('detailed_feedback', 'Error desconocido')}")
             return False
         

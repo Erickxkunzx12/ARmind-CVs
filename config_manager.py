@@ -27,7 +27,7 @@ class BaseConfig:
     """Configuración base con validaciones de seguridad"""
     
     def __init__(self):
-        # Cargar variables de entorno
+        # Cargar variables de entorno desde .env
         load_dotenv()
         
         # Validar configuración al inicializar
