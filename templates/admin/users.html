@@ -237,9 +237,7 @@
                 <h5 class="modal-title">
                     <i class="fas fa-ban text-warning"></i> Banear Usuario
                 </h5>
-                <button type="button" class="close" data-dismiss="modal">
-                    <span>&times;</span>
-                </button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="banForm" method="POST" action="{{ url_for('admin_ban_user') }}">
                 <div class="modal-body">
@@ -248,17 +246,24 @@
                     
                     <div class="form-group">
                         <label for="banType">Tipo de Ban:</label>
-                        <select class="form-control" id="banType" name="ban_type" required>
+                        <select class="form-control" id="banType" name="ban_type" required onchange="toggleBanDuration()">
                             <option value="">Seleccionar tipo</option>
                             <option value="permanent">Permanente</option>
-                            <option value="1">1 mes</option>
-                            <option value="2">2 meses</option>
-                            <option value="3">3 meses</option>
-                            <option value="4">4 meses</option>
-                            <option value="6">6 meses</option>
-                            <option value="12">1 año</option>
-                            <option value="24">2 años</option>
-                            <option value="120">10 años</option>
+                            <option value="temporary">Temporal</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" id="banDurationGroup" style="display: none;">
+                        <label for="banDuration">Duración del Ban:</label>
+                        <select class="form-control" id="banDuration" name="ban_duration">
+                            <option value="30">1 mes (30 días)</option>
+                            <option value="60">2 meses (60 días)</option>
+                            <option value="90">3 meses (90 días)</option>
+                            <option value="120">4 meses (120 días)</option>
+                            <option value="180">6 meses (180 días)</option>
+                            <option value="365">1 año (365 días)</option>
+                            <option value="730">2 años (730 días)</option>
+                            <option value="3650">10 años (3650 días)</option>
                         </select>
                     </div>
                     
@@ -269,7 +274,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-warning">
                         <i class="fas fa-ban"></i> Banear Usuario
                     </button>
@@ -287,9 +292,7 @@
                 <h5 class="modal-title">
                     <i class="fas fa-trash text-danger"></i> Eliminar Usuario
                 </h5>
-                <button type="button" class="close" data-dismiss="modal">
-                    <span>&times;</span>
-                </button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="deleteForm" method="POST" action="{{ url_for('admin_delete_user') }}">
                 <div class="modal-body">
@@ -302,7 +305,7 @@
                     <p class="text-muted">Se eliminarán todos los datos asociados al usuario, incluyendo su currículum y análisis.</p>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-danger">
                         <i class="fas fa-trash"></i> Eliminar Usuario
                     </button>
@@ -354,9 +357,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Gestionar Suscripción</h5>
-                <button type="button" class="close" data-dismiss="modal">
-                    <span>&times;</span>
-                </button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form action="{{ url_for('admin_update_subscription') }}" method="POST">
                 <div class="modal-body">
@@ -380,7 +381,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-primary">Actualizar Suscripción</button>
                 </div>
             </form>
@@ -389,15 +390,58 @@
 </div>
 
 <script>
+function showAlert(type, message) {
+    const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+    const iconClass = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-triangle';
+    
+    const alertHtml = `
+        <div class="alert ${alertClass} alert-dismissible fade show" role="alert" style="position: fixed; top: 20px; right: 20px; z-index: 9999; min-width: 300px;">
+            <i class="fas ${iconClass}"></i> ${message}
+            <button type="button" class="close" data-dismiss="alert">
+                <span>&times;</span>
+            </button>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', alertHtml);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        const alert = document.querySelector('.alert');
+        if (alert) {
+            alert.remove();
+        }
+    }, 5000);
+}
+
+function toggleBanDuration() {
+    const banType = document.getElementById('banType').value;
+    const banDurationGroup = document.getElementById('banDurationGroup');
+    
+    if (banType === 'temporary') {
+        banDurationGroup.style.display = 'block';
+        document.getElementById('banDuration').required = true;
+    } else {
+        banDurationGroup.style.display = 'none';
+        document.getElementById('banDuration').required = false;
+    }
+}
+
 function banUser(userId, username) {
     document.getElementById('banUserId').value = userId;
     document.getElementById('banUsername').textContent = username;
-    $('#banModal').modal('show');
+    // Reset form
+    document.getElementById('banType').value = '';
+    document.getElementById('banDuration').value = '30';
+    document.getElementById('banReason').value = '';
+    toggleBanDuration();
+    const banModal = new bootstrap.Modal(document.getElementById('banModal'));
+    banModal.show();
 }
 
 function unbanUser(userId, username) {
     if (confirm(`¿Estás seguro de que quieres desbanear al usuario ${username}?`)) {
-        fetch('{{ url_for("admin_unban_user") }}', {
+        fetch('/admin/unban_user', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -409,15 +453,15 @@ function unbanUser(userId, username) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('Usuario desbaneado correctamente');
-                location.reload();
+                showAlert('success', data.message);
+                setTimeout(() => location.reload(), 1500);
             } else {
-                alert('Error: ' + data.message);
+                showAlert('error', data.message);
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('Error al desbanear usuario');
+            showAlert('error', 'Error al desbanear usuario');
         });
     }
 }
@@ -425,7 +469,8 @@ function unbanUser(userId, username) {
 function deleteUser(userId, username) {
     document.getElementById('deleteUserId').value = userId;
     document.getElementById('deleteUsername').textContent = username;
-    $('#deleteModal').modal('show');
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    deleteModal.show();
 }
 
 function manageSubscription(userId, username) {
@@ -445,7 +490,8 @@ function manageSubscription(userId, username) {
             console.error('Error:', error);
         });
     
-    $('#subscriptionModal').modal('show');
+    const subscriptionModal = new bootstrap.Modal(document.getElementById('subscriptionModal'));
+    subscriptionModal.show();
 }
 
 // Función para enviar formulario de ban
@@ -456,11 +502,15 @@ document.getElementById('banForm').addEventListener('submit', function(e) {
     const data = {
         user_id: formData.get('user_id'),
         ban_type: formData.get('ban_type'),
-        ban_duration: formData.get('ban_duration'),
         ban_reason: formData.get('ban_reason')
     };
     
-    fetch('{{ url_for("admin_ban_user") }}', {
+    // Agregar duración si es ban temporal
+    if (formData.get('ban_type') === 'temporary') {
+        data.ban_duration = formData.get('ban_duration');
+    }
+    
+    fetch('/admin/ban_user', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -470,16 +520,17 @@ document.getElementById('banForm').addEventListener('submit', function(e) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('Usuario baneado correctamente');
-            $('#banModal').modal('hide');
-            location.reload();
+            const banModal = bootstrap.Modal.getInstance(document.getElementById('banModal'));
+            banModal.hide();
+            showAlert('success', data.message);
+            setTimeout(() => location.reload(), 1500);
         } else {
-            alert('Error: ' + data.message);
+            showAlert('error', data.message);
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Error al banear usuario');
+        showAlert('error', 'Error al banear usuario');
     });
 });
 
@@ -492,7 +543,7 @@ document.getElementById('deleteForm').addEventListener('submit', function(e) {
         user_id: formData.get('user_id')
     };
     
-    fetch('{{ url_for("admin_delete_user") }}', {
+    fetch('/admin/delete_user', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -502,16 +553,17 @@ document.getElementById('deleteForm').addEventListener('submit', function(e) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('Usuario eliminado correctamente');
-            $('#deleteModal').modal('hide');
-            location.reload();
+            const deleteModal = bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
+            deleteModal.hide();
+            showAlert('success', data.message);
+            setTimeout(() => location.reload(), 1500);
         } else {
-            alert('Error: ' + data.message);
+            showAlert('error', data.message);
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Error al eliminar usuario');
+        showAlert('error', 'Error al eliminar usuario');
     });
 });
 
@@ -526,7 +578,7 @@ document.querySelector('#subscriptionModal form').addEventListener('submit', fun
         reason: formData.get('reason')
     };
     
-    fetch('{{ url_for("admin_update_subscription") }}', {
+    fetch('/admin/update_subscription', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -536,16 +588,17 @@ document.querySelector('#subscriptionModal form').addEventListener('submit', fun
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('Suscripción actualizada correctamente');
-            $('#subscriptionModal').modal('hide');
-            location.reload();
+            const subscriptionModal = bootstrap.Modal.getInstance(document.getElementById('subscriptionModal'));
+            subscriptionModal.hide();
+            showAlert('success', data.message);
+            setTimeout(() => location.reload(), 1500);
         } else {
-            alert('Error: ' + data.message);
+            showAlert('error', data.message);
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Error al actualizar suscripción');
+        showAlert('error', 'Error al actualizar suscripción');
     });
 });
 

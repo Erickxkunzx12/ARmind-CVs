@@ -5167,8 +5167,9 @@ def admin_delete_user():
 def admin_get_user_subscription(user_id):
     """Obtener suscripción actual del usuario"""
     try:
+        from subscription_system import get_user_subscription
         user_subscription = get_user_subscription(user_id)
-        current_plan = user_subscription.get('plan', 'free') if user_subscription else 'free'
+        current_plan = user_subscription.get('plan_type', 'free') if user_subscription else 'free'
         
         return jsonify({
             'success': True,
@@ -5206,29 +5207,38 @@ def admin_update_subscription():
         if not user:
             return jsonify({'success': False, 'message': 'Usuario no encontrado'})
         
-        # Verificar si ya tiene una suscripción
-        cursor.execute("SELECT id FROM user_subscriptions WHERE user_id = %s", (user_id,))
+        # Verificar si ya tiene una suscripción activa
+        cursor.execute("SELECT id FROM subscriptions WHERE user_id = %s AND status = 'active'", (user_id,))
         existing_subscription = cursor.fetchone()
         
         if existing_subscription:
-            # Actualizar suscripción existente
-            if new_plan == 'free':
-                # Eliminar suscripción para plan gratuito
-                cursor.execute("DELETE FROM user_subscriptions WHERE user_id = %s", (user_id,))
-            else:
-                # Actualizar plan existente
-                cursor.execute("""
-                    UPDATE user_subscriptions 
-                    SET plan = %s, updated_at = CURRENT_TIMESTAMP
-                    WHERE user_id = %s
-                """, (new_plan, user_id))
-        else:
-            # Crear nueva suscripción si no es plan gratuito
-            if new_plan != 'free':
-                cursor.execute("""
-                    INSERT INTO user_subscriptions (user_id, plan, status, created_at, updated_at)
-                    VALUES (%s, %s, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                """, (user_id, new_plan))
+            # Desactivar suscripción existente
+            cursor.execute("""
+                UPDATE subscriptions 
+                SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = %s AND status = 'active'
+            """, (user_id,))
+        
+        # Crear nueva suscripción si no es plan gratuito
+        if new_plan != 'free':
+            from datetime import datetime, timedelta
+            # Calcular fecha de vencimiento (30 días para basic, 365 días para pro)
+            if new_plan == 'basic':
+                end_date = datetime.now() + timedelta(days=30)
+            else:  # pro
+                end_date = datetime.now() + timedelta(days=365)
+                
+            cursor.execute("""
+                INSERT INTO subscriptions (user_id, plan_type, status, start_date, end_date, payment_method, amount, currency)
+                VALUES (%s, %s, 'active', CURRENT_TIMESTAMP, %s, 'admin_change', 0, 'CLP')
+            """, (user_id, new_plan, end_date))
+            
+            # Actualizar el campo current_plan en la tabla users si existe
+            cursor.execute("""
+                UPDATE users 
+                SET current_plan = %s, subscription_status = 'active', subscription_end_date = %s
+                WHERE id = %s
+            """, (new_plan, end_date, user_id))
         
         # Registrar el cambio en logs de administrador
         admin_username = session.get('username', 'Admin')

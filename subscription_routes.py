@@ -53,6 +53,27 @@ def subscribe(plan_type):
                          plan=plan, 
                          plan_type=plan_type)
 
+@subscription_bp.route('/payment-options/<plan_type>')
+def payment_options(plan_type):
+    """Mostrar opciones de pago para un plan específico"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    if plan_type not in SUBSCRIPTION_PLANS:
+        flash('Plan de suscripción no válido', 'error')
+        return redirect(url_for('subscription.view_plans'))
+    
+    plan = SUBSCRIPTION_PLANS[plan_type]
+    
+    # Si es plan gratuito, redirigir a suscripción directa
+    if plan_type == 'free_trial':
+        return redirect(url_for('subscription.subscribe', plan_type=plan_type))
+    
+    # Para planes pagos, mostrar opciones de pago
+    return render_template('payment_options.html', 
+                         plan=plan, 
+                         plan_type=plan_type)
+
 @subscription_bp.route('/payment/<plan_type>/<gateway>')
 def initiate_payment(plan_type, gateway):
     """Iniciar proceso de pago"""
