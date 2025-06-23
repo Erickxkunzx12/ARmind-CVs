@@ -1,0 +1,52 @@
+[2025-06-23 13:49:54] INFO: ==================================================
+[2025-06-23 13:49:54] INFO: INICIANDO MIGRACIÓN DE ARMIND
+[2025-06-23 13:49:54] INFO: ==================================================
+[2025-06-23 13:49:54] INFO: 
+📋 Ejecutando: Verificar aplicación actual
+[2025-06-23 13:49:54] INFO: Verificando aplicación actual...
+[2025-06-23 13:49:54] INFO: Encontrado: app.py
+[2025-06-23 13:49:54] INFO: Encontrado: requirements.txt
+[2025-06-23 13:49:54] INFO: Encontrado: uploads/
+[2025-06-23 13:49:54] INFO: Encontrado: static/
+[2025-06-23 13:49:54] INFO: Encontrado: templates/
+[2025-06-23 13:49:54] INFO: ✅ Verificar aplicación actual completado
+[2025-06-23 13:49:54] INFO: 
+📋 Ejecutando: Crear backup
+[2025-06-23 13:49:54] INFO: Creando backup del proyecto actual...
+[2025-06-23 13:49:54] INFO: Respaldado: app.py
+[2025-06-23 13:49:54] INFO: Respaldado: requirements.txt
+[2025-06-23 13:49:54] INFO: Respaldado: config.py
+[2025-06-23 13:49:54] INFO: Respaldado: .env
+[2025-06-23 13:49:54] INFO: Respaldado: uploads/
+[2025-06-23 13:49:54] INFO: Respaldado: static/
+[2025-06-23 13:49:54] INFO: Respaldado: templates/
+[2025-06-23 13:49:54] INFO: Respaldado: database.db
+[2025-06-23 13:49:54] INFO: Backup creado en: C:\Users\erick\Hola mundo\WEB ARMIND\backup_20250623_134954
+[2025-06-23 13:49:54] INFO: ✅ Crear backup completado
+[2025-06-23 13:49:54] INFO: 
+📋 Ejecutando: Instalar dependencias mejoradas
+[2025-06-23 13:49:54] INFO: Instalando dependencias mejoradas...
+[2025-06-23 13:50:27] ERROR: Error instalando dependencias: Command '['C:\\Users\\erick\\AppData\\Local\\Programs\\Python\\Python313\\python.exe', '-m', 'pip', 'install', '-r', 'requirements_enhanced.txt']' returned non-zero exit status 1.
+[2025-06-23 13:50:27] ERROR: ❌ Instalar dependencias mejoradas falló
+[2025-06-23 13:50:27] INFO: 
+📋 Ejecutando: Crear wrapper de aplicación
+[2025-06-23 13:50:27] INFO: Creando wrapper para la aplicación...
+[2025-06-23 13:50:27] INFO: Wrapper de aplicación creado: run_app.py
+[2025-06-23 13:50:27] INFO: ✅ Crear wrapper de aplicación completado
+[2025-06-23 13:50:27] INFO: 
+📋 Ejecutando: Actualizar configuración
+[2025-06-23 13:50:27] INFO: Actualizando configuración...
+[2025-06-23 13:50:27] INFO: Archivo .env existente preservado
+[2025-06-23 13:50:27] INFO: ✅ Actualizar configuración completado
+[2025-06-23 13:50:27] INFO: 
+📋 Ejecutando: Crear script de migración gradual
+[2025-06-23 13:50:27] INFO: Creando script de migración gradual...
+[2025-06-23 13:50:27] INFO: Script de migración gradual creado
+[2025-06-23 13:50:27] INFO: ✅ Crear script de migración gradual completado
+[2025-06-23 13:50:27] INFO: 
+📋 Ejecutando: Crear capa de compatibilidad
+[2025-06-23 13:50:27] INFO: Creando capa de compatibilidad...
+[2025-06-23 13:50:27] INFO: Capa de compatibilidad creada
+[2025-06-23 13:50:27] INFO: ✅ Crear capa de compatibilidad completado
+[2025-06-23 13:50:27] INFO: 
+📋 Ejecutando: Guardar log de migración

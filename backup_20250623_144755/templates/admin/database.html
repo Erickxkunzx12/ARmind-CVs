@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+
+{% block title %}Consultas a la Base de Datos{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0 text-gray-800">
+                    <i class="fas fa-database"></i> Consultas a la Base de Datos
+                </h1>
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Volver al Panel
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Búsqueda por título profesional -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-search"></i> Búsqueda por Título Profesional
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form id="searchForm" method="POST" action="{{ url_for('admin_search_users') }}">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="form-group">
+                                    <label for="search_query">Título Profesional:</label>
+                                    <input type="text" class="form-control" id="search_query" name="search_query" 
+                                           placeholder="Ej: Ingeniería Informática, Médico, Abogado..." 
+                                           value="{{ request.form.search_query if request.form.search_query }}" required>
+                                    <small class="form-text text-muted">
+                                        Busca usuarios que tengan este título profesional en su currículum
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>&nbsp;</label>
+                                    <div class="d-flex">
+                                        <button type="submit" class="btn btn-primary mr-2">
+                                            <i class="fas fa-search"></i> Buscar
+                                        </button>
+                                        <button type="button" class="btn btn-success" id="exportBtn" 
+                                                {% if not results %}disabled{% endif %}>
+                                            <i class="fas fa-file-excel"></i> Exportar Excel
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resultados de búsqueda -->
+    {% if results is defined %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-users"></i> Resultados de Búsqueda
+                    </h6>
+                    <span class="badge badge-primary badge-pill">{{ results|length }} usuarios encontrados</span>
+                </div>
+                <div class="card-body">
+                    {% if results %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover" id="resultsTable">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Usuario</th>
+                                    <th>Email</th>
+                                    <th>Nombre Completo</th>
+                                    <th>Teléfono</th>
+                                    <th>Título Profesional</th>
+                                    <th>Fecha Registro</th>
+                                    <th>Último Acceso</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in results %}
+                                <tr>
+                                    <td>{{ user.id }}</td>
+                                    <td>
+                                        <strong>{{ user.username }}</strong>
+                                        {% if user.is_banned %}
+                                            <br><span class="badge badge-danger">Baneado</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ user.email }}</td>
+                                    <td>{{ user.full_name or 'N/A' }}</td>
+                                    <td>{{ user.phone or 'N/A' }}</td>
+                                    <td>
+                                        <span class="badge badge-info">{{ user.professional_title or 'N/A' }}</span>
+                                    </td>
+                                    <td>{{ user.created_at.strftime('%d/%m/%Y') if user.created_at else 'N/A' }}</td>
+                                    <td>{{ user.last_login.strftime('%d/%m/%Y %H:%M') if user.last_login else 'Nunca' }}</td>
+                                    <td>
+                                        {% if user.is_banned %}
+                                            {% if user.ban_until %}
+                                                <span class="badge badge-warning">Ban Temporal</span>
+                                                <br><small>Hasta: {{ user.ban_until.strftime('%d/%m/%Y') }}</small>
+                                            {% else %}
+                                                <span class="badge badge-danger">Ban Permanente</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="badge badge-success">Activo</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Botón de exportar en la parte inferior -->
+                    <div class="text-center mt-3">
+                        <form method="POST" action="{{ url_for('admin_export_users') }}" style="display: inline;">
+                            <input type="hidden" name="search_query" value="{{ request.form.search_query if request.form.search_query }}">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="fas fa-file-excel"></i> Descargar Excel ({{ results|length }} usuarios)
+                            </button>
+                        </form>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-search fa-3x text-gray-300 mb-3"></i>
+                        <h5 class="text-gray-600">No se encontraron usuarios</h5>
+                        <p class="text-muted">No hay usuarios con el título profesional "{{ request.form.search_query }}" en sus currículums.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Información adicional -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-info-circle"></i> Información de Búsqueda
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        <li><i class="fas fa-check text-success"></i> Busca en títulos profesionales de currículums</li>
+                        <li><i class="fas fa-check text-success"></i> Búsqueda no sensible a mayúsculas/minúsculas</li>
+                        <li><i class="fas fa-check text-success"></i> Incluye coincidencias parciales</li>
+                        <li><i class="fas fa-check text-success"></i> Exportación a formato Excel</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-lightbulb"></i> Ejemplos de Búsqueda
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <button class="btn btn-outline-primary btn-sm search-example" data-query="Ingeniería">
+                            Ingeniería
+                        </button>
+                        <button class="btn btn-outline-primary btn-sm search-example" data-query="Médico">
+                            Médico
+                        </button>
+                        <button class="btn btn-outline-primary btn-sm search-example" data-query="Abogado">
+                            Abogado
+                        </button>
+                    </div>
+                    <div class="mb-2">
+                        <button class="btn btn-outline-primary btn-sm search-example" data-query="Administración">
+                            Administración
+                        </button>
+                        <button class="btn btn-outline-primary btn-sm search-example" data-query="Marketing">
+                            Marketing
+                        </button>
+                        <button class="btn btn-outline-primary btn-sm search-example" data-query="Diseño">
+                            Diseño
+                        </button>
+                    </div>
+                    <small class="text-muted">Haz clic en cualquier ejemplo para usarlo en la búsqueda</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.text-gray-800 {
+    color: #5a5c69 !important;
+}
+
+.text-gray-600 {
+    color: #858796 !important;
+}
+
+.text-gray-300 {
+    color: #dddfeb !important;
+}
+
+.card {
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-1px);
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+}
+
+.search-example {
+    margin: 2px;
+}
+
+.search-example:hover {
+    cursor: pointer;
+}
+
+#resultsTable {
+    font-size: 0.9rem;
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Manejar ejemplos de búsqueda
+    const searchExamples = document.querySelectorAll('.search-example');
+    const searchInput = document.getElementById('search_query');
+    
+    searchExamples.forEach(button => {
+        button.addEventListener('click', function() {
+            const query = this.getAttribute('data-query');
+            searchInput.value = query;
+            searchInput.focus();
+        });
+    });
+    
+    // Manejar botón de exportar en el header
+    const exportBtn = document.getElementById('exportBtn');
+    if (exportBtn && !exportBtn.disabled) {
+        exportBtn.addEventListener('click', function() {
+            const searchQuery = document.getElementById('search_query').value;
+            if (searchQuery) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '{{ url_for("admin_export_users") }}';
+                
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'search_query';
+                input.value = searchQuery;
+                
+                form.appendChild(input);
+                document.body.appendChild(form);
+                form.submit();
+                document.body.removeChild(form);
+            }
+        });
+    }
+    
+    // Auto-focus en el campo de búsqueda
+    if (searchInput && !searchInput.value) {
+        searchInput.focus();
+    }
+});
+</script>
+{% endblock %}

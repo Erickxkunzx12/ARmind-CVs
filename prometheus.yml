@@ -1,0 +1,90 @@
+# Configuración de Prometheus para ARMind
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'armind-monitor'
+
+# Configuración de reglas de alertas
+rule_files:
+  # - "alert_rules.yml"
+
+# Configuración de Alertmanager
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+# Configuración de scraping
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 5s
+    metrics_path: /metrics
+
+  # ARMind Application
+  - job_name: 'armind-app'
+    static_configs:
+      - targets: ['web:5000']
+    scrape_interval: 10s
+    metrics_path: /metrics
+    scrape_timeout: 5s
+    honor_labels: true
+    params:
+      format: ['prometheus']
+
+  # ARMind Health Checks
+  - job_name: 'armind-health'
+    static_configs:
+      - targets: ['web:5000']
+    scrape_interval: 30s
+    metrics_path: /health/detailed
+    scrape_timeout: 10s
+
+  # PostgreSQL (si tienes postgres_exporter)
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+    scrape_interval: 30s
+    # metrics_path: /metrics
+    # Requiere postgres_exporter
+
+  # Redis (si tienes redis_exporter)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    scrape_interval: 30s
+    # metrics_path: /metrics
+    # Requiere redis_exporter
+
+  # Nginx (si tienes nginx_exporter)
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx:80']
+    scrape_interval: 30s
+    # metrics_path: /metrics
+    # Requiere nginx_exporter
+
+  # Node Exporter para métricas del sistema
+  # - job_name: 'node'
+  #   static_configs:
+  #     - targets: ['node-exporter:9100']
+  #   scrape_interval: 15s
+
+# Configuración de almacenamiento
+storage:
+  tsdb:
+    path: /prometheus
+    retention.time: 15d
+    retention.size: 10GB
+
+# Configuración del servidor web
+web:
+  console.templates: /etc/prometheus/consoles
+  console.libraries: /etc/prometheus/console_libraries
+  enable-lifecycle: true
+  enable-admin-api: true

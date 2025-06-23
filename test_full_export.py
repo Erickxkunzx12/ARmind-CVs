@@ -1,9 +1,19 @@
 import psycopg2
-from config_manager import ConfigManager
-
-# Initialize configuration manager
-config_manager = ConfigManager()
+import os
 import json
+from dotenv import load_dotenv
+
+# Cargar variables de entorno
+load_dotenv()
+
+# Configuración de base de datos
+DB_CONFIG = {
+    'host': os.getenv('DB_HOST', 'localhost'),
+    'database': os.getenv('DB_NAME', 'armind_db'),
+    'user': os.getenv('DB_USER', 'postgres'),
+    'password': os.getenv('DB_PASSWORD', ''),
+    'port': int(os.getenv('DB_PORT', 5432))
+}
 import traceback
 
 def generate_professional_summary_section(summary, tech_xyz=False, tech_start=False):
@@ -66,8 +76,7 @@ def test_full_export_cv(cv_id, user_id):
         print(f"=== PROBANDO EXPORT CV COMPLETO: ID {cv_id}, USER {user_id} ===")
         
         # Conectar a la base de datos
-        db_config = config_manager.get_database_config()
-        connection = psycopg2.connect(**db_config)
+        connection = psycopg2.connect(**DB_CONFIG)
         cursor = connection.cursor()
         
         # Verificar que el CV existe y pertenece al usuario

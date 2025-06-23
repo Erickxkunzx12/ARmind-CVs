@@ -158,7 +158,12 @@
                                                         title="Eliminar usuario">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
-                                            {% else %}
+                                            {% endif %}
+                                            <button class="btn btn-info btn-sm" onclick="manageSubscription({{ user.id }}, '{{ user.username }}')"
+                                                    title="Gestionar suscripción">
+                                                <i class="fas fa-credit-card"></i>
+                                            </button>
+                                            {% if user.role == 'admin' %}
                                                 <span class="badge badge-secondary">Admin</span>
                                             {% endif %}
                                         </div>
@@ -343,6 +348,46 @@
 }
 </style>
 
+<!-- Modal para gestionar suscripción -->
+<div class="modal fade" id="subscriptionModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Gestionar Suscripción</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <form action="{{ url_for('admin_update_subscription') }}" method="POST">
+                <div class="modal-body">
+                    <input type="hidden" id="subUserId" name="user_id">
+                    <p>Usuario: <strong id="subUsername"></strong></p>
+                    <p>Plan actual: <strong id="currentPlan">Cargando...</strong></p>
+                    
+                    <div class="form-group">
+                        <label for="newPlan">Nuevo plan:</label>
+                        <select class="form-control" id="newPlan" name="new_plan" required>
+                            <option value="">Seleccionar plan</option>
+                            <option value="free">Gratis</option>
+                            <option value="basic">Básico</option>
+                            <option value="pro">Pro</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="subscriptionReason">Razón del cambio:</label>
+                        <textarea class="form-control" id="subscriptionReason" name="reason" rows="3" placeholder="Motivo del cambio de suscripción..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Actualizar Suscripción</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
 function banUser(userId, username) {
     document.getElementById('banUserId').value = userId;
@@ -352,18 +397,28 @@ function banUser(userId, username) {
 
 function unbanUser(userId, username) {
     if (confirm(`¿Estás seguro de que quieres desbanear al usuario ${username}?`)) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '{{ url_for("admin_unban_user") }}';
-        
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'user_id';
-        input.value = userId;
-        
-        form.appendChild(input);
-        document.body.appendChild(form);
-        form.submit();
+        fetch('{{ url_for("admin_unban_user") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                user_id: userId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Usuario desbaneado correctamente');
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al desbanear usuario');
+        });
     }
 }
 
@@ -372,6 +427,127 @@ function deleteUser(userId, username) {
     document.getElementById('deleteUsername').textContent = username;
     $('#deleteModal').modal('show');
 }
+
+function manageSubscription(userId, username) {
+    document.getElementById('subUserId').value = userId;
+    document.getElementById('subUsername').textContent = username;
+    
+    // Obtener suscripción actual
+    fetch(`/admin/get_user_subscription/${userId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('currentPlan').textContent = data.current_plan || 'Sin suscripción';
+                document.getElementById('newPlan').value = '';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    
+    $('#subscriptionModal').modal('show');
+}
+
+// Función para enviar formulario de ban
+document.getElementById('banForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = {
+        user_id: formData.get('user_id'),
+        ban_type: formData.get('ban_type'),
+        ban_duration: formData.get('ban_duration'),
+        ban_reason: formData.get('ban_reason')
+    };
+    
+    fetch('{{ url_for("admin_ban_user") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Usuario baneado correctamente');
+            $('#banModal').modal('hide');
+            location.reload();
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al banear usuario');
+    });
+});
+
+// Función para enviar formulario de eliminación
+document.getElementById('deleteForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = {
+        user_id: formData.get('user_id')
+    };
+    
+    fetch('{{ url_for("admin_delete_user") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Usuario eliminado correctamente');
+            $('#deleteModal').modal('hide');
+            location.reload();
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al eliminar usuario');
+    });
+});
+
+// Función para enviar formulario de suscripción
+document.querySelector('#subscriptionModal form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = {
+        user_id: formData.get('user_id'),
+        new_plan: formData.get('new_plan'),
+        reason: formData.get('reason')
+    };
+    
+    fetch('{{ url_for("admin_update_subscription") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Suscripción actualizada correctamente');
+            $('#subscriptionModal').modal('hide');
+            location.reload();
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al actualizar suscripción');
+    });
+});
 
 // Auto-submit form when filters change
 document.addEventListener('DOMContentLoaded', function() {

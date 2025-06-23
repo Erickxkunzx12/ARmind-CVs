@@ -18,26 +18,21 @@ from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
 load_dotenv()  # Carga las variables de entorno desde .env
 
-# Importar sistema de configuración centralizada
-from config_manager import ConfigManager
-from security_manager import SecurityLogger
+# Configuración de OpenAI
+openai.api_key = os.getenv('OPENAI_API_KEY')
 
-# Inicializar gestores
-config_manager = ConfigManager()
-security_logger = SecurityLogger()
+# Configuración de email
+EMAIL_USER = os.getenv('EMAIL_USER')
+EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
 
-# Importar funciones de scraping
-from job_search_service import scrape_linkedin, scrape_computrabajo as scrape_computrabajo_service, scrape_indeed_api
-
-# Validar configuración de email usando el gestor centralizado
-if config_manager.validate_email_config():
-    email_config = config_manager.get_email_config()
-    print(f"✅ Email configurado: {email_config['email']}")
-    security_logger.log_config_access('EMAIL')
+# Validar configuración de email
+if EMAIL_USER and EMAIL_PASSWORD:
+    print(f"✅ Email configurado: {EMAIL_USER}")
 else:
     print("❌ ADVERTENCIA: Configuración de email incompleta")
     print("   Configura las variables de entorno EMAIL_USER, EMAIL_PASSWORD, etc.")
-    security_logger.log_security_event('EMAIL_CONFIG_INCOMPLETE', 'Email configuration missing or invalid', 'WARNING')
 
 # Intentar usar pdfkit como alternativa a WeasyPrint
 try:
@@ -66,28 +61,32 @@ import tempfile  # Added for temporary file handling
 
 app = Flask(__name__)
 
-# Configurar Flask usando el gestor centralizado
-flask_config = config_manager.get_flask_config()
-app.secret_key = flask_config['SECRET_KEY']
-app.config['UPLOAD_FOLDER'] = flask_config['UPLOAD_FOLDER']
-app.config['MAX_CONTENT_LENGTH'] = flask_config['MAX_CONTENT_LENGTH']
+# Configurar Flask
+app.secret_key = os.getenv('SECRET_KEY', 'dev-key-change-in-production')
+app.config['UPLOAD_FOLDER'] = os.getenv('UPLOAD_FOLDER', 'uploads')
+app.config['MAX_CONTENT_LENGTH'] = int(os.getenv('MAX_CONTENT_LENGTH', 16 * 1024 * 1024))  # 16MB
 
 # Hacer datetime disponible en todas las plantillas
 app.jinja_env.globals['datetime'] = datetime
 
-# Configuración de APIs usando el gestor centralizado
-api_config = config_manager.get_api_config()
-if api_config['OPENAI_API_KEY']:
-    openai.api_key = api_config['OPENAI_API_KEY']
+# Importar y registrar blueprint de suscripción
+from subscription_routes import subscription_bp
+app.register_blueprint(subscription_bp, url_prefix='/subscription')
+
+# Verificar configuración de OpenAI
+if openai.api_key:
     print("✅ OpenAI API configurada")
-    security_logger.log_config_access('OPENAI_API')
 else:
     print("⚠️ OpenAI API Key no configurada")
-    security_logger.log_security_event('OPENAI_API_MISSING', 'OpenAI API key not configured', 'WARNING')
 
-# Configuración de base de datos usando el gestor centralizado
-DB_CONFIG = config_manager.get_database_config()
-security_logger.log_config_access('DATABASE')
+# Configuración de base de datos
+DB_CONFIG = {
+    'host': os.getenv('DB_HOST', 'localhost'),
+    'database': os.getenv('DB_NAME', 'armind_db'),
+    'user': os.getenv('DB_USER', 'postgres'),
+    'password': os.getenv('DB_PASSWORD', ''),
+    'port': int(os.getenv('DB_PORT', 5432))
+}
 
 # Crear directorio de uploads si no existe
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
@@ -177,32 +176,26 @@ def generate_pdf_with_reportlab(html_content, title):
 def get_db_connection():
     """Obtener conexión a la base de datos PostgreSQL con manejo de errores mejorado"""
     try:
-        # Usar configuración centralizada
-        db_config = config_manager.get_database_config()
-        
         # Usar opciones adicionales para manejar problemas de codificación
         os.environ['PGCLIENTENCODING'] = 'UTF8'
         
         connection = psycopg2.connect(
-            host=db_config['host'],
-            database=db_config['database'],
-            user=db_config['user'],
-            password=db_config['password'],
-            port=db_config['port'],
+            host=DB_CONFIG['host'],
+            database=DB_CONFIG['database'],
+            user=DB_CONFIG['user'],
+            password=DB_CONFIG['password'],
+            port=DB_CONFIG['port'],
             cursor_factory=RealDictCursor,
             client_encoding='UTF8',
             options="-c client_encoding=UTF8"
         )
         
-        security_logger.log_database_access('CONNECTION_SUCCESS')
         return connection
     except psycopg2.Error as err:
         app.logger.error(f"Error de conexión a la base de datos: {err}")
-        security_logger.log_security_event('DATABASE_CONNECTION_FAILED', str(err), 'ERROR')
         return None
     except Exception as err:
         app.logger.error(f"Error inesperado de base de datos: {err}")
-        security_logger.log_security_event('DATABASE_UNEXPECTED_ERROR', str(err), 'ERROR')
         return None
 
 def get_db():
@@ -216,13 +209,10 @@ def generate_verification_token():
 def send_verification_email(email, username, token):
     """Enviar email de verificación"""
     try:
-        # Obtener configuración de email
-        email_config = config_manager.get_email_config()
-        
         # Crear mensaje
         msg = MIMEMultipart('alternative')
         msg['Subject'] = 'Verifica tu cuenta de ARMind CVs'
-        msg['From'] = email_config['email']
+        msg['From'] = EMAIL_USER
         msg['To'] = email
         
         # Versión texto plano
@@ -281,18 +271,15 @@ El equipo de ARMind CVs
         msg.attach(part2)
         
         # Conectar al servidor SMTP
-        server = smtplib.SMTP(email_config['smtp_server'], email_config['smtp_port'])
-        if email_config['use_tls']:
-            server.starttls()
+        server = smtplib.SMTP(EMAIL_HOST, EMAIL_PORT)
+        server.starttls()
         
         # Iniciar sesión
-        server.login(email_config['email'], email_config['password'])
+        server.login(EMAIL_USER, EMAIL_PASSWORD)
         
         # Enviar email
-        server.sendmail(email_config['email'], email, msg.as_string())
+        server.sendmail(EMAIL_USER, email, msg.as_string())
         server.quit()
-        
-        security_logger.log_security_event('EMAIL_SENT', f'Verification email sent to {email}', 'INFO')
         
         print(f"✅ Email de verificación enviado exitosamente a: {email}")
         print(f"   Usuario: {username}")
@@ -303,8 +290,7 @@ El equipo de ARMind CVs
         print(f"Email destino: {email}")
         print(f"Username: {username}")
         print(f"Token: {token}")
-        email_config = config_manager.get_email_config()
-        print(f"Configuración SMTP: {email_config['smtp_server']}:{email_config['smtp_port']}")
+        print(f"Configuración SMTP: {EMAIL_HOST}:{EMAIL_PORT}")
         import traceback
         traceback.print_exc()
         return False
@@ -316,13 +302,10 @@ def generate_reset_token():
 def send_password_reset_email(email, username, token):
     """Enviar email de recuperación de contraseña"""
     try:
-        # Obtener configuración de email
-        email_config = config_manager.get_email_config()
-        
         # Crear mensaje
         msg = MIMEMultipart('alternative')
         msg['Subject'] = 'Recuperar contraseña - ARMind CVs'
-        msg['From'] = email_config['email']
+        msg['From'] = EMAIL_USER
         msg['To'] = email
         
         # Versión texto plano
@@ -389,18 +372,15 @@ El equipo de ARMind CVs
         msg.attach(part2)
         
         # Conectar al servidor SMTP
-        server = smtplib.SMTP(email_config['smtp_server'], email_config['smtp_port'])
-        if email_config['use_tls']:
-            server.starttls()
+        server = smtplib.SMTP(EMAIL_HOST, EMAIL_PORT)
+        server.starttls()
         
         # Iniciar sesión
-        server.login(email_config['email'], email_config['password'])
+        server.login(EMAIL_USER, EMAIL_PASSWORD)
         
         # Enviar email
-        server.sendmail(email_config['email'], email, msg.as_string())
+        server.sendmail(EMAIL_USER, email, msg.as_string())
         server.quit()
-        
-        security_logger.log_security_event('PASSWORD_RESET_EMAIL_SENT', f'Password reset email sent to {email}', 'INFO')
         
         print(f"✅ Email de recuperación enviado exitosamente a: {email}")
         print(f"   Usuario: {username}")
@@ -1105,6 +1085,9 @@ def dashboard():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
+    # Importar funciones de suscripción
+    # Las importaciones se manejan en la sección de suscripción más abajo
+    
     # Obtener estadísticas del usuario
     connection = get_db_connection()
     stats = {
@@ -1113,6 +1096,8 @@ def dashboard():
     }
     daily_tips = []
     site_content = {}
+    user_subscription = None
+    user_usage = None
     
     if connection:
         cursor = connection.cursor()
@@ -1152,7 +1137,20 @@ def dashboard():
         cursor.close()
         connection.close()
     
-    return render_template('dashboard.html', stats=stats, daily_tips=daily_tips, site_content=site_content)
+    # Obtener información de suscripción del usuario
+    from subscription_helpers import get_complete_user_usage
+    from subscription_system import get_user_subscription, SUBSCRIPTION_PLANS
+    
+    user_subscription = get_user_subscription(session['user_id'])
+    user_usage = get_complete_user_usage(session['user_id'])
+    
+    return render_template('dashboard.html', 
+                         stats=stats, 
+                         daily_tips=daily_tips, 
+                         site_content=site_content,
+                         user_subscription=user_subscription,
+                         user_usage=user_usage,
+                         subscription_plans=SUBSCRIPTION_PLANS)
 
 @app.route('/analyze_cv', methods=['GET', 'POST'])
 def analyze_cv():
@@ -1919,8 +1917,11 @@ def analyze_cv_with_openai(cv_text, analysis_type):
     }"""
     
     try:
+        # Configurar API key para la versión antigua de OpenAI
+        openai.api_key = os.getenv('OPENAI_API_KEY')
+        
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-3.5-turbo",  # Usar gpt-3.5-turbo que es más estable
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt}
@@ -1961,8 +1962,8 @@ def analyze_cv_with_anthropic(cv_text, analysis_type):
         system_prompt = """Eres un experto en recursos humanos, reclutamiento y sistemas ATS. 
         Responde SIEMPRE en formato JSON válido con la estructura especificada."""
         
-        message = client.messages.create(
-            model="claude-sonnet-4-20250514",
+        response = client.messages.create(
+            model="claude-3-5-sonnet-20241022",  # Usar modelo disponible
             max_tokens=2000,
             temperature=0.7,
             system=system_prompt,
@@ -1971,7 +1972,7 @@ def analyze_cv_with_anthropic(cv_text, analysis_type):
             ]
         )
         
-        analysis_text = message.content[0].text
+        analysis_text = response.content[0].text
         
         # Limpiar respuesta si contiene markdown
         if "```json" in analysis_text:
@@ -2017,7 +2018,7 @@ def analyze_cv_with_gemini(cv_text, analysis_type):
         
         # Configurar Gemini
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-pro')
+        model = genai.GenerativeModel('gemini-1.5-flash')  # Usar modelo disponible
         
         prompt = get_analysis_prompt(analysis_type, cv_text)
         
@@ -3503,16 +3504,9 @@ def search_jobs():
     location = request.json.get('location', '')
     source = request.json.get('source', 'all')
     
+    # Nota: Las funciones de scraping han sido deshabilitadas temporalmente
+    # TODO: Implementar nuevas funciones de búsqueda de empleos
     jobs = []
-    
-    if source == 'all' or source == 'computrabajo':
-        jobs.extend(scrape_computrabajo_service(query, location))
-    
-    if source == 'all' or source == 'indeed':
-        jobs.extend(scrape_indeed_api(query, location))
-    
-    if source == 'all' or source == 'linkedin':
-        jobs.extend(scrape_linkedin(query, location))
     
     # Eliminar duplicados
     unique_jobs = remove_duplicate_jobs(jobs)
@@ -3559,18 +3553,9 @@ def ai_job_search():
         # Buscar empleos en múltiples portales
         all_jobs = []
         
-        for term in search_terms[:3]:  # Usar los 3 términos más relevantes
-            # Buscar en LinkedIn
-            linkedin_jobs = scrape_linkedin(term, "")
-            all_jobs.extend(linkedin_jobs)
-            
-            # Buscar en CompuTrabajo
-            computrabajo_jobs = scrape_computrabajo_service(term, "")
-            all_jobs.extend(computrabajo_jobs)
-            
-            # Buscar en Indeed
-            indeed_jobs = scrape_indeed_api(term, "")
-            all_jobs.extend(indeed_jobs)
+        # Nota: Las funciones de scraping han sido deshabilitadas temporalmente
+        # TODO: Implementar nuevas funciones de búsqueda de empleos
+        all_jobs = []
         
         # Eliminar duplicados
         unique_jobs = remove_duplicate_jobs(all_jobs)
@@ -5175,6 +5160,89 @@ def admin_delete_user():
         
     except Exception as e:
         print(f"Error eliminando usuario: {e}")
+        return jsonify({'success': False, 'message': 'Error interno del servidor'})
+
+@app.route('/admin/get_user_subscription/<int:user_id>')
+@admin_required
+def admin_get_user_subscription(user_id):
+    """Obtener suscripción actual del usuario"""
+    try:
+        user_subscription = get_user_subscription(user_id)
+        current_plan = user_subscription.get('plan', 'free') if user_subscription else 'free'
+        
+        return jsonify({
+            'success': True,
+            'current_plan': current_plan
+        })
+    except Exception as e:
+        print(f"Error obteniendo suscripción: {e}")
+        return jsonify({'success': False, 'message': 'Error obteniendo suscripción'})
+
+@app.route('/admin/update_subscription', methods=['POST'])
+@admin_required
+def admin_update_subscription():
+    """Actualizar suscripción de usuario"""
+    data = request.get_json()
+    user_id = data.get('user_id')
+    new_plan = data.get('new_plan')
+    reason = data.get('reason', '')
+    
+    if not user_id or not new_plan:
+        return jsonify({'success': False, 'message': 'Datos requeridos faltantes'})
+    
+    if new_plan not in ['free', 'basic', 'pro']:
+        return jsonify({'success': False, 'message': 'Plan de suscripción inválido'})
+    
+    connection = get_db_connection()
+    if not connection:
+        return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'})
+    
+    try:
+        cursor = connection.cursor()
+        
+        # Verificar si el usuario existe
+        cursor.execute("SELECT username FROM users WHERE id = %s", (user_id,))
+        user = cursor.fetchone()
+        if not user:
+            return jsonify({'success': False, 'message': 'Usuario no encontrado'})
+        
+        # Verificar si ya tiene una suscripción
+        cursor.execute("SELECT id FROM user_subscriptions WHERE user_id = %s", (user_id,))
+        existing_subscription = cursor.fetchone()
+        
+        if existing_subscription:
+            # Actualizar suscripción existente
+            if new_plan == 'free':
+                # Eliminar suscripción para plan gratuito
+                cursor.execute("DELETE FROM user_subscriptions WHERE user_id = %s", (user_id,))
+            else:
+                # Actualizar plan existente
+                cursor.execute("""
+                    UPDATE user_subscriptions 
+                    SET plan = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE user_id = %s
+                """, (new_plan, user_id))
+        else:
+            # Crear nueva suscripción si no es plan gratuito
+            if new_plan != 'free':
+                cursor.execute("""
+                    INSERT INTO user_subscriptions (user_id, plan, status, created_at, updated_at)
+                    VALUES (%s, %s, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, (user_id, new_plan))
+        
+        # Registrar el cambio en logs de administrador
+        admin_username = session.get('username', 'Admin')
+        log_message = f"Admin {admin_username} cambió suscripción del usuario {user['username']} a plan {new_plan}. Razón: {reason}"
+        add_console_log('INFO', log_message, 'ADMIN')
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        return jsonify({'success': True, 'message': f'Suscripción actualizada a plan {new_plan}'})
+        
+    except Exception as e:
+        print(f"Error actualizando suscripción: {e}")
         return jsonify({'success': False, 'message': 'Error interno del servidor'})
 
 # Sistema de logs global para la consola de administrador

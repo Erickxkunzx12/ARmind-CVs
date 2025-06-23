@@ -1,15 +1,24 @@
 import psycopg2
-from config_manager import ConfigManager
-
-# Initialize configuration manager
-config_manager = ConfigManager()
+import os
 import json
+from dotenv import load_dotenv
+
+# Cargar variables de entorno
+load_dotenv()
+
+# Configuración de base de datos
+DB_CONFIG = {
+    'host': os.getenv('DB_HOST', 'localhost'),
+    'database': os.getenv('DB_NAME', 'armind_db'),
+    'user': os.getenv('DB_USER', 'postgres'),
+    'password': os.getenv('DB_PASSWORD', ''),
+    'port': int(os.getenv('DB_PORT', 5432))
+}
 
 def check_database():
     try:
         # Conectar a la base de datos
-        db_config = config_manager.get_database_config()
-        conn = psycopg2.connect(**db_config)
+        conn = psycopg2.connect(**DB_CONFIG)
         cur = conn.cursor()
         
         print("=== DIAGNÓSTICO DE BASE DE DATOS ===")

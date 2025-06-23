@@ -1,8 +1,18 @@
 import psycopg2
-from config_manager import ConfigManager
+import os
+from dotenv import load_dotenv
 
-# Initialize configuration manager
-config_manager = ConfigManager()
+# Cargar variables de entorno
+load_dotenv()
+
+# Configuración de base de datos
+DB_CONFIG = {
+    'host': os.getenv('DB_HOST', 'localhost'),
+    'database': os.getenv('DB_NAME', 'armind_db'),
+    'user': os.getenv('DB_USER', 'postgres'),
+    'password': os.getenv('DB_PASSWORD', ''),
+    'port': int(os.getenv('DB_PORT', 5432))
+}
 import json
 import traceback
 from flask import Flask, session, jsonify, Response
@@ -13,8 +23,7 @@ app.secret_key = 'test_key'
 
 def get_db_connection():
     """Función para obtener conexión a la base de datos"""
-    db_config = config_manager.get_database_config()
-    return psycopg2.connect(**db_config)
+    return psycopg2.connect(**DB_CONFIG)
 
 def generate_professional_summary_section(summary, tech_xyz=False, tech_start=False):
     """Función auxiliar para generar la sección de resumen profesional"""

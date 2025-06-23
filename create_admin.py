@@ -7,13 +7,18 @@ from werkzeug.security import generate_password_hash
 from datetime import datetime
 import os
 from dotenv import load_dotenv
-from config_manager import ConfigManager
-
-# Initialize configuration manager
-config_manager = ConfigManager()
 
 # Cargar variables de entorno
 load_dotenv()
+
+# Configuración de base de datos
+DB_CONFIG = {
+    'host': os.getenv('DB_HOST', 'localhost'),
+    'database': os.getenv('DB_NAME', 'armind_db'),
+    'user': os.getenv('DB_USER', 'postgres'),
+    'password': os.getenv('DB_PASSWORD', ''),
+    'port': int(os.getenv('DB_PORT', 5432))
+}
 
 def create_admin_user():
     """Crear usuario administrador en la base de datos PostgreSQL"""
@@ -21,8 +26,7 @@ def create_admin_user():
     try:
         # Conectar a la base de datos PostgreSQL
         print("Conectando a la base de datos PostgreSQL...")
-        db_config = config_manager.get_database_config()
-        conn = psycopg2.connect(**db_config)
+        conn = psycopg2.connect(**DB_CONFIG)
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         
         # Verificar si la tabla users existe

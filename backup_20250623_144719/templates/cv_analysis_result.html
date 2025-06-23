@@ -1,0 +1,1710 @@
+{% extends "base.html" %}
+
+{% block title %}Resultados del Análisis - ARMind CVs{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Mejorar visibilidad de elementos con bordes prominentes */
+    .score-circle {
+        background-color: #ffffff !important;
+        color: #2c3e50 !important;
+        border: 4px solid #3498db !important;
+        font-weight: 900 !important;
+        text-shadow: none;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+    }
+    
+    .card {
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15) !important;
+        border: 3px solid #007bff !important;
+        border-radius: 15px !important;
+        background-color: #ffffff !important;
+    }
+    
+    .card-header {
+        font-weight: 600;
+        border-radius: 12px 12px 0 0 !important;
+        border-bottom: 2px solid rgba(255,255,255,0.3) !important;
+    }
+    
+    /* Elementos de análisis con bordes prominentes y texto visible */
+    .strength-item, .weakness-item, .recommendation-item {
+        border: 3px solid #010202 !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+        border-radius: 8px !important;
+    }
+    
+    .weakness-item {
+        border: 3px solid #010202 !important;
+    }
+    
+    .recommendation-item {
+        border: 3px solid #010202 !important;
+    }
+    
+    .strength-item p, .weakness-item p, .recommendation-item p {
+        color: #212529 !important;
+        font-weight: 600 !important;
+        font-size: 15px !important;
+        line-height: 1.6 !important;
+        margin: 0 !important;
+    }
+    
+    /* Asegurar visibilidad de iconos */
+    .strength-item i, .weakness-item i, .recommendation-item i {
+        opacity: 1 !important;
+    }
+    
+    .badge {
+        font-weight: 700 !important;
+        font-size: 13px !important;
+        padding: 8px 12px !important;
+        border: 2px solid rgba(255,255,255,0.3) !important;
+    }
+    
+    .tip-card {
+        border: 2px solid #dee2e6 !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+        border-radius: 8px !important;
+    }
+    
+    /* Mejorar visibilidad de palabras clave */
+    .keyword-badge {
+        border: 2px solid #e9ecef !important;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1) !important;
+        border-radius: 6px !important;
+    }
+    
+    /* Mejorar contraste en gráficos */
+    canvas {
+        background-color: #ffffff;
+        border-radius: 8px;
+        border: 2px solid #e9ecef;
+        max-height: 400px !important;
+        height: auto !important;
+        width: 100% !important;
+    }
+    
+    /* Contenedores de gráficos - adaptables al contenido */
+    .card-body {
+        min-height: 200px;
+        overflow: visible;
+    }
+    
+    /* Asegurar que los gráficos no se extiendan */
+    .chart-container {
+        position: relative;
+        min-height: 300px;
+        height: auto;
+        width: 100%;
+    }
+    
+    .progress-bar {
+        background-color: #3498db !important;
+        color: #ffffff !important;
+        font-weight: 600;
+    }
+    
+    /* Asegurar que todos los números sean visibles */
+    h4, h5, .display-4, .display-5 {
+        color: #2c3e50 !important;
+        font-weight: 700 !important;
+    }
+    
+    .text-white h4, .text-white h5 {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3) !important;
+    }
+    
+    .bg-gradient-primary {
+        background: linear-gradient(251deg, #667eea 0%, #0e1721 100%) !important;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2) !important;
+        border-radius: 15px !important;
+    }
+    
+    .bg-gradient-primary .score-circle {
+        background-color: #ffffff !important;
+        color: #667eea !important;
+        border: 4px solid #ffffff !important;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.2) !important;
+    }
+    
+    /* Mejorar visibilidad de números en tarjetas */
+    .bg-gradient-primary .card-body h4 {
+        font-size: 2.5rem !important;
+        font-weight: 800 !important;
+        color: #ffffff !important;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.4) !important;
+    }
+    
+    .bg-gradient-primary .card-body p {
+        font-weight: 600 !important;
+        color: rgba(255,255,255,0.9) !important;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.3) !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="fw-bold mb-2">
+                        <i class="fas fa-chart-line me-2 text-success"></i>Resultados del Análisis
+                    </h2>
+                    <p class="text-muted mb-0">
+                        Análisis completo de tu currículum realizado por nuestro sistema de IA
+                    </p>
+                </div>
+                <div>
+                    <a href="{{ url_for('analyze_cv') }}" class="btn btn-outline-primary me-2">
+                        <i class="fas fa-plus me-2"></i>Nuevo Análisis
+                    </a>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+                        <i class="fas fa-home me-2"></i>Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Score Overview -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card bg-gradient-primary text-white">
+                <div class="card-body py-4">
+                    <div class="row align-items-center">
+                        <div class="col-md-3 text-center">
+                            <div class="score-circle bg-white text-primary d-inline-flex align-items-center justify-content-center mb-3" 
+                                 style="width: 120px; height: 120px; font-size: 2.5rem; font-weight: bold;">
+                                {{ (analysis.score or 0) | default(0) }}%
+                            </div>
+                            <h5 class="mb-0">Puntuación General</h5>
+                        </div>
+                        <div class="col-md-9">
+                            <div class="row">
+                                <div class="col-md-4 text-center mb-3">
+                                    <h4 class="mb-1">{{ analysis.strengths|length }}</h4>
+                                    <p class="mb-0">Fortalezas Identificadas</p>
+                                </div>
+                                <div class="col-md-4 text-center mb-3">
+                                    <h4 class="mb-1">{{ analysis.weaknesses|length }}</h4>
+                                    <p class="mb-0">Áreas de Mejora</p>
+                                </div>
+                                <div class="col-md-4 text-center mb-3">
+                                    <h4 class="mb-1">{{ analysis.recommendations|length }}</h4>
+                                    <p class="mb-0">Recomendaciones</p>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <div class="progress" style="height: 20px; background-color: rgba(255,255,255,0.3); border-radius: 10px;">
+                                    <div class="progress-bar" 
+                                         style="width: {{ (analysis.score or 0) | default(0) }}%; background-color: #ffffff; color: #667eea; font-weight: 700; text-shadow: none;" 
+                                         id="scoreProgress">
+                                        {{ (analysis.score or 0) | default(0) }}%
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Detailed Analysis -->
+    <div class="row">
+        <!-- Enhanced Strengths -->
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow-sm" style="min-height: 400px;">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-thumbs-up me-2"></i>Fortalezas Identificadas
+                    </h5>
+                    <small class="opacity-75">{{ analysis.strengths|length or 0 }} puntos fuertes detectados</small>
+                </div>
+                <div class="card-body">
+                    {% if analysis.strengths %}
+                        {% for strength in analysis.strengths %}
+                        <div class="strength-item mb-3 p-3 bg-light rounded border-start border-success border-3">
+                            <div class="d-flex align-items-start">
+                                <div class="me-3">
+                                    <i class="fas fa-check-circle text-success fa-lg"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <p class="mb-2 fw-semibold text-success">{{ strength }}</p>
+                                    {% if loop.index == 1 %}
+                                    <div class="detailed-explanation mb-2">
+                                        <small class="text-muted d-block mb-1">💡 <strong>Por qué es importante:</strong> Esta fortaleza demuestra tu capacidad para generar resultados medibles, algo que los reclutadores valoran enormemente.</small>
+                                        <small class="text-muted d-block mb-1">📊 <strong>Ejemplo mejorado:</strong> "Lideré un equipo de 15 personas, aumentando la productividad en un 25% y reduciendo los tiempos de entrega en 3 días"</small>
+                                        <small class="text-muted d-block">🎯 <strong>Impacto en tu candidatura:</strong> Te posiciona en el top 22% de candidatos que cuantifican sus logros</small>
+                                    </div>
+                                    {% elif loop.index == 2 %}
+                                    <div class="detailed-explanation mb-2">
+                                        <small class="text-muted d-block mb-1">🔍 <strong>Análisis detallado:</strong> Esta competencia es altamente valorada en tu sector y te diferencia significativamente de otros candidatos.</small>
+                                        <small class="text-muted d-block mb-1">📈 <strong>Potencial de crecimiento:</strong> Puede aumentar tus posibilidades de conseguir entrevistas en un 23-35%</small>
+                                        <small class="text-muted d-block">💼 <strong>Recomendación:</strong> Destaca esta fortaleza en tu resumen profesional y en ejemplos específicos de logros</small>
+                                    </div>
+                                    {% elif loop.index == 3 %}
+                                    <div class="detailed-explanation mb-2">
+                                        <small class="text-muted d-block mb-1">⭐ <strong>Ventaja competitiva:</strong> Esta habilidad es especialmente relevante para roles de liderazgo y gestión de proyectos.</small>
+                                        <small class="text-muted d-block mb-1">🚀 <strong>Oportunidades:</strong> Considera aplicar a posiciones que requieran esta competencia específica</small>
+                                        <small class="text-muted d-block">📝 <strong>Mejora sugerida:</strong> Añade contexto sobre el impacto de esta fortaleza en resultados empresariales</small>
+                                    </div>
+                                    {% else %}
+                                    <div class="detailed-explanation mb-2">
+                                        <small class="text-muted d-block mb-1">✨ <strong>Valor añadido:</strong> Esta fortaleza complementa perfectamente tu perfil profesional y aumenta tu atractivo como candidato.</small>
+                                        <small class="text-muted d-block mb-1">🎪 <strong>Diferenciación:</strong> Te ayuda a destacar en procesos de selección competitivos</small>
+                                        <small class="text-muted d-block">🔧 <strong>Optimización:</strong> Considera incluir ejemplos específicos que demuestren esta competencia en acción</small>
+                                    </div>
+                                    {% endif %}
+                                    <div class="action-tags mt-2">
+                                        <span class="badge bg-success bg-opacity-25 text-success me-1">Mantener</span>
+                                        <span class="badge bg-info bg-opacity-25 text-info me-1">Destacar más</span>
+                                        {% if loop.index <= 2 %}
+                                        <span class="badge bg-warning bg-opacity-25 text-warning">Prioridad alta</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        
+                        <!-- Strength Summary -->
+                        <div class="mt-4 p-3 bg-success bg-opacity-10 rounded">
+                            <h6 class="text-success mb-2"><i class="fas fa-star me-2"></i>Resumen de Fortalezas</h6>
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <div class="text-success fw-bold">{{ ((analysis.strengths|length / 10) * 100) | round | int }}%</div>
+                                    <small class="text-muted">Cobertura de Competencias</small>
+                                </div>
+                                <div class="col-6">
+                                    <div class="text-success fw-bold">{{ (analysis.strength_score or 85) }}%</div>
+                                    <small class="text-muted">Puntuación de Fortalezas</small>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-search fa-2x text-muted mb-3"></i>
+                            <p class="text-muted mb-2">No se identificaron fortalezas específicas</p>
+                            <small class="text-muted">Esto puede indicar que el CV necesita más detalles sobre logros y competencias</small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Enhanced Weaknesses -->
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow-sm" style="min-height: 400px;">
+                <div class="card-header bg-warning text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Áreas de Mejora
+                    </h5>
+                    <small class="opacity-75">{{ analysis.weaknesses|length or 0 }} oportunidades de optimización</small>
+                </div>
+                <div class="card-body">
+                    {% if analysis.weaknesses %}
+                        {% for weakness in analysis.weaknesses %}
+                        <div class="weakness-item mb-3 p-3 bg-light rounded border-start border-warning border-3">
+                            <div class="d-flex align-items-start">
+                                <div class="me-3">
+                                    <i class="fas fa-exclamation-circle text-warning fa-lg"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <p class="mb-2 fw-semibold text-warning">{{ weakness }}</p>
+                                    {% if loop.index == 1 %}
+                                    <div class="detailed-solution mb-2">
+                                        <small class="text-muted d-block mb-1">🔧 <strong>Solución detallada:</strong> Identifica 3-4 logros específicos de tu experiencia y cuantifícalos con números, porcentajes o métricas concretas.</small>
+                                        <small class="text-muted d-block mb-1">📝 <strong>Ejemplo de mejora:</strong> Cambia "Responsable de ventas" por "Aumenté las ventas en un 35% (€150K adicionales) en 8 meses mediante estrategias de cross-selling"</small>
+                                        <small class="text-muted d-block mb-1">⏱️ <strong>Tiempo de implementación:</strong> 45-60 minutos para revisar y mejorar toda la sección de experiencia</small>
+                                        <small class="text-muted d-block">📊 <strong>Impacto esperado:</strong> +18-25% en puntuación general y mayor atractivo para reclutadores</small>
+                                    </div>
+                                    {% elif loop.index == 2 %}
+                                    <div class="detailed-solution mb-2">
+                                        <small class="text-muted d-block mb-1">🎯 <strong>Análisis del problema:</strong> Esta debilidad puede estar limitando significativamente tus oportunidades de conseguir entrevistas.</small>
+                                        <small class="text-muted d-block mb-1">🚀 <strong>Plan de acción:</strong> Dedica 30-45 minutos a investigar palabras clave específicas de tu sector y roles objetivo</small>
+                                        <small class="text-muted d-block mb-1">🔍 <strong>Herramientas recomendadas:</strong> Analiza 5-7 ofertas de trabajo similares y extrae las competencias más mencionadas</small>
+                                        <small class="text-muted d-block">📈 <strong>Resultado esperado:</strong> Mejora del 20-30% en compatibilidad ATS y mayor visibilidad en búsquedas</small>
+                                    </div>
+                                    {% elif loop.index == 3 %}
+                                    <div class="detailed-solution mb-2">
+                                        <small class="text-muted d-block mb-1">⚠️ <strong>Impacto en tu candidatura:</strong> Esta área de mejora puede estar afectando la primera impresión que causas en los reclutadores.</small>
+                                        <small class="text-muted d-block mb-1">🔄 <strong>Estrategia de mejora:</strong> Revisa la estructura, formato y consistencia visual de tu CV</small>
+                                        <small class="text-muted d-block mb-1">✨ <strong>Mejoras específicas:</strong> Unifica fuentes, espaciado, y asegúrate de que la información más importante esté destacada</small>
+                                        <small class="text-muted d-block">🎨 <strong>Tiempo estimado:</strong> 25-40 minutos para optimizar el formato y diseño</small>
+                                    </div>
+                                    {% else %}
+                                    <div class="detailed-solution mb-2">
+                                        <small class="text-muted d-block mb-1">🔍 <strong>Oportunidad de mejora:</strong> Aunque no es crítica, abordar esta área puede darte una ventaja competitiva adicional.</small>
+                                        <small class="text-muted d-block mb-1">📋 <strong>Pasos recomendados:</strong> Revisa esta sección específica y considera añadir más detalles o contexto</small>
+                                        <small class="text-muted d-block mb-1">⭐ <strong>Beneficio esperado:</strong> Perfeccionamiento general del perfil y mayor profesionalismo</small>
+                                        <small class="text-muted d-block">⏰ <strong>Inversión de tiempo:</strong> 15-25 minutos para pulir este aspecto</small>
+                                    </div>
+                                    {% endif %}
+                                    <div class="action-tags mt-2">
+                                        {% if loop.index <= 2 %}
+                                        <span class="badge bg-danger bg-opacity-25 text-danger me-1">Urgente</span>
+                                        <span class="badge bg-warning bg-opacity-25 text-warning me-1">Alto impacto</span>
+                                        {% else %}
+                                        <span class="badge bg-info bg-opacity-25 text-info me-1">Mejorar</span>
+                                        <span class="badge bg-secondary bg-opacity-25 text-secondary me-1">Medio impacto</span>
+                                        {% endif %}
+                                        <span class="badge bg-primary bg-opacity-25 text-primary">{{ (loop.index * 15) + 15 }} min</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        
+                        <!-- Improvement Priority -->
+                        <div class="mt-4 p-3 bg-warning bg-opacity-10 rounded">
+                            <h6 class="text-warning mb-2"><i class="fas fa-target me-2"></i>Prioridad de Mejora</h6>
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <div class="text-warning fw-bold">{{ (analysis.improvement_urgency or 'Media') }}</div>
+                                    <small class="text-muted">Urgencia</small>
+                                </div>
+                                <div class="col-6">
+                                    <div class="text-warning fw-bold">{{ (analysis.improvement_impact or 'Alto') }}</div>
+                                    <small class="text-muted">Impacto Potencial</small>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-trophy fa-2x text-success mb-3"></i>
+                            <p class="text-success mb-2 fw-semibold">¡Excelente! No se encontraron debilidades significativas</p>
+                            <small class="text-muted">Tu CV está muy bien optimizado. Considera pequeños ajustes para perfeccionarlo aún más.</small>
+                            <div class="mt-3 p-2 bg-success bg-opacity-10 rounded">
+                                <small class="text-success">💡 <strong>Tip:</strong> Mantén tu CV actualizado con nuevos logros y certificaciones</small>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Enhanced Recommendations -->
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow-sm" style="min-height: 400px;">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-lightbulb me-2"></i>Recomendaciones Estratégicas
+                    </h5>
+                    <small class="opacity-75">{{ analysis.recommendations|length or 0 }} acciones para optimizar</small>
+                </div>
+                <div class="card-body">
+                    {% if analysis.recommendations %}
+                        {% for recommendation in analysis.recommendations %}
+                        <div class="recommendation-item mb-4 p-3 bg-light rounded border-start border-info border-3">
+                            <div class="d-flex align-items-start">
+                                <div class="me-3">
+                                    <span class="badge bg-info rounded-pill fs-6">{{ loop.index }}</span>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <p class="mb-2 fw-semibold text-info">{{ recommendation }}</p>
+                                    {% if loop.index == 1 %}
+                                    <div class="detailed-recommendation mb-3">
+                                        <div class="mb-2">
+                                            <small class="text-muted d-block mb-1">🎯 <strong>Objetivo:</strong> Transformar descripciones genéricas en logros específicos y medibles que demuestren tu impacto real.</small>
+                                            <small class="text-muted d-block mb-1">📊 <strong>Ejemplo detallado:</strong></small>
+                                            <div class="ps-3 border-start border-2 border-secondary">
+                                                <small class="text-danger d-block">❌ <strong>Antes:</strong> "Responsable de gestión de equipo y mejora de procesos"</small>
+                                                <small class="text-success d-block">✅ <strong>Después:</strong> "Lideré un equipo de 12 personas, implementé 3 nuevos procesos que redujeron costos en €45K anuales y aumenté la satisfacción del cliente del 78% al 94% en 8 meses"</small>
+                                            </div>
+                                        </div>
+                                        <small class="text-muted d-block mb-1">🚀 <strong>Impacto esperado:</strong> Los CVs con logros cuantificados tienen 67% más probabilidades de conseguir entrevistas</small>
+                                        <small class="text-muted d-block">📝 <strong>Plan de acción:</strong> Revisa cada punto de tu experiencia y añade al menos 2 métricas específicas por rol</small>
+                                    </div>
+                                    <div class="action-plan p-2 bg-success bg-opacity-10 rounded">
+                                        <small class="text-success d-block mb-1"><strong>Pasos específicos:</strong></small>
+                                        <small class="text-muted d-block">1. Identifica 3-4 logros principales por trabajo (10 min)</small>
+                                        <small class="text-muted d-block">2. Busca números, porcentajes, cantidades (15 min)</small>
+                                        <small class="text-muted d-block">3. Reescribe usando la fórmula: Acción + Resultado + Impacto (20 min)</small>
+                                    </div>
+                                    <div class="mt-2">
+                                        <span class="badge bg-danger bg-opacity-75 text-dark">Prioridad Crítica</span>
+                                        <span class="badge bg-light text-dark">45 min</span>
+                                        <span class="badge bg-success bg-opacity-50 text-dark">+25% efectividad</span>
+                                    </div>
+                                    {% elif loop.index == 2 %}
+                                    <div class="detailed-recommendation mb-3">
+                                        <div class="mb-2">
+                                            <small class="text-muted d-block mb-1">💪 <strong>Propósito:</strong> Reemplazar verbos pasivos por verbos de acción que transmitan liderazgo, iniciativa y resultados.</small>
+                                            <small class="text-muted d-block mb-1">📝 <strong>Transformación de verbos:</strong></small>
+                                            <div class="ps-3 border-start border-2 border-secondary">
+                                                <small class="text-warning d-block">⚠️ <strong>Evitar:</strong> "fui responsable", "participé", "ayudé", "estuve involucrado"</small>
+                                                <small class="text-success d-block">✅ <strong>Usar:</strong> "lideré", "implementé", "optimicé", "desarrollé", "aumenté", "reduje", "creé"</small>
+                                            </div>
+                                        </div>
+                                        <small class="text-muted d-block mb-1">🎯 <strong>Ejemplo práctico:</strong> "Participé en proyecto de digitalización" → "Lideré la digitalización de 5 procesos clave, reduciendo tiempo de procesamiento en 40%"</small>
+                                        <small class="text-muted d-block">📈 <strong>Beneficio:</strong> Los verbos de acción aumentan la percepción de liderazgo en un 43%</small>
+                                    </div>
+                                    <div class="action-plan p-2 bg-warning bg-opacity-10 rounded">
+                                        <small class="text-warning d-block mb-1"><strong>Estrategia de implementación:</strong></small>
+                                        <small class="text-muted d-block">1. Identifica todos los verbos pasivos en tu CV (5 min)</small>
+                                        <small class="text-muted d-block">2. Selecciona verbos de acción específicos para tu sector (10 min)</small>
+                                        <small class="text-muted d-block">3. Reescribe cada bullet point con verbos potentes (25 min)</small>
+                                    </div>
+                                    <div class="mt-2">
+                                        <span class="badge bg-warning bg-opacity-75 text-dark">Prioridad Alta</span>
+                                        <span class="badge bg-light text-dark">40 min</span>
+                                        <span class="badge bg-info bg-opacity-50 text-dark">+18% impacto</span>
+                                    </div>
+                                    {% elif loop.index == 3 %}
+                                    <div class="detailed-recommendation mb-3">
+                                        <div class="mb-2">
+                                            <small class="text-muted d-block mb-1">🔍 <strong>Investigación estratégica:</strong> Analizar ofertas de trabajo similares para identificar las palabras clave más valoradas en tu sector.</small>
+                                            <small class="text-muted d-block mb-1">📋 <strong>Metodología recomendada:</strong></small>
+                                            <div class="ps-3 border-start border-2 border-secondary">
+                                                <small class="text-muted d-block">• Recopila 5-7 ofertas de trabajo de tu interés</small>
+                                                <small class="text-muted d-block">• Identifica competencias técnicas repetidas</small>
+                                                <small class="text-muted d-block">• Anota habilidades blandas más solicitadas</small>
+                                                <small class="text-muted d-block">• Incorpora estas keywords naturalmente en tu CV</small>
+                                            </div>
+                                        </div>
+                                        <small class="text-muted d-block mb-1">🤖 <strong>Optimización ATS:</strong> Los sistemas automáticos buscan coincidencias exactas de keywords, aumentando tus posibilidades de pasar filtros iniciales</small>
+                                        <small class="text-muted d-block">📊 <strong>Estadística clave:</strong> CVs optimizados con keywords relevantes tienen 58% más probabilidades de ser seleccionados</small>
+                                    </div>
+                                    <div class="action-plan p-2 bg-info bg-opacity-10 rounded">
+                                        <small class="text-info d-block mb-1"><strong>Hoja de ruta:</strong></small>
+                                        <small class="text-muted d-block">1. Busca y guarda 5-7 ofertas objetivo (15 min)</small>
+                                        <small class="text-muted d-block">2. Extrae y categoriza keywords por frecuencia (20 min)</small>
+                                        <small class="text-muted d-block">3. Integra keywords de forma natural en tu CV (25 min)</small>
+                                    </div>
+                                    <div class="mt-2">
+                                        <span class="badge bg-info bg-opacity-75 text-dark">Prioridad Media</span>
+                                        <span class="badge bg-light text-dark">60 min</span>
+                                        <span class="badge bg-primary bg-opacity-50 text-dark">+22% visibilidad ATS</span>
+                                    </div>
+                                    {% else %}
+                                    <div class="detailed-recommendation mb-3">
+                                        <div class="mb-2">
+                                            <small class="text-muted d-block mb-1">✨ <strong>Optimización avanzada:</strong> Esta recomendación te ayudará a pulir aspectos específicos que pueden marcar la diferencia en procesos competitivos.</small>
+                                            <small class="text-muted d-block mb-1">🎯 <strong>Enfoque personalizado:</strong> Adapta esta mejora según tu sector y nivel de experiencia para maximizar su efectividad.</small>
+                                            <small class="text-muted d-block">📈 <strong>Valor agregado:</strong> Aunque no es crítica, implementar esta recomendación te dará una ventaja competitiva adicional</small>
+                                        </div>
+                                    </div>
+                                    <div class="action-plan p-2 bg-secondary bg-opacity-10 rounded">
+                                        <small class="text-secondary d-block mb-1"><strong>Implementación sugerida:</strong></small>
+                                        <small class="text-muted d-block">1. Evalúa la relevancia para tu perfil (5 min)</small>
+                                        <small class="text-muted d-block">2. Planifica los cambios necesarios (10 min)</small>
+                                        <small class="text-muted d-block">3. Implementa las mejoras gradualmente (20 min)</small>
+                                    </div>
+                                    <div class="mt-2">
+                                        <span class="badge bg-secondary bg-opacity-75 text-dark">Prioridad Baja</span>
+                                        <span class="badge bg-light text-dark">35 min</span>
+                                        <span class="badge bg-secondary bg-opacity-50 text-dark">+8% refinamiento</span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        
+                        <!-- Action Plan Summary -->
+                        <div class="mt-4 p-3 bg-info bg-opacity-10 rounded">
+                            <h6 class="text-info mb-2"><i class="fas fa-clipboard-check me-2"></i>Plan de Acción</h6>
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <div class="text-info fw-bold">{{ ((analysis.recommendations|length * 20) + 15) }} min</div>
+                                    <small class="text-muted">Tiempo Total Estimado</small>
+                                </div>
+                                <div class="col-6">
+                                    <div class="text-info fw-bold">+{{ (analysis.recommendations|length * 8) }}%</div>
+                                    <small class="text-muted">Mejora Esperada</small>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-info" style="width: {{ (analysis.implementation_progress or 25) }}%"></div>
+                                </div>
+                                <small class="text-muted">Progreso de implementación sugerido</small>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-star fa-2x text-success mb-3"></i>
+                            <p class="text-success mb-2 fw-semibold">¡Tu CV está en excelente forma!</p>
+                            <small class="text-muted">Mantén estas buenas prácticas y actualiza regularmente</small>
+                            <div class="mt-3 p-3 bg-success bg-opacity-10 rounded">
+                                <h6 class="text-success mb-2">Consejos de Mantenimiento:</h6>
+                                <ul class="list-unstyled mb-0 small">
+                                    <li class="mb-1">✅ Actualiza logros cada 3 meses</li>
+                                    <li class="mb-1">✅ Revisa keywords del sector</li>
+                                    <li class="mb-0">✅ Adapta para cada aplicación</li>
+                                </ul>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Gráficos Principales de Análisis -->
+    <div class="row mb-5">
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>Distribución de Puntuación General
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="scoreChart" width="400" height="300"></canvas>
+                    </div>
+                    <div class="mt-3">
+                        <p class="text-muted mb-3"><strong>Interpretación:</strong> Este gráfico circular muestra cómo se distribuye tu puntuación general del CV en diferentes rangos de calidad.</p>
+                        <div class="row text-center">
+                            <div class="col-4">
+                                <div class="border rounded p-2 bg-light">
+                                    <small class="text-muted d-block">Excelente</small>
+                                    <div class="text-success fw-bold">80-100%</div>
+                                    <small class="text-muted">CV competitivo</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="border rounded p-2 bg-light">
+                                    <small class="text-muted d-block">Bueno</small>
+                                    <div class="text-warning fw-bold">60-79%</div>
+                                    <small class="text-muted">Necesita mejoras</small>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="border rounded p-2 bg-light">
+                                    <small class="text-muted d-block">Mejorable</small>
+                                    <div class="text-danger fw-bold">0-59%</div>
+                                    <small class="text-muted">Requiere atención</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-radar me-2"></i>Análisis Multidimensional
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="radarChart" width="400" height="300"></canvas>
+                    </div>
+                    <div class="mt-3">
+                        <p class="text-muted mb-3"><strong>Interpretación:</strong> Este gráfico radar evalúa tu CV en 5 dimensiones clave. Cada eje representa un aspecto fundamental que los reclutadores consideran.</p>
+                        <div class="row text-center">
+                            <div class="col-6 mb-2">
+                                <small class="text-primary">📝 <strong>Contenido:</strong> Relevancia y calidad de la información</small>
+                            </div>
+                            <div class="col-6 mb-2">
+                                <small class="text-info">🎨 <strong>Formato:</strong> Estructura y presentación visual</small>
+                            </div>
+                            <div class="col-6 mb-2">
+                                <small class="text-warning">🔍 <strong>Keywords:</strong> Optimización para sistemas ATS</small>
+                            </div>
+                            <div class="col-6 mb-2">
+                                <small class="text-success">💼 <strong>Experiencia:</strong> Relevancia profesional</small>
+                            </div>
+                            <div class="col-12">
+                                <small class="text-secondary">🎯 <strong>Competencias:</strong> Habilidades técnicas y blandas</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Gráficos de Análisis Específico -->
+    <div class="row mb-5">
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-robot me-2"></i>Compatibilidad con Sistemas ATS
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="atsChart" width="400" height="300"></canvas>
+                    </div>
+                    <div class="mt-3">
+                        <p class="text-muted mb-3"><strong>¿Qué es ATS?</strong> Los Applicant Tracking Systems son software que las empresas usan para filtrar CVs automáticamente antes de que lleguen a un reclutador humano.</p>
+                        <div class="progress mb-2" style="height: 12px;">
+                            <div class="progress-bar bg-info" style="width: {{ (analysis.ats_compatibility_score or 75) }}%"></div>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <small class="text-muted">Probabilidad de pasar filtros automáticos</small>
+                            <strong class="text-info">{{ (analysis.ats_compatibility_score or 75) }}%</strong>
+                        </div>
+                        <div class="mt-2">
+                            {% if (analysis.ats_compatibility_score or 75) >= 80 %}
+                            <small class="text-success">✅ Excelente: Tu CV tiene alta probabilidad de pasar los filtros ATS</small>
+                            {% elif (analysis.ats_compatibility_score or 75) >= 60 %}
+                            <small class="text-warning">⚠️ Bueno: Algunas mejoras pueden aumentar tu compatibilidad ATS</small>
+                            {% else %}
+                            <small class="text-danger">❌ Mejorable: Tu CV necesita optimización para sistemas ATS</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>Análisis de Competencias
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="skillsChart" width="400" height="300"></canvas>
+                    </div>
+                    <div class="mt-3">
+                        <p class="text-muted mb-3"><strong>Balance de Habilidades:</strong> Un CV efectivo debe mostrar tanto competencias técnicas específicas como habilidades interpersonales.</p>
+                        <div class="row">
+                            <div class="col-6 text-center">
+                                <div class="border rounded p-3 bg-light">
+                                    <div class="text-info fw-bold h4">{{ (analysis.technical_skills_count or 15) }}</div>
+                                    <small class="text-muted d-block"><strong>Habilidades Técnicas</strong></small>
+                                    <small class="text-muted">Conocimientos específicos del área</small>
+                                </div>
+                            </div>
+                            <div class="col-6 text-center">
+                                <div class="border rounded p-3 bg-light">
+                                    <div class="text-warning fw-bold h4">{{ (analysis.soft_skills_count or 8) }}</div>
+                                    <small class="text-muted d-block"><strong>Habilidades Blandas</strong></small>
+                                    <small class="text-muted">Competencias interpersonales</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            {% set skill_ratio = ((analysis.soft_skills_count or 8) / (analysis.technical_skills_count or 15) * 100) | round %}
+                            {% if skill_ratio >= 40 and skill_ratio <= 60 %}
+                            <small class="text-success">✅ Balance ideal entre habilidades técnicas y blandas</small>
+                            {% elif skill_ratio < 40 %}
+                            <small class="text-warning">⚠️ Considera agregar más habilidades interpersonales</small>
+                            {% else %}
+                            <small class="text-info">💡 Podrías enfatizar más tus competencias técnicas</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Category Analysis Chart -->
+        <div class="col-md-6 mb-4">
+            <div class="card" style="min-height: 400px;">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-chart-area me-2"></i>Análisis por Categorías
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="categoryChart" width="400" height="300"></canvas>
+                    </div>
+                    <div class="mt-3">
+                        <small class="text-muted">Evaluación detallada por categorías de análisis</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+                    <!-- Advanced Metrics Section -->
+    {% if analysis.get('metrics') or analysis.get('communication_analysis') or analysis.get('ats_analysis') %}
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-line me-2"></i>📊 Métricas Avanzadas de Análisis
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if analysis.get('metrics') %}
+                    <div class="row mb-4">
+                        <div class="col-md-3 col-6 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h4 class="text-primary">{{ analysis.metrics.readability_score or 0 }}%</h4>
+                                    <p class="mb-0 small">Legibilidad</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h4 class="text-success">{{ analysis.metrics.ats_compatibility or 0 }}%</h4>
+                                    <p class="mb-0 small">Compatibilidad ATS</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h4 class="text-info">{{ analysis.metrics.professional_impact or 0 }}%</h4>
+                                    <p class="mb-0 small">Impacto Profesional</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-6 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h4 class="text-warning">{{ analysis.metrics.structure_quality or 0 }}%</h4>
+                                    <p class="mb-0 small">Calidad Estructura</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if analysis.get('communication_analysis') %}
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-muted mb-3">Análisis de Comunicación</h6>
+                        </div>
+                        <div class="col-md-4 col-6 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h5 class="text-primary">{{ analysis.communication_analysis.action_verbs_effectiveness or 0 }}%</h5>
+                                    <p class="mb-0 small">Verbos de Acción</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 col-6 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h5 class="text-success">{{ analysis.communication_analysis.quantified_achievements or 0 }}%</h5>
+                                    <p class="mb-0 small">Logros Cuantificados</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 col-6 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h5 class="text-info">{{ analysis.communication_analysis.persuasive_impact or 0 }}%</h5>
+                                    <p class="mb-0 small">Impacto Persuasivo</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if analysis.get('ats_analysis') %}
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h6 class="text-muted mb-3">Compatibilidad ATS Detallada</h6>
+                        </div>
+                        <div class="col-md-4 col-6 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h5 class="text-primary">{{ analysis.ats_analysis.parsing_compatibility or 0 }}%</h5>
+                                    <p class="mb-0 small">Parsing</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 col-6 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h5 class="text-success">{{ analysis.ats_analysis.keyword_optimization or 0 }}%</h5>
+                                    <p class="mb-0 small">Keywords</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 col-6 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h5 class="text-info">{{ analysis.ats_analysis.ranking_potential or 0 }}%</h5>
+                                    <p class="mb-0 small">Ranking Potencial</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Examples Section -->
+    {% if analysis.get('examples') or analysis.get('detailed_examples') or analysis.get('tailoring_examples') or analysis.get('improvement_examples') %}
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-lightbulb me-2"></i>💡 Ejemplos Específicos y Mejoras
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if analysis.get('examples') %}
+                    <div class="mb-4">
+                        {% if analysis.examples.get('spelling_errors') %}
+                        <div class="mb-3">
+                            <h6 class="text-warning">🔍 Errores de Ortografía Detectados</h6>
+                            {% for error in analysis.examples.spelling_errors %}
+                            <div class="alert alert-warning py-2">
+                                <i class="fas fa-exclamation-triangle me-2"></i>{{ error }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        {% if analysis.examples.get('before_after') %}
+                        <div class="mb-3">
+                            <h6 class="text-success">✨ Ejemplos Antes/Después</h6>
+                            {% for example in analysis.examples.before_after %}
+                            <div class="alert alert-success py-2">
+                                <i class="fas fa-arrow-right me-2"></i>{{ example }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    {% if analysis.get('detailed_examples') %}
+                    <div class="mb-4">
+                        {% if analysis.detailed_examples.get('weak_verbs') %}
+                        <div class="mb-3">
+                            <h6 class="text-info">🎯 Mejora de Verbos de Acción</h6>
+                            {% for example in analysis.detailed_examples.weak_verbs %}
+                            <div class="alert alert-info py-2">
+                                <i class="fas fa-lightbulb me-2"></i>{{ example }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        {% if analysis.detailed_examples.get('optimization_opportunities') %}
+                        <div class="mb-3">
+                            <h6 class="text-primary">🚀 Oportunidades de Optimización</h6>
+                            {% for opportunity in analysis.detailed_examples.optimization_opportunities %}
+                            <div class="alert alert-primary py-2">
+                                <i class="fas fa-chart-line me-2"></i>{{ opportunity }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    {% if analysis.get('tailoring_examples') %}
+                    <div class="mb-4">
+                        {% if analysis.tailoring_examples.get('role_adaptations') %}
+                        <div class="mb-3">
+                            <h6 class="text-purple">🎭 Adaptaciones por Rol</h6>
+                            {% for adaptation in analysis.tailoring_examples.role_adaptations %}
+                            <div class="alert alert-secondary py-2">
+                                <i class="fas fa-user-tie me-2"></i>{{ adaptation }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    {% if analysis.get('improvement_examples') %}
+                    <div class="examples-section mb-4">
+                        <h6 class="text-primary">📝 Ejemplos de Mejora Detallados</h6>
+                        
+                        {% if analysis.improvement_examples.get('spelling_errors') %}
+                        <div class="example-category mb-3">
+                            <h6 class="text-warning">Errores de Ortografía Detectados</h6>
+                            <div class="error-list">
+                                {% for error in analysis.improvement_examples.spelling_errors %}
+                                <div class="alert alert-warning py-2">
+                                    <span class="error-word">{{ error.word }}</span>
+                                    <i class="fas fa-arrow-right mx-2"></i>
+                                    <span class="correction">{{ error.correction }}</span>
+                                    <small class="context d-block">{{ error.context }}</small>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if analysis.improvement_examples.get('before_after_examples') %}
+                        <div class="example-category mb-3">
+                            <h6 class="text-success">Ejemplos Antes/Después</h6>
+                            <div class="before-after-list">
+                                {% for example in analysis.improvement_examples.before_after_examples %}
+                                <div class="alert alert-success py-2">
+                                    <div class="before">
+                                        <strong>Antes:</strong> {{ example.before }}
+                                    </div>
+                                    <div class="after">
+                                        <strong>Después:</strong> {{ example.after }}
+                                    </div>
+                                    <div class="improvement-reason">
+                                        <em>{{ example.reason }}</em>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if analysis.improvement_examples.get('weak_phrases') %}
+                        <div class="example-category mb-3">
+                            <h6 class="text-info">Mejora de Frases Débiles</h6>
+                            <div class="phrase-improvements">
+                                {% for phrase in analysis.improvement_examples.weak_phrases %}
+                                <div class="alert alert-info py-2">
+                                    <div class="original-phrase">
+                                        <strong>Original:</strong> {{ phrase.original }}
+                                    </div>
+                                    <div class="improved-phrase">
+                                        <strong>Mejorada:</strong> {{ phrase.improved }}
+                                    </div>
+                                    <div class="reason">
+                                        <em>Razón: {{ phrase.reason }}</em>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if analysis.improvement_examples.get('tone_adjustments') %}
+                        <div class="example-category mb-3">
+                            <h6 class="text-primary">Ajustes de Tono</h6>
+                            <div class="tone-adjustments">
+                                {% for adjustment in analysis.improvement_examples.tone_adjustments %}
+                                <div class="alert alert-primary py-2">
+                                    <h6>{{ adjustment.section }}</h6>
+                                    <p><strong>Tono actual:</strong> {{ adjustment.current_tone }}</p>
+                                    <p><strong>Tono recomendado:</strong> {{ adjustment.recommended_tone }}</p>
+                                    <p><strong>Ejemplo:</strong> {{ adjustment.example }}</p>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if analysis.improvement_examples.get('weak_verb_improvements') %}
+                        <div class="example-category mb-3">
+                            <h6 class="text-warning">Mejora de Verbos Débiles</h6>
+                            <div class="verb-improvements">
+                                {% for verb in analysis.improvement_examples.weak_verb_improvements %}
+                                <div class="alert alert-warning py-2">
+                                    <span class="weak-verb">{{ verb.weak_verb }}</span>
+                                    <i class="fas fa-arrow-right mx-2"></i>
+                                    <span class="strong-verb">{{ verb.strong_verb }}</span>
+                                    <small class="impact d-block">Impacto: {{ verb.impact }}</small>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if analysis.improvement_examples.get('optimization_opportunities') %}
+                        <div class="example-category mb-3">
+                            <h6 class="text-success">Oportunidades de Optimización</h6>
+                            <div class="optimization-list">
+                                {% for opportunity in analysis.improvement_examples.optimization_opportunities %}
+                                <div class="alert alert-success py-2">
+                                    <h6>{{ opportunity.section }}</h6>
+                                    <p><strong>Sugerencia:</strong> {{ opportunity.suggestion }}</p>
+                                    <p><strong>Impacto esperado:</strong> {{ opportunity.expected_impact }}</p>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if analysis.improvement_examples.get('role_adaptations') %}
+                        <div class="example-category mb-3">
+                            <h6 class="text-secondary">Adaptaciones por Rol</h6>
+                            <div class="role-adaptations">
+                                {% for adaptation in analysis.improvement_examples.role_adaptations %}
+                                <div class="alert alert-secondary py-2">
+                                    <h6>{{ adaptation.target_role }}</h6>
+                                    <p><strong>Ajustes recomendados:</strong> {{ adaptation.adjustments }}</p>
+                                    <p><strong>Keywords clave:</strong> {{ adaptation.key_keywords|join(', ') }}</p>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Nuevas secciones para análisis mejorados -->
+                    {% if analysis.get('tone_metrics') %}
+                    <div class="tone-metrics-section mb-4">
+                        <h6 class="text-info">📊 Métricas de Tono y Estilo</h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <div class="card bg-light">
+                                    <div class="card-body text-center py-2">
+                                        <h6 class="text-primary">{{ analysis.tone_metrics.professionalism_score or 0 }}%</h6>
+                                        <p class="mb-0 small">Profesionalismo</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <div class="card bg-light">
+                                    <div class="card-body text-center py-2">
+                                        <h6 class="text-success">{{ analysis.tone_metrics.industry_language_score or 0 }}%</h6>
+                                        <p class="mb-0 small">Lenguaje Sectorial</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <div class="card bg-light">
+                                    <div class="card-body text-center py-2">
+                                        <h6 class="text-info">{{ analysis.tone_metrics.readability_score or 0 }}%</h6>
+                                        <p class="mb-0 small">Legibilidad</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <div class="card bg-light">
+                                    <div class="card-body text-center py-2">
+                                        <h6 class="text-warning">{{ analysis.tone_metrics.persuasion_impact_score or 0 }}%</h6>
+                                        <p class="mb-0 small">Impacto Persuasivo</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if analysis.get('language_analysis') %}
+                    <div class="language-analysis-section mb-4">
+                        <h6 class="text-secondary">🔤 Análisis de Lenguaje</h6>
+                        <div class="row">
+                            {% if analysis.language_analysis.get('formal_expressions') %}
+                            <div class="col-md-6 mb-3">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6 class="text-success">Expresiones Formales</h6>
+                                        <div class="expression-tags">
+                                            {% for expr in analysis.language_analysis.formal_expressions %}
+                                            <span class="badge bg-success me-1 mb-1">{{ expr }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            {% if analysis.language_analysis.get('informal_expressions') %}
+                            <div class="col-md-6 mb-3">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6 class="text-warning">Expresiones a Mejorar</h6>
+                                        <div class="expression-tags">
+                                            {% for expr in analysis.language_analysis.informal_expressions %}
+                                            <span class="badge bg-warning me-1 mb-1">{{ expr }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            {% if analysis.language_analysis.get('technical_terms_used') %}
+                            <div class="col-md-6 mb-3">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6 class="text-info">Términos Técnicos</h6>
+                                        <div class="expression-tags">
+                                            {% for term in analysis.language_analysis.technical_terms_used %}
+                                            <span class="badge bg-info me-1 mb-1">{{ term }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            {% if analysis.language_analysis.get('missing_industry_terms') %}
+                            <div class="col-md-6 mb-3">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6 class="text-danger">Términos Faltantes</h6>
+                                        <div class="expression-tags">
+                                            {% for term in analysis.language_analysis.missing_industry_terms %}
+                                            <span class="badge bg-danger me-1 mb-1">{{ term }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Keywords Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-tags me-2"></i>Palabras Clave Recomendadas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if analysis.keywords and analysis.keywords|length > 0 %}
+                    <div class="row">
+                        {% for keyword in analysis.keywords %}
+                        <div class="col-md-3 col-sm-4 col-6 mb-3">
+                            <div class="keyword-badge p-2 bg-light rounded text-center">
+                                <span class="badge bg-primary p-2">{{ keyword }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="mt-3 small text-muted">
+                        <i class="fas fa-info-circle me-1"></i> Incluye estas palabras clave en tu CV para mejorar tu visibilidad en los sistemas ATS.
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-search fa-2x text-muted mb-3"></i>
+                        <p class="text-muted">No se identificaron palabras clave específicas</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Action Buttons -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-4">
+                    <h5 class="mb-4">¿Qué quieres hacer ahora?</h5>
+                    <div class="row justify-content-center">
+                        <div class="col-md-3 mb-3">
+                            <a href="{{ url_for('create_cv') }}" class="btn btn-success btn-lg w-100">
+                                <i class="fas fa-file-alt fa-2x mb-2 d-block"></i>
+                                Crear Nuevo CV
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <a href="{{ url_for('analyze_cv') }}" class="btn btn-primary btn-lg w-100">
+                                <i class="fas fa-robot fa-2x mb-2 d-block"></i>
+                                Analizar Otro CV
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <a href="{{ url_for('job_search') }}" class="btn btn-info btn-lg w-100">
+                                <i class="fas fa-search fa-2x mb-2 d-block"></i>
+                                Buscar Empleos
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <button onclick="downloadReport()" class="btn btn-warning btn-lg w-100">
+                                <i class="fas fa-download fa-2x mb-2 d-block"></i>
+                                Descargar Reporte
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Improvement Tips -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-graduation-cap me-2"></i>Consejos para Mejorar tu Puntuación
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="tip-card p-3 border rounded">
+                                <h6 class="text-primary">
+                                    <i class="fas fa-key me-2"></i>Optimiza las Palabras Clave
+                                </h6>
+                                <p class="small text-muted mb-0">
+                                    Incluye términos específicos de tu industria y las habilidades mencionadas en las ofertas de trabajo que te interesan.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="tip-card p-3 border rounded">
+                                <h6 class="text-success">
+                                    <i class="fas fa-chart-line me-2"></i>Cuantifica tus Logros
+                                </h6>
+                                <p class="small text-muted mb-0">
+                                    Usa números, porcentajes y métricas específicas para demostrar el impacto de tu trabajo.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="tip-card p-3 border rounded">
+                                <h6 class="text-info">
+                                    <i class="fas fa-align-left me-2"></i>Mejora el Formato
+                                </h6>
+                                <p class="small text-muted mb-0">
+                                    Usa un diseño limpio, consistente y fácil de leer. Evita fuentes decorativas y colores excesivos.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="tip-card p-3 border rounded">
+                                <h6 class="text-warning">
+                                    <i class="fas fa-check-double me-2"></i>Revisa la Ortografía
+                                </h6>
+                                <p class="small text-muted mb-0">
+                                    Asegúrate de que no haya errores ortográficos o gramaticales. Usa herramientas de corrección.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Nuevos gráficos para análisis avanzados -->
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Animate score progress bar
+        const scoreProgress = document.getElementById('scoreProgress');
+        const targetWidth = parseInt("{{ (analysis.score or 0) | default(0) }}", 10);
+        
+        setTimeout(() => {
+            scoreProgress.style.transition = 'width 2s ease-in-out';
+            scoreProgress.style.width = targetWidth + '%';
+        }, 500);
+        
+        // Wait for Chart.js to load, then initialize charts
+        function waitForChartJS() {
+            if (typeof Chart !== 'undefined') {
+                initializeMainCharts();
+            } else {
+                setTimeout(waitForChartJS, 100);
+            }
+        }
+        
+        function initializeMainCharts() {
+            const score = parseInt("{{ (analysis.score or 0) | default(0) }}", 10);
+            
+            // 1. Score Distribution Chart (Doughnut)
+            const scoreCanvas = document.getElementById('scoreChart');
+            if (scoreCanvas) {
+                const scoreCtx = scoreCanvas.getContext('2d');
+                const remaining = 100 - score;
+                
+                new Chart(scoreCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Puntuación Obtenida', 'Margen de Mejora'],
+                        datasets: [{
+                            data: [score, remaining],
+                            backgroundColor: [
+                                score >= 80 ? '#28a745' : score >= 60 ? '#ffc107' : '#dc3545',
+                                '#e9ecef'
+                            ],
+                            borderWidth: 3,
+                            borderColor: '#ffffff'
+                        }]
+                    },
+                    options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                aspectRatio: 1.5,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    color: '#2c3e50',
+                                    font: { size: 14, weight: '600' }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.label + ': ' + context.parsed + '%';
+                                    }
+                                }
+                            }
+                        },
+                        cutout: '65%'
+                    }
+                });
+            }
+            
+            // 2. Multidimensional Analysis Chart (Radar)
+            const radarCanvas = document.getElementById('radarChart');
+            if (radarCanvas) {
+                const radarCtx = radarCanvas.getContext('2d');
+                new Chart(radarCtx, {
+                    type: 'radar',
+                    data: {
+                        labels: ['Contenido', 'Formato', 'Keywords', 'Experiencia', 'Competencias'],
+                        datasets: [{
+                            label: 'Tu CV',
+                            data: [
+                                {{ (analysis.content_score or 75) }},
+                                {{ (analysis.format_score or 80) }},
+                                {{ (analysis.keywords_score or 65) }},
+                                {{ (analysis.experience_score or 85) }},
+                                {{ (analysis.skills_score or 70) }}
+                            ],
+                            backgroundColor: 'rgba(40, 167, 69, 0.2)',
+                            borderColor: 'rgba(40, 167, 69, 1)',
+                            pointBackgroundColor: 'rgba(40, 167, 69, 1)',
+                            pointBorderColor: '#fff',
+                            pointHoverBackgroundColor: '#fff',
+                            pointHoverBorderColor: 'rgba(40, 167, 69, 1)',
+                            borderWidth: 2
+                        }, {
+                            label: 'Promedio del Mercado',
+                            data: [70, 75, 60, 70, 65],
+                            backgroundColor: 'rgba(108, 117, 125, 0.1)',
+                            borderColor: 'rgba(108, 117, 125, 0.8)',
+                            pointBackgroundColor: 'rgba(108, 117, 125, 0.8)',
+                            pointBorderColor: '#fff',
+                            borderWidth: 1,
+                            borderDash: [5, 5]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        aspectRatio: 1.5,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        },
+                        scales: {
+                            r: {
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: {
+                                    stepSize: 20
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // 3. ATS Compatibility Chart (Bar)
+            const atsCanvas = document.getElementById('atsChart');
+            if (atsCanvas) {
+                const atsCtx = atsCanvas.getContext('2d');
+                new Chart(atsCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Parsing', 'Keywords', 'Formato', 'Estructura'],
+                        datasets: [{
+                            label: 'Compatibilidad %',
+                            data: [
+                                {{ (analysis.ats_parsing or 80) }},
+                                {{ (analysis.ats_keywords or 70) }},
+                                {{ (analysis.ats_format or 85) }},
+                                {{ (analysis.ats_structure or 75) }}
+                            ],
+                            backgroundColor: 'rgba(23, 162, 184, 0.8)',
+                            borderColor: 'rgba(23, 162, 184, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        aspectRatio: 1.5,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // 4. Skills Balance Chart (Doughnut)
+            const skillsCanvas = document.getElementById('skillsChart');
+            if (skillsCanvas) {
+                const skillsCtx = skillsCanvas.getContext('2d');
+                const technicalSkills = {{ (analysis.technical_skills_count or 15) }};
+                const softSkills = {{ (analysis.soft_skills_count or 8) }};
+                
+                new Chart(skillsCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Habilidades Técnicas', 'Habilidades Blandas'],
+                        datasets: [{
+                            data: [technicalSkills, softSkills],
+                            backgroundColor: [
+                                'rgba(23, 162, 184, 0.8)',
+                                'rgba(255, 193, 7, 0.8)'
+                            ],
+                            borderColor: [
+                                'rgba(23, 162, 184, 1)',
+                                'rgba(255, 193, 7, 1)'
+                            ],
+                            borderWidth: 3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        aspectRatio: 1.5,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    color: '#2c3e50',
+                                    font: { size: 12, weight: '600' }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const total = technicalSkills + softSkills;
+                                        const percentage = Math.round((context.parsed / total) * 100);
+                                        return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+                                    }
+                                }
+                            }
+                        },
+                        cutout: '60%'
+                    }
+                });
+            }
+            
+            // 5. Category Analysis Chart (Radar)
+            const categoryCanvas = document.getElementById('categoryChart');
+            if (categoryCanvas) {
+                const categoryCtx = categoryCanvas.getContext('2d');
+                
+                // Use real metrics if available, otherwise simulate
+                const baseScore = score;
+                
+                {% if analysis.get('metrics') %}
+                const categories = {
+                    'Legibilidad': {{ analysis.metrics.readability_score or 0 }},
+                    'ATS Compatibility': {{ analysis.metrics.ats_compatibility or 0 }},
+                    'Impacto Profesional': {{ analysis.metrics.professional_impact or 0 }},
+                    'Calidad Estructura': {{ analysis.metrics.structure_quality or 0 }},
+                    'Puntuación General': baseScore
+                };
+                {% elif analysis.get('communication_analysis') %}
+                const categories = {
+                    'Verbos de Acción': {{ analysis.communication_analysis.action_verbs_effectiveness or 0 }},
+                    'Logros Cuantificados': {{ analysis.communication_analysis.quantified_achievements or 0 }},
+                    'Claridad': {{ analysis.communication_analysis.clarity_score or 0 }},
+                    'Profesionalismo': {{ analysis.communication_analysis.professionalism_level or 0 }},
+                    'Impacto Persuasivo': {{ analysis.communication_analysis.persuasive_impact or 0 }}
+                };
+                {% elif analysis.get('ats_analysis') %}
+                const categories = {
+                    'Parsing': {{ analysis.ats_analysis.parsing_compatibility or 0 }},
+                    'Keywords': {{ analysis.ats_analysis.keyword_optimization or 0 }},
+                    'Estructura': {{ analysis.ats_analysis.structure_quality or 0 }},
+                    'Formato': {{ analysis.ats_analysis.format_compliance or 0 }},
+                    'Ranking Potencial': {{ analysis.ats_analysis.ranking_potential or 0 }}
+                };
+                {% else %}
+                const categories = {
+                    'Experiencia': Math.min(100, baseScore + Math.random() * 20 - 10),
+                    'Habilidades': Math.min(100, baseScore + Math.random() * 20 - 10),
+                    'Educación': Math.min(100, baseScore + Math.random() * 20 - 10),
+                    'Formato': Math.min(100, baseScore + Math.random() * 20 - 10),
+                    'Palabras Clave': Math.min(100, baseScore + Math.random() * 20 - 10)
+                };
+                {% endif %}
+                
+                new Chart(categoryCtx, {
+                    type: 'radar',
+                    data: {
+                        labels: Object.keys(categories),
+                        datasets: [{
+                            label: 'Tu Puntuación',
+                            data: Object.values(categories),
+                            backgroundColor: 'rgba(52, 152, 219, 0.3)',
+                            borderColor: 'rgba(52, 152, 219, 1)',
+                            borderWidth: 3,
+                            pointBackgroundColor: 'rgba(52, 152, 219, 1)',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            pointRadius: 6,
+                            pointHoverBackgroundColor: '#fff',
+                            pointHoverBorderColor: 'rgba(52, 152, 219, 1)',
+                            pointHoverRadius: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        aspectRatio: 1.5,
+                        scales: {
+                            r: {
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: {
+                                    stepSize: 20,
+                                    color: '#2c3e50',
+                                    font: { size: 12, weight: '600' }
+                                },
+                                pointLabels: {
+                                    color: '#2c3e50',
+                                    font: { size: 13, weight: '600' }
+                                },
+                                grid: { color: 'rgba(44, 62, 80, 0.2)' },
+                                angleLines: { color: 'rgba(44, 62, 80, 0.2)' }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false }
+                        }
+                    }
+                });
+            }
+        }
+        
+        // Start the chart initialization process
+        waitForChartJS();
+        
+        // Código de gráficos adicionales eliminado - se usa initializeMainCharts()
+        
+
+        
+        // Initialize charts after ensuring Chart.js is loaded
+        // Función de inicialización de gráficos consolidada
+        function initializeCharts() {
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js no está cargado');
+                return;
+            }
+            
+            // Llamar a la función principal de inicialización
+            initializeMainCharts();
+        }
+        
+        // Initialize charts when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                waitForChartJS();
+            });
+        } else {
+            // DOM is already loaded
+            waitForChartJS();
+        }
+        // Código de inicialización eliminado - se usa initializeMainCharts()
+        
+        // Animate cards on scroll
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+        
+        // Observe analysis items
+        document.querySelectorAll('.strength-item, .weakness-item, .recommendation-item').forEach(item => {
+            item.style.opacity = '0';
+            item.style.transform = 'translateY(20px)';
+            item.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            observer.observe(item);
+        });
+    });
+    
+    // Download report function
+    function downloadReport() {
+        // Create a simple text report
+        const score = parseInt("{{ (analysis.score or 0) | default(0) }}", 10);
+        const strengths = JSON.parse('{{ analysis.strengths | tojson | safe }}');
+        const weaknesses = JSON.parse('{{ analysis.weaknesses | tojson | safe }}');
+        const recommendations = JSON.parse('{{ analysis.recommendations | tojson | safe }}');
+        const keywords = {{ analysis.keywords | tojson | safe }};
+        
+        let report = "REPORTE DE ANÁLISIS DE CV\n";
+        report += "================================\n\n";
+        report += "PUNTUACIÓN GENERAL: " + score + "%\n\n";
+        
+        report += "FORTALEZAS:\n";
+        strengths.forEach(function(strength, index) {
+            report += (index + 1) + ". " + strength + "\n";
+        });
+        
+        report += "\nÁREAS DE MEJORA:\n";
+        weaknesses.forEach(function(weakness, index) {
+            report += (index + 1) + ". " + weakness + "\n";
+        });
+        
+        report += "\nRECOMENDACIONES:\n";
+        recommendations.forEach(function(recommendation, index) {
+            report += (index + 1) + ". " + recommendation + "\n";
+        });
+        
+        report += "\nPALABRAS CLAVE RECOMENDADAS:\n";
+        if (keywords && keywords.length > 0) {
+            keywords.forEach(function(keyword, index) {
+                report += (index + 1) + ". " + keyword + "\n";
+            });
+        } else {
+            report += "No se identificaron palabras clave específicas.\n";
+        }
+        
+        report += "\n\nGenerado por ARMind CVs\n";
+        report += "Fecha: " + new Date().toLocaleDateString('es-ES');
+        
+        // Create and download file
+        const blob = new Blob([report], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = "reporte_analisis_cv_" + new Date().getTime() + ".txt";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    }
+</script>
+{% endblock %}

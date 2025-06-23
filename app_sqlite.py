@@ -5,10 +5,13 @@ import sqlite3
 # SQLite no necesita RealDictCursor
 import os
 import openai
-from config_manager import ConfigManager
+from dotenv import load_dotenv
 
-# Initialize configuration manager
-config_manager = ConfigManager()
+# Cargar variables de entorno
+load_dotenv()
+
+# Configuración de base de datos SQLite
+SQLITE_DB_PATH = os.getenv('SQLITE_DB_PATH', 'cv_analyzer.db')
 import PyPDF2
 # from docx import Document  # Temporarily disabled
 from datetime import datetime

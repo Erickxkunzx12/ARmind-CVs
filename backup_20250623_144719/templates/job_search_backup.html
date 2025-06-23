@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Búsqueda de Empleos - ARMind CVs{% endblock %}
+
+{% block content %}
+<div class="container-fluid d-flex justify-content-center align-items-center" style="min-height: 80vh; background: linear-gradient(135deg, #e6f3ff 0%, #f0f8ff 50%, #ffffff 100%);">
+    <div class="card shadow-lg" style="max-width: 600px; width: 100%; border: none; border-radius: 15px;">
+        <div class="card-header text-center" style="background: linear-gradient(135deg, #1a365d, #2d3748); color: white; border-radius: 15px 15px 0 0; padding: 2rem;">
+            <i class="fas fa-exclamation-triangle fa-3x mb-3" style="color: #ffd700;"></i>
+            <h3 class="mb-0">Funcionalidad Temporalmente No Disponible</h3>
+        </div>
+        <div class="card-body text-center" style="padding: 3rem 2rem;">
+            <h5 class="mb-4" style="color: #2d3748; font-weight: 600;">Búsqueda de Empleos</h5>
+            
+            <div class="mb-4">
+                <p class="text-muted mb-3" style="font-size: 1.1rem; line-height: 1.6;">
+                    Actualmente no podemos ofrecer la funcionalidad de búsqueda de empleos debido a que <strong>no contamos con las autorizaciones necesarias</strong> de las plataformas de búsqueda de empleo para acceder a sus APIs.
+                </p>
+                
+                <div class="row text-center mb-4">
+                    <div class="col-12">
+                        <h6 class="mb-3" style="color: #4a5568;">Plataformas que requieren autorización:</h6>
+                        <div class="d-flex flex-wrap justify-content-center gap-2">
+                            <span class="badge bg-secondary p-2">LinkedIn</span>
+                            <span class="badge bg-secondary p-2">Laborum</span>
+                            <span class="badge bg-secondary p-2">Indeed</span>
+                            <span class="badge bg-secondary p-2">CompuTrabajo</span>
+                            <span class="badge bg-secondary p-2">ChileTrabajo</span>
+                            <span class="badge bg-secondary p-2">Y más...</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info" style="border: none; background: #e6f3ff; color: #1a365d;">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Estamos trabajando</strong> para obtener las autorizaciones necesarias y poder ofrecerte esta funcionalidad en el futuro.
+                </div>
+            </div>
+            
+            <div class="d-grid gap-2">
+                <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg" style="background: linear-gradient(135deg, #1a365d, #2d3748); border: none; border-radius: 10px; padding: 12px 30px;">
+                    <i class="fas fa-arrow-left me-2"></i>Volver al Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

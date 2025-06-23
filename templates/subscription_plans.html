@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+
+{% block title %}Planes de Suscripción - ARMind CVs{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header Section -->
+    <div class="row mb-5">
+        <div class="col-12 text-center">
+            <h1 class="display-4 fw-bold text-primary mb-3">
+                <i class="fas fa-crown me-3"></i>
+                Planes de Suscripción
+            </h1>
+            <p class="lead text-muted">Elige el plan que mejor se adapte a tus necesidades profesionales</p>
+        </div>
+    </div>
+
+    <!-- Current Subscription Status -->
+    {% if user_subscription %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-info d-flex align-items-center">
+                <i class="fas fa-info-circle me-3 fs-4"></i>
+                <div>
+                    <h5 class="mb-1">Tu Plan Actual: {{ subscription_plans[user_subscription.plan_type].name }}</h5>
+                    <p class="mb-0">
+                        {% if user_subscription.expires_at %}
+                            Válido hasta: {{ user_subscription.expires_at.strftime('%d/%m/%Y') }}
+                        {% else %}
+                            Plan activo
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Usage Statistics -->
+    {% if user_usage %}
+    <div class="row mb-5">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-chart-line text-primary fs-1 mb-3"></i>
+                    <h5>Análisis de CV</h5>
+                    <div class="progress mb-2" style="height: 10px;">
+                        {% set analysis_percentage = (user_usage.cv_analysis_count / subscription_plans[user_subscription.plan_type if user_subscription else 'free_trial'].limits.cv_analysis * 100) if user_subscription else 0 %}
+                        <div class="progress-bar bg-primary" style="width: {{ analysis_percentage }}%"></div>
+                    </div>
+                    <p class="mb-0">
+                        {{ user_usage.cv_analysis_count }} / 
+                        {{ subscription_plans[user_subscription.plan_type if user_subscription else 'free_trial'].limits.cv_analysis }}
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <i class="fas fa-file-alt text-success fs-1 mb-3"></i>
+                    <h5>Creación de CVs</h5>
+                    <div class="progress mb-2" style="height: 10px;">
+                        {% set creation_percentage = (user_usage.cv_creation_count / subscription_plans[user_subscription.plan_type if user_subscription else 'free_trial'].limits.cv_creation * 100) if user_subscription else 0 %}
+                        <div class="progress-bar bg-success" style="width: {{ creation_percentage }}%"></div>
+                    </div>
+                    <p class="mb-0">
+                        {{ user_usage.cv_creation_count }} / 
+                        {{ subscription_plans[user_subscription.plan_type if user_subscription else 'free_trial'].limits.cv_creation }}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Subscription Plans -->
+    <div class="row g-4">
+        {% for plan_key, plan in subscription_plans.items() %}
+        <div class="col-lg-4 col-md-6">
+            <div class="card h-100 border-0 shadow-sm position-relative 
+                        {% if user_subscription and user_subscription.plan_type == plan_key %}border-primary{% endif %}
+                        {% if plan_key == 'standard' %}border-warning{% endif %}
+                        {% if plan_key == 'pro' %}border-success{% endif %}">
+                
+                <!-- Popular Badge -->
+                {% if plan_key == 'standard' %}
+                <div class="position-absolute top-0 start-50 translate-middle">
+                    <span class="badge bg-warning text-dark px-3 py-2 rounded-pill">
+                        <i class="fas fa-star me-1"></i>Más Popular
+                    </span>
+                </div>
+                {% endif %}
+                
+                <!-- Current Plan Badge -->
+                {% if user_subscription and user_subscription.plan_type == plan_key %}
+                <div class="position-absolute top-0 end-0 m-3">
+                    <span class="badge bg-primary">
+                        <i class="fas fa-check me-1"></i>Plan Actual
+                    </span>
+                </div>
+                {% endif %}
+                
+                <div class="card-header text-center py-4 
+                            {% if plan_key == 'free_trial' %}bg-light{% endif %}
+                            {% if plan_key == 'standard' %}bg-warning bg-opacity-10{% endif %}
+                            {% if plan_key == 'pro' %}bg-success bg-opacity-10{% endif %}">
+                    
+                    <!-- Plan Icon -->
+                    <div class="mb-3">
+                        {% if plan_key == 'free_trial' %}
+                            <i class="fas fa-gift text-secondary" style="font-size: 3rem;"></i>
+                        {% elif plan_key == 'standard' %}
+                            <i class="fas fa-star text-warning" style="font-size: 3rem;"></i>
+                        {% elif plan_key == 'pro' %}
+                            <i class="fas fa-crown text-success" style="font-size: 3rem;"></i>
+                        {% endif %}
+                    </div>
+                    
+                    <h3 class="fw-bold mb-2">{{ plan.name }}</h3>
+                    
+                    <!-- Price -->
+                    <div class="mb-3">
+                        {% if plan.price == 0 %}
+                            <span class="display-4 fw-bold text-secondary">Gratis</span>
+                            <div class="text-muted">{{ plan.duration }} días</div>
+                        {% else %}
+                            <span class="display-4 fw-bold text-primary">${{ "{:,.0f}".format(plan.price) }}</span>
+                            <div class="text-muted">CLP / mes</div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    <p class="text-muted mb-4">{{ plan.description }}</p>
+                    
+                    <!-- Features List -->
+                    <ul class="list-unstyled mb-4">
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            <strong>{{ plan.limits.cv_analysis }}</strong> análisis de CV
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            <strong>{{ plan.limits.cv_creation }}</strong> creación de CVs
+                        </li>
+                        {% if plan.features.ai_analysis %}
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            Análisis con IA avanzada
+                        </li>
+                        {% endif %}
+                        {% if plan.features.cv_templates %}
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            Plantillas premium de CV
+                        </li>
+                        {% endif %}
+                        {% if plan.features.priority_support %}
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            Soporte prioritario
+                        </li>
+                        {% endif %}
+                        {% if plan.features.export_formats %}
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            Múltiples formatos de exportación
+                        </li>
+                        {% endif %}
+                        {% if plan.features.job_matching %}
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            Matching inteligente de empleos
+                        </li>
+                        {% endif %}
+                        {% if plan_key == 'free_trial' %}
+                        <li class="mb-2">
+                            <i class="fas fa-clock text-warning me-2"></i>
+                            Válido por {{ plan.duration }} días
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+                
+                <div class="card-footer bg-transparent border-0 p-4">
+                    {% if user_subscription and user_subscription.plan_type == plan_key %}
+                        <button class="btn btn-outline-primary w-100" disabled>
+                            <i class="fas fa-check me-2"></i>Plan Actual
+                        </button>
+                    {% else %}
+                        <a href="{{ url_for('subscription.subscribe', plan_type=plan_key) }}" 
+                           class="btn w-100 
+                                  {% if plan_key == 'free_trial' %}btn-outline-secondary{% endif %}
+                                  {% if plan_key == 'standard' %}btn-warning{% endif %}
+                                  {% if plan_key == 'pro' %}btn-success{% endif %}">
+                            {% if plan_key == 'free_trial' %}
+                                <i class="fas fa-gift me-2"></i>Comenzar Gratis
+                            {% else %}
+                                <i class="fas fa-credit-card me-2"></i>Suscribirse
+                            {% endif %}
+                            {% endif %}
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- FAQ Section -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <h3 class="text-center mb-4">Preguntas Frecuentes</h3>
+            <div class="accordion" id="faqAccordion">
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                            ¿Puedo cambiar de plan en cualquier momento?
+                        </button>
+                    </h2>
+                    <div id="faq1" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body">
+                            Sí, puedes actualizar o cambiar tu plan en cualquier momento. Los cambios se aplicarán inmediatamente.
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                            ¿Qué métodos de pago aceptan?
+                        </button>
+                    </h2>
+                    <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body">
+                            Aceptamos pagos a través de Webpay (Transbank) y PayPal para mayor comodidad y seguridad.
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                            ¿El plan gratuito tiene limitaciones?
+                        </button>
+                    </h2>
+                    <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body">
+                            El plan gratuito te permite probar nuestras funciones básicas por 7 días con límites en el número de análisis y creación de CVs.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Back to Dashboard -->
+    <div class="row mt-4">
+        <div class="col-12 text-center">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left me-2"></i>Volver al Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1) !important;
+}
+
+.progress {
+    background-color: #e9ecef;
+}
+
+.badge {
+    font-size: 0.75rem;
+}
+
+.accordion-button:not(.collapsed) {
+    background-color: #f8f9fa;
+    color: #0d6efd;
+}
+</style>
+{% endblock %}

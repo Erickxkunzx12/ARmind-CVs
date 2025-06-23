@@ -1,0 +1,49 @@
+# Dependencias básicas y seguras para ARMind
+
+# Framework web
+Flask>=2.0.0,<3.0.0
+Werkzeug>=2.0.0,<3.0.0
+
+# Base de datos
+psycopg2-binary>=2.9.0
+
+# Procesamiento de documentos
+PyPDF2>=3.0.0
+python-docx>=0.8.0
+reportlab>=3.6.0
+
+# APIs de IA
+openai>=0.27.0
+anthropic>=0.7.0
+google-generativeai>=0.3.0
+
+# Web scraping
+requests>=2.28.0
+beautifulsoup4>=4.11.0
+selenium>=4.10.0
+lxml>=4.9.0
+
+# Utilidades básicas
+python-dotenv>=0.19.0
+Pillow>=9.0.0
+plotly>=5.0.0
+boto3>=1.26.0
+
+# Dependencias adicionales para estabilidad
+click>=8.0.0
+itsdangerous>=2.0.0
+Jinja2>=3.0.0
+MarkupSafe>=2.0.0
+
+# Herramientas de desarrollo
+gunicorn>=20.1.0
+
+# Seguridad
+bcrypt>=4.0.0
+PyJWT>=2.4.0
+
+# Cache (opcional)
+redis>=4.0.0
+
+# Monitoreo básico
+psutil>=5.8.0

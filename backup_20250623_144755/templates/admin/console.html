@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+
+{% block title %}Consola del Servidor{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0 text-gray-800">
+                    <i class="fas fa-terminal"></i> Consola del Servidor
+                </h1>
+                <div>
+                    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Volver al Panel
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Logs del Servidor en Tiempo Real</h6>
+                    <div>
+                        <button id="pauseBtn" class="btn btn-sm btn-warning">
+                            <i class="fas fa-pause"></i> Pausar
+                        </button>
+                        <button id="clearBtn" class="btn btn-sm btn-danger">
+                            <i class="fas fa-trash"></i> Limpiar
+                        </button>
+                        <span class="badge badge-success" id="statusBadge">Conectado</span>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div id="console" class="console-container">
+                        <div class="console-content" id="consoleContent">
+                            <div class="log-entry info">
+                                <span class="timestamp">[{{ datetime.now().strftime('%Y-%m-%d %H:%M:%S') }}]</span>
+                                <span class="source">[ADMIN]</span>
+                                <span class="level">INFO</span>
+                                <span class="message">Consola iniciada - Conectando al servidor...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle"></i>
+                                Los logs se actualizan automáticamente cada 2 segundos
+                            </small>
+                        </div>
+                        <div class="col-md-6 text-right">
+                            <small class="text-muted">
+                                Última actualización: <span id="lastUpdate">--</span>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.console-container {
+    height: 500px;
+    background-color: #1a1a1a;
+    color: #00ff00;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    overflow-y: auto;
+    border: 1px solid #333;
+}
+
+.console-content {
+    padding: 15px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.log-entry {
+    margin-bottom: 5px;
+    line-height: 1.4;
+}
+
+.log-entry.info {
+    color: #00ff00;
+}
+
+.log-entry.warning {
+    color: #ffaa00;
+}
+
+.log-entry.error {
+    color: #ff4444;
+}
+
+.log-entry.debug {
+    color: #888888;
+}
+
+.timestamp {
+    color: #888888;
+    margin-right: 10px;
+}
+
+.source {
+    color: #00aaff;
+    margin-right: 10px;
+    min-width: 80px;
+    display: inline-block;
+    font-weight: bold;
+}
+
+.level {
+    font-weight: bold;
+    margin-right: 10px;
+    min-width: 60px;
+    display: inline-block;
+}
+
+.message {
+    color: inherit;
+}
+
+.text-gray-800 {
+    color: #5a5c69 !important;
+}
+
+/* Scrollbar personalizado para la consola */
+.console-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.console-container::-webkit-scrollbar-track {
+    background: #2a2a2a;
+}
+
+.console-container::-webkit-scrollbar-thumb {
+    background: #555;
+    border-radius: 4px;
+}
+
+.console-container::-webkit-scrollbar-thumb:hover {
+    background: #777;
+}
+</style>
+
+<script>
+let isPaused = false;
+let consoleInterval;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const consoleContent = document.getElementById('consoleContent');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const statusBadge = document.getElementById('statusBadge');
+    const lastUpdate = document.getElementById('lastUpdate');
+    
+    // Función para agregar log
+    function addLog(timestamp, level, message, source = 'SYSTEM') {
+        const logEntry = document.createElement('div');
+        logEntry.className = `log-entry ${level.toLowerCase()}`;
+        logEntry.innerHTML = `
+            <span class="timestamp">[${timestamp}]</span>
+            <span class="source">[${source}]</span>
+            <span class="level">${level}</span>
+            <span class="message">${message}</span>
+        `;
+        consoleContent.appendChild(logEntry);
+        
+        // Auto-scroll al final
+        if (!isPaused) {
+            consoleContent.scrollTop = consoleContent.scrollHeight;
+        }
+        
+        // Limitar número de logs (mantener últimos 1000)
+        const logs = consoleContent.children;
+        if (logs.length > 1000) {
+            consoleContent.removeChild(logs[0]);
+        }
+    }
+    
+    // Función para obtener logs del servidor
+    async function fetchLogs() {
+        if (isPaused) return;
+        
+        try {
+            const response = await fetch('/admin/console_logs');
+            const data = await response.json();
+            
+            if (data.success) {
+                displayLogs(data.logs || []);
+                updateStatus('Conectado', 'success');
+                updateLastUpdate();
+            } else {
+                displayError(data.error || 'Error desconocido');
+                updateStatus('Error', 'danger');
+            }
+        } catch (error) {
+            console.error('Error fetching logs:', error);
+            displayError('Error al obtener los logs del servidor');
+            updateStatus('Desconectado', 'danger');
+        }
+    }
+    
+    // Función para mostrar errores
+    function displayError(message) {
+        const logContainer = document.getElementById('logContainer');
+        const errorEntry = document.createElement('div');
+        errorEntry.className = 'log-entry';
+        errorEntry.innerHTML = `
+            <span class="timestamp">[${new Date().toLocaleTimeString()}]</span>
+            <span class="level error">ERROR</span>
+            <span class="message">${message}</span>
+        `;
+        logContainer.appendChild(errorEntry);
+        
+        updateStatus('Error', 'danger');
+    }
+    
+    // Función para actualizar el estado
+    function updateStatus(status, type) {
+        const statusBadge = document.getElementById('statusBadge');
+        statusBadge.textContent = status;
+        statusBadge.className = `badge badge-${type}`;
+    }
+    
+    // Función para actualizar la última actualización
+    function updateLastUpdate() {
+        const lastUpdate = document.getElementById('lastUpdate');
+        lastUpdate.textContent = new Date().toLocaleTimeString();
+    }
+    
+    // Función para mostrar logs en la consola
+    function displayLogs(logs) {
+        if (isPaused) return;
+        
+        // Solo agregar nuevos logs, no limpiar todo
+        logs.forEach(log => {
+            // Verificar si el log ya existe para evitar duplicados
+            const existingLogs = consoleContent.querySelectorAll('.log-entry');
+            const logExists = Array.from(existingLogs).some(entry => {
+                const timestamp = entry.querySelector('.timestamp').textContent;
+                const message = entry.querySelector('.message').textContent;
+                return timestamp.includes(log.timestamp) && message === log.message;
+            });
+            
+            if (!logExists) {
+                addLog(log.timestamp, log.level, log.message, log.source || 'SYSTEM');
+            }
+        });
+        
+        // Auto-scroll al final
+        if (!isPaused) {
+            consoleContent.scrollTop = consoleContent.scrollHeight;
+        }
+        
+        updateStatus('Conectado', 'success');
+        updateLastUpdate();
+    }
+    
+    // Botón pausar/reanudar
+    pauseBtn.addEventListener('click', function() {
+        isPaused = !isPaused;
+        if (isPaused) {
+            pauseBtn.innerHTML = '<i class="fas fa-play"></i> Reanudar';
+            pauseBtn.className = 'btn btn-sm btn-success';
+            clearInterval(consoleInterval);
+            statusBadge.textContent = 'Pausado';
+            statusBadge.className = 'badge badge-warning';
+        } else {
+            pauseBtn.innerHTML = '<i class="fas fa-pause"></i> Pausar';
+            pauseBtn.className = 'btn btn-sm btn-warning';
+            startConsole();
+        }
+    });
+    
+    // Botón limpiar
+    clearBtn.addEventListener('click', function() {
+        consoleContent.innerHTML = '';
+        addLog(new Date().toLocaleString(), 'INFO', 'Consola limpiada');
+    });
+    
+    // Función para iniciar la consola
+    function startConsole() {
+        fetchLogs(); // Obtener logs inmediatamente
+        consoleInterval = setInterval(fetchLogs, 2000); // Cada 2 segundos
+    }
+    
+    // Iniciar la consola
+    startConsole();
+    
+    // Limpiar interval al salir de la página
+    window.addEventListener('beforeunload', function() {
+        if (consoleInterval) {
+            clearInterval(consoleInterval);
+        }
+    });
+    
+    // Simular algunos logs iniciales
+    setTimeout(() => {
+        addLog(new Date().toLocaleString(), 'INFO', 'Servidor Flask iniciado en puerto 5000');
+        addLog(new Date().toLocaleString(), 'INFO', 'Base de datos PostgreSQL conectada');
+        addLog(new Date().toLocaleString(), 'INFO', 'Sistema de autenticación activo');
+    }, 1000);
+});
+</script>
+{% endblock %}

@@ -1,20 +1,26 @@
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from config_manager import get_config
+import os
+from dotenv import load_dotenv
+
+# Cargar variables de entorno
+load_dotenv()
+
+# Configuración de base de datos
+DB_CONFIG = {
+    'host': os.getenv('DB_HOST', 'localhost'),
+    'database': os.getenv('DB_NAME', 'armind_db'),
+    'user': os.getenv('DB_USER', 'postgres'),
+    'password': os.getenv('DB_PASSWORD', ''),
+    'port': int(os.getenv('DB_PORT', 5432))
+}
 
 def check_users():
     """Verificar usuarios en la base de datos"""
     try:
-        # Usar configuración centralizada
-        config = get_config()
-        db_config = config.DATABASE_CONFIG
-        
+        # Conectar usando configuración directa
         conn = psycopg2.connect(
-            host=db_config['host'],
-            database=db_config['database'],
-            user=db_config['user'],
-            password=db_config['password'],
-            port=db_config['port'],
+            **DB_CONFIG,
             cursor_factory=RealDictCursor
         )
         

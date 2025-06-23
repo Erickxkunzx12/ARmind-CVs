@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+
+{% block title %}Iniciar Sesión - ARMind CVs{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-5 col-md-7">
+            <div class="card shadow-lg">
+                <div class="card-header bg-primary text-white text-center py-4">
+                    <h2 class="mb-0">
+                        <i class="fas fa-sign-in-alt me-2"></i>Iniciar Sesión
+                    </h2>
+                    <p class="mb-0 mt-2">Accede a tu cuenta</p>
+                </div>
+                
+                <div class="card-body p-5">
+                    <form method="POST" id="loginForm">
+                        <div class="mb-4">
+                            <label for="username" class="form-label">
+                                <i class="fas fa-user me-2"></i>Nombre de Usuario
+                            </label>
+                            <input type="text" 
+                                   class="form-control form-control-lg" 
+                                   id="username" 
+                                   name="username" 
+                                   required 
+                                   placeholder="Tu nombre de usuario"
+                                   autocomplete="username">
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="password" class="form-label">
+                                <i class="fas fa-lock me-2"></i>Contraseña
+                            </label>
+                            <div class="input-group">
+                                <input type="password" 
+                                       class="form-control form-control-lg" 
+                                       id="password" 
+                                       name="password" 
+                                       required 
+                                       placeholder="Tu contraseña"
+                                       autocomplete="current-password">
+                                <button class="btn btn-outline-secondary" 
+                                        type="button" 
+                                        id="togglePassword">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <div class="row">
+                                <div class="col">
+                                    <div class="form-check">
+                                        <input class="form-check-input" 
+                                               type="checkbox" 
+                                               id="rememberMe" 
+                                               name="rememberMe">
+                                        <label class="form-check-label" for="rememberMe">
+                                            Recordarme
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col text-end">
+                                    <a href="#" class="text-primary text-decoration-none" data-bs-toggle="modal" data-bs-target="#forgotPasswordModal">
+                                        ¿Olvidaste tu contraseña?
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <span class="spinner-border spinner-border-sm me-2 d-none" id="loadingSpinner"></span>
+                                <i class="fas fa-sign-in-alt me-2"></i>Iniciar Sesión
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <hr class="my-4">
+                    
+                    <div class="text-center">
+                        <p class="mb-0">¿No tienes una cuenta?</p>
+                        <a href="{{ url_for('register') }}" class="btn btn-outline-primary mt-2">
+                            <i class="fas fa-user-plus me-2"></i>Crear Cuenta Gratis
+                        </a>
+                    </div>
+                    
+                    <div class="text-center mt-3">
+                        <p class="mb-2 text-muted">¿No has verificado tu email?</p>
+                        <button type="button" class="btn btn-outline-warning btn-sm" data-bs-toggle="modal" data-bs-target="#resendModal">
+                            <i class="fas fa-envelope me-2"></i>Reenviar Verificación
+                        </button>
+                    </div>
+                    
+                    {% if unverified_email %}
+                    <div class="alert alert-warning mt-3" role="alert">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Cuenta no verificada:</strong> Por favor, verifica tu correo electrónico antes de iniciar sesión.
+                        <button type="button" class="btn btn-sm btn-warning mt-2" data-bs-toggle="modal" data-bs-target="#resendModal">
+                            <i class="fas fa-paper-plane me-1"></i>Reenviar correo de verificación
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Quick Access Section -->
+            <div class="row mt-5">
+                <div class="col-12">
+                    <div class="card bg-light">
+                        <div class="card-body text-center py-4">
+                            <h5 class="card-title">Acceso Rápido</h5>
+                            <p class="card-text text-muted mb-3">
+                                Una vez que inicies sesión, podrás acceder a:
+                            </p>
+                            <div class="row">
+                                <div class="col-4">
+                                    <i class="fas fa-robot text-primary fa-2x mb-2"></i>
+                                    <br>
+                                    <small>Análisis IA</small>
+                                </div>
+                                <div class="col-4">
+                                    <i class="fas fa-file-alt text-primary fa-2x mb-2"></i>
+                                    <br>
+                                    <small>Constructor CV</small>
+                                </div>
+                                <div class="col-4">
+                                    <i class="fas fa-search text-primary fa-2x mb-2"></i>
+                                    <br>
+                                    <small>Buscar Empleos</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para reenviar verificación -->
+<div class="modal fade" id="resendModal" tabindex="-1" aria-labelledby="resendModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="resendModalLabel">
+                    <i class="fas fa-envelope me-2"></i>Reenviar Email de Verificación
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="{{ url_for('resend_verification') }}">
+                <div class="modal-body">
+                    <p>Ingresa tu email para reenviar el enlace de verificación:</p>
+                    <div class="mb-3">
+                        <label for="resendEmail" class="form-label">Correo Electrónico</label>
+                        <input type="email" 
+                               class="form-control" 
+                               id="resendEmail" 
+                               name="email" 
+                               required 
+                               placeholder="tu@email.com"
+                               value="{{ unverified_email if unverified_email else '' }}">
+                    </div>
+                    <div class="alert alert-info" role="alert">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <small>Solo se puede reenviar a cuentas no verificadas.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-paper-plane me-2"></i>Reenviar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Forgot Password Modal -->
+<div class="modal fade" id="forgotPasswordModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-key me-2"></i>Recuperar Contraseña
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="forgotPasswordForm">
+                    <div class="mb-3">
+                        <label for="resetEmail" class="form-label">Correo Electrónico</label>
+                        <input type="email" 
+                               class="form-control" 
+                               id="resetEmail" 
+                               name="resetEmail" 
+                               required 
+                               placeholder="tu@email.com">
+                        <div class="form-text">
+                            Te enviaremos un enlace para restablecer tu contraseña.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-paper-plane me-2"></i>Enviar Enlace
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('loginForm');
+        const password = document.getElementById('password');
+        const togglePassword = document.getElementById('togglePassword');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const forgotPasswordForm = document.getElementById('forgotPasswordForm');
+        
+        // Toggle password visibility
+        togglePassword.addEventListener('click', function() {
+            const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+            password.setAttribute('type', type);
+            this.querySelector('i').classList.toggle('fa-eye');
+            this.querySelector('i').classList.toggle('fa-eye-slash');
+        });
+        
+        // Form submission handling
+        form.addEventListener('submit', function(e) {
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const spinner = document.getElementById('loadingSpinner');
+            
+            // Show loading state
+            submitBtn.disabled = true;
+            spinner.classList.remove('d-none');
+            
+            // Don't prevent default form submission or reset form
+            // Let the form submit naturally to the server
+        });
+        
+        // Forgot password form
+        forgotPasswordForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('resetEmail').value;
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            
+            if (email) {
+                // Show loading state
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Enviando...';
+                
+                // Send request to backend
+                fetch('/forgot_password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: 'resetEmail=' + encodeURIComponent(email)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Show success message
+                        const alertDiv = document.createElement('div');
+                        alertDiv.className = 'alert alert-success alert-dismissible fade show';
+                        alertDiv.innerHTML = `
+                            <i class="fas fa-check-circle me-2"></i>${data.message}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        `;
+                        
+                        // Insert alert before the form
+                        const container = document.querySelector('.container');
+                        container.insertBefore(alertDiv, container.firstChild);
+                        
+                        // Close modal
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('forgotPasswordModal'));
+                        modal.hide();
+                        
+                        // Reset form
+                        this.reset();
+                    } else {
+                        // Show error message
+                        const alertDiv = document.createElement('div');
+                        alertDiv.className = 'alert alert-danger alert-dismissible fade show mt-3';
+                        alertDiv.innerHTML = `
+                            <i class="fas fa-exclamation-triangle me-2"></i>${data.message}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        `;
+                        
+                        // Insert alert in modal
+                        const modalBody = document.querySelector('#forgotPasswordModal .modal-body');
+                        modalBody.insertBefore(alertDiv, modalBody.firstChild);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    // Show error message
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'alert alert-danger alert-dismissible fade show mt-3';
+                    alertDiv.innerHTML = `
+                        <i class="fas fa-exclamation-triangle me-2"></i>Error de conexión. Inténtalo más tarde.
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    `;
+                    
+                    // Insert alert in modal
+                    const modalBody = document.querySelector('#forgotPasswordModal .modal-body');
+                    modalBody.insertBefore(alertDiv, modalBody.firstChild);
+                })
+                .finally(() => {
+                    // Restore button state
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                });
+            }
+        });
+        
+        // Auto-focus on username field
+        document.getElementById('username').focus();
+        
+        // Enter key navigation
+        document.getElementById('username').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('password').focus();
+            }
+        });
+        
+        // Remember me functionality
+        const rememberMe = document.getElementById('rememberMe');
+        const username = document.getElementById('username');
+        
+        // Load remembered username
+        const rememberedUsername = localStorage.getItem('rememberedUsername');
+        if (rememberedUsername) {
+            username.value = rememberedUsername;
+            rememberMe.checked = true;
+        }
+        
+        // Save username if remember me is checked (but don't interfere with form submission)
+        form.addEventListener('submit', function() {
+            if (rememberMe.checked) {
+                localStorage.setItem('rememberedUsername', username.value);
+            } else {
+                localStorage.removeItem('rememberedUsername');
+            }
+        });
+        
+        // Input validation feedback
+        const inputs = form.querySelectorAll('input[required]');
+        inputs.forEach(input => {
+            input.addEventListener('blur', function() {
+                if (this.value.trim() === '') {
+                    this.classList.add('is-invalid');
+                } else {
+                    this.classList.remove('is-invalid');
+                    this.classList.add('is-valid');
+                }
+            });
+            
+            input.addEventListener('input', function() {
+                if (this.classList.contains('is-invalid') && this.value.trim() !== '') {
+                    this.classList.remove('is-invalid');
+                    this.classList.add('is-valid');
+                }
+            });
+        });
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Ctrl + Enter to submit form
+            if (e.ctrlKey && e.key === 'Enter') {
+                form.submit();
+            }
+        });
+    });
+</script>
+{% endblock %}

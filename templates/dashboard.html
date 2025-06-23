@@ -121,6 +121,138 @@
         </div>
     </div>
     
+    <!-- Subscription Plans Section -->
+    {% if user_subscription %}
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body py-4">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h4 class="mb-2">
+                                <i class="fas fa-{% if user_subscription.plan_type == 'free_trial' %}gift{% elif user_subscription.plan_type == 'standard' %}star{% elif user_subscription.plan_type == 'pro' %}crown{% endif %} me-2 text-primary"></i>
+                                Plan {{ subscription_plans[user_subscription.plan_type].name }}
+                            </h4>
+                            <p class="text-muted mb-0">
+                                {% if user_usage %}
+                                Análisis: {{ user_usage.cv_analysis_count }}/{{ subscription_plans[user_subscription.plan_type].limits.cv_analysis }} |
+                CVs creados: {{ user_usage.cv_creation_count }}/{{ subscription_plans[user_subscription.plan_type].limits.cv_creation }}
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-4 text-md-end">
+                            <a href="{{ url_for('subscription.my_subscription') }}" class="btn btn-outline-primary me-2">
+                                <i class="fas fa-cog me-1"></i>Gestionar
+                            </a>
+                            {% if user_subscription.plan_type != 'pro' %}
+                            <a href="{{ url_for('subscription.view_plans') }}" class="btn btn-success">
+                                <i class="fas fa-arrow-up me-1"></i>Mejorar
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- No Subscription - Show Plans -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="alert alert-info border-0 shadow-sm" role="alert">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h4 class="alert-heading mb-2">
+                            <i class="fas fa-info-circle me-2"></i>
+                            ¡Activa tu plan para acceder a todas las funciones!
+                        </h4>
+                        <p class="mb-0">
+                            Elige el plan que mejor se adapte a tus necesidades y comienza a optimizar tu carrera profesional.
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <a href="{{ url_for('subscription.view_plans') }}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-crown me-2"></i>Ver Planes
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Featured Plans Preview -->
+    <div class="row mb-5">
+        <div class="col-12 mb-3">
+            <h3 class="fw-bold text-center">
+                <i class="fas fa-star me-2 text-warning"></i>Planes Disponibles
+            </h3>
+            <p class="text-center text-muted">Elige el plan perfecto para impulsar tu carrera</p>
+        </div>
+        
+        {% for plan_key, plan in subscription_plans.items() %}
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card h-100 border-0 shadow-sm hover-card {% if plan_key == 'pro' %}border-warning{% elif plan_key == 'standard' %}border-primary{% endif %}">
+                {% if plan_key == 'pro' %}
+                <div class="card-header bg-warning text-dark text-center py-3">
+                    <i class="fas fa-crown me-2"></i>
+                    <strong>MÁS POPULAR</strong>
+                </div>
+                {% endif %}
+                <div class="card-body text-center p-4">
+                    <div class="mb-3">
+                        <i class="fas fa-{% if plan_key == 'free_trial' %}gift{% elif plan_key == 'standard' %}star{% elif plan_key == 'pro' %}crown{% endif %} text-{% if plan_key == 'free_trial' %}success{% elif plan_key == 'standard' %}primary{% elif plan_key == 'pro' %}warning{% endif %}" style="font-size: 3rem;"></i>
+                    </div>
+                    <h4 class="fw-bold mb-2">{{ plan.name }}</h4>
+                    <div class="mb-3">
+                        {% if plan.price == 0 %}
+                            <span class="display-6 fw-bold text-success">Gratis</span>
+                            <small class="text-muted d-block">por 7 días</small>
+                        {% else %}
+                            <span class="display-6 fw-bold text-primary">${{ "{:,.0f}".format(plan.price) }}</span>
+                            <small class="text-muted d-block">CLP/mes</small>
+                        {% endif %}
+                    </div>
+                    <p class="text-muted mb-4">{{ plan.description }}</p>
+                    
+                    <ul class="list-unstyled text-start mb-4">
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            {{ plan.limits.cv_analysis }} análisis de CV
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            {{ plan.limits.cv_creation }} creaciones de CV
+                        </li>
+                        {% if plan.features.ai_analysis %}
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            Análisis con IA avanzada
+                        </li>
+                        {% endif %}
+                        {% if plan.features.priority_support %}
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            Soporte prioritario
+                        </li>
+                        {% endif %}
+                    </ul>
+                    
+                    {% if plan_key == 'free_trial' %}
+                        <a href="{{ url_for('subscription.subscribe', plan_type=plan_key) }}" class="btn btn-success btn-lg w-100">
+                            <i class="fas fa-gift me-2"></i>Comenzar Gratis
+                        </a>
+                    {% else %}
+                        <a href="{{ url_for('subscription.payment_options', plan_type=plan_key) }}" class="btn btn-{% if plan_key == 'pro' %}warning{% else %}primary{% endif %} btn-lg w-100">
+                            <i class="fas fa-credit-card me-2"></i>Suscribirse
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
     <!-- Quick Actions -->
     <div class="row mb-5">
         <div class="col-12 mb-3">
@@ -320,8 +452,8 @@
                     <div class="{% if session.user_role == 'admin' %}editable-card{% endif %}">
                         {% if session.user_role == 'admin' %}
                         <div class="card-edit-pencil" onclick="openEditModal('daily_tip_1', 'Consejo del Día', {
-                            icon: '{{ first_tip[2] or "fas fa-lightbulb" }}',
-                            icon_color: 'text-{{ first_tip[3] or "primary" }}',
+                    icon: '{{ first_tip[2] or "fas fa-lightbulb" }}',
+                    icon_color: 'text-{{ first_tip[3] or "primary" }}',
                             title: '{{ first_tip[0] }}',
                             description: '{{ first_tip[1] }}'
                         })">

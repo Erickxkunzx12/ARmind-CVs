@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+
+{% block title %}Mi Suscripción - ARMind CVs{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-5 fw-bold text-primary mb-3">
+                <i class="fas fa-user-circle me-3"></i>
+                Mi Suscripción
+            </h1>
+            <p class="lead text-muted">Gestiona tu plan y revisa tu uso actual</p>
+        </div>
+    </div>
+
+    {% if user_subscription %}
+    <!-- Current Subscription -->
+    <div class="row mb-5">
+        <div class="col-lg-8 mx-auto">
+            <div class="card border-0 shadow-lg">
+                <div class="card-header bg-primary text-white text-center py-4">
+                    <h3 class="mb-2">
+                        <i class="fas fa-{% if user_subscription.plan_type == 'free_trial' %}gift{% elif user_subscription.plan_type == 'standard' %}star{% elif user_subscription.plan_type == 'pro' %}crown{% endif %} me-2"></i>
+                        {{ subscription_plans[user_subscription.plan_type].name }}
+                    </h3>
+                    <p class="mb-0 opacity-75">Plan Activo</p>
+                </div>
+                <div class="card-body py-4">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5 class="fw-bold mb-3">Detalles del Plan</h5>
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <i class="fas fa-calendar-alt text-primary me-2"></i>
+                                    <strong>Inicio:</strong> {{ user_subscription.created_at.strftime('%d/%m/%Y') }}
+                                </li>
+                                {% if user_subscription.expires_at %}
+                                <li class="mb-2">
+                                    <i class="fas fa-calendar-times text-warning me-2"></i>
+                                    <strong>Vence:</strong> {{ user_subscription.expires_at.strftime('%d/%m/%Y') }}
+                                </li>
+                                {% endif %}
+                                <li class="mb-2">
+                                    <i class="fas fa-credit-card text-success me-2"></i>
+                                    <strong>Método de pago:</strong> 
+                                    {% if user_subscription.payment_method == 'free' %}
+                                        Gratuito
+                                    {% elif user_subscription.payment_method == 'webpay' %}
+                                        Webpay
+                                    {% elif user_subscription.payment_method == 'paypal' %}
+                                        PayPal
+                                    {% else %}
+                                        {{ user_subscription.payment_method|title }}
+                                    {% endif %}
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-tag text-info me-2"></i>
+                                    <strong>Precio:</strong> 
+                                    {% if subscription_plans[user_subscription.plan_type].price == 0 %}
+                                        Gratis
+                                    {% else %}
+                                        ${{ "{:,.0f}".format(subscription_plans[user_subscription.plan_type].price) }} CLP/mes
+                                    {% endif %}
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h5 class="fw-bold mb-3">Estado</h5>
+                            <div class="mb-3">
+                                {% if user_subscription.status == 'active' %}
+                                    <span class="badge bg-success fs-6 px-3 py-2">
+                                        <i class="fas fa-check-circle me-1"></i>Activo
+                                    </span>
+                                {% elif user_subscription.status == 'expired' %}
+                                    <span class="badge bg-danger fs-6 px-3 py-2">
+                                        <i class="fas fa-times-circle me-1"></i>Expirado
+                                    </span>
+                                {% elif user_subscription.status == 'cancelled' %}
+                                    <span class="badge bg-warning fs-6 px-3 py-2">
+                                        <i class="fas fa-pause-circle me-1"></i>Cancelado
+                                    </span>
+                                {% endif %}
+                            </div>
+                            
+                            {% if user_subscription.expires_at %}
+                            <div class="progress mb-2" style="height: 8px;">
+                                {% set days_total = (user_subscription.expires_at - user_subscription.created_at).days %}
+                                {% set days_remaining = (user_subscription.expires_at - datetime.now()).days %}
+                                {% set progress_percentage = ((days_total - days_remaining) / days_total * 100) if days_total > 0 else 100 %}
+                                <div class="progress-bar bg-primary" style="width: {{ progress_percentage }}%;"></div>
+                            </div>
+                            <small class="text-muted">
+                                {% if days_remaining > 0 %}
+                                    {{ days_remaining }} días restantes
+                                {% else %}
+                                    Plan expirado
+                                {% endif %}
+                            </small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Usage Statistics -->
+    {% if user_usage %}
+    <div class="row mb-5">
+        <div class="col-12">
+            <h3 class="fw-bold mb-4 text-center">Uso Actual del Plan</h3>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center py-4">
+                    <i class="fas fa-chart-line text-primary mb-3" style="font-size: 3rem;"></i>
+                    <h5 class="fw-bold mb-3">Análisis de CV</h5>
+                    
+                    {% set analysis_limit = subscription_plans[user_subscription.plan_type].limits.cv_analysis %}
+                    {% set analysis_used = user_usage.cv_analysis_count %}
+                    {% set analysis_percentage = (analysis_used / analysis_limit * 100) if analysis_limit > 0 else 0 %}
+                    
+                    <div class="mb-3">
+                        <span class="display-6 fw-bold text-primary">{{ analysis_used }}</span>
+                        <span class="text-muted">/ {{ analysis_limit }}</span>
+                    </div>
+                    
+                    <div class="progress mb-3" style="height: 12px;">
+                        <div class="progress-bar bg-primary" style="width: {{ analysis_percentage }}%"></div>
+                    </div>
+                    
+                    <p class="text-muted mb-0">
+                        {% set remaining = analysis_limit - analysis_used %}
+                        {% if remaining > 0 %}
+                            Te quedan <strong>{{ remaining }}</strong> análisis
+                        {% else %}
+                            Has alcanzado el límite de análisis
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center py-4">
+                    <i class="fas fa-file-alt text-success mb-3" style="font-size: 3rem;"></i>
+                    <h5 class="fw-bold mb-3">Creación de CVs</h5>
+                    
+                    {% set creation_limit = subscription_plans[user_subscription.plan_type].limits.cv_creation %}
+                    {% set creation_used = user_usage.cv_creation_count %}
+                    {% set creation_percentage = (creation_used / creation_limit * 100) if creation_limit > 0 else 0 %}
+                    
+                    <div class="mb-3">
+                        <span class="display-6 fw-bold text-success">{{ creation_used }}</span>
+                        <span class="text-muted">/ {{ creation_limit }}</span>
+                    </div>
+                    
+                    <div class="progress mb-3" style="height: 12px;">
+                        <div class="progress-bar bg-success" style="width: {{ creation_percentage }}%"></div>
+                    </div>
+                    
+                    <p class="text-muted mb-0">
+                        {% set remaining = creation_limit - creation_used %}
+                        {% if remaining > 0 %}
+                            Te quedan <strong>{{ remaining }}</strong> creaciones
+                        {% else %}
+                            Has alcanzado el límite de creaciones
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Plan Features -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h3 class="fw-bold mb-4 text-center">Características de tu Plan</h3>
+        </div>
+        <div class="col-lg-8 mx-auto">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body py-4">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul class="list-unstyled">
+                                <li class="mb-3">
+                                    <i class="fas fa-check text-success me-2"></i>
+                                    <strong>{{ subscription_plans[user_subscription.plan_type].limits.cv_analysis }}</strong> análisis de CV mensuales
+                                </li>
+                                <li class="mb-3">
+                                    <i class="fas fa-check text-success me-2"></i>
+                                    <strong>{{ subscription_plans[user_subscription.plan_type].limits.cv_creation }}</strong> creaciones de CV mensuales
+                                </li>
+                                {% if subscription_plans[user_subscription.plan_type].features.ai_analysis %}
+                                <li class="mb-3">
+                                    <i class="fas fa-check text-success me-2"></i>
+                                    Análisis con IA avanzada
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul class="list-unstyled">
+                                {% if subscription_plans[user_subscription.plan_type].features.cv_templates %}
+                                <li class="mb-3">
+                                    <i class="fas fa-check text-success me-2"></i>
+                                    Plantillas premium de CV
+                                </li>
+                                {% endif %}
+                                {% if subscription_plans[user_subscription.plan_type].features.priority_support %}
+                                <li class="mb-3">
+                                    <i class="fas fa-check text-success me-2"></i>
+                                    Soporte prioritario
+                                </li>
+                                {% endif %}
+                                {% if subscription_plans[user_subscription.plan_type].features.export_formats %}
+                                <li class="mb-3">
+                                    <i class="fas fa-check text-success me-2"></i>
+                                    Múltiples formatos de exportación
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="row mb-4">
+        <div class="col-12 text-center">
+            {% if user_subscription.plan_type != 'pro' %}
+            <a href="{{ url_for('subscription.view_plans') }}" class="btn btn-success btn-lg me-3">
+                <i class="fas fa-arrow-up me-2"></i>Actualizar Plan
+            </a>
+            {% endif %}
+            
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary btn-lg">
+                <i class="fas fa-home me-2"></i>Ir al Dashboard
+            </a>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- No Subscription -->
+    <div class="row">
+        <div class="col-lg-6 mx-auto text-center">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body py-5">
+                    <i class="fas fa-exclamation-triangle text-warning mb-4" style="font-size: 4rem;"></i>
+                    <h3 class="fw-bold mb-3">No tienes una suscripción activa</h3>
+                    <p class="text-muted mb-4">
+                        Para acceder a todas las funciones de ARMind CVs, necesitas activar un plan de suscripción.
+                    </p>
+                    <a href="{{ url_for('subscription.view_plans') }}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-crown me-2"></i>Ver Planes Disponibles
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.card {
+    border-radius: 15px;
+}
+
+.progress {
+    border-radius: 10px;
+}
+
+.badge {
+    border-radius: 10px;
+}
+
+.btn-lg {
+    padding: 12px 30px;
+    border-radius: 10px;
+}
+
+.display-6 {
+    font-size: 2.5rem;
+}
+
+.bg-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+}
+</style>
+{% endblock %}

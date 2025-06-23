@@ -4,17 +4,27 @@ Script para agregar la restricción única compuesta a la tabla site_content
 """
 
 import psycopg2
-from config_manager import ConfigManager
+import os
+from dotenv import load_dotenv
+
+# Cargar variables de entorno
+load_dotenv()
 
 # Initialize configuration manager
-config_manager = ConfigManager()
+# Configuración de base de datos
+DB_CONFIG = {
+    'host': os.getenv('DB_HOST', 'localhost'),
+    'database': os.getenv('DB_NAME', 'armind_db'),
+    'user': os.getenv('DB_USER', 'postgres'),
+    'password': os.getenv('DB_PASSWORD', ''),
+    'port': int(os.getenv('DB_PORT', 5432))
+}
 
 def fix_site_content_constraint():
     """Agregar restricción única compuesta (section, content_key) a site_content"""
     try:
         # Conectar a la base de datos
-        db_config = config_manager.get_database_config()
-        connection = psycopg2.connect(**db_config)
+        connection = psycopg2.connect(**DB_CONFIG)
         cursor = connection.cursor()
         
         print("Conectado a la base de datos...")

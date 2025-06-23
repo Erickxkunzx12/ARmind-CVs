@@ -1,0 +1,1049 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - ARMind CVs{% endblock %}
+
+{% block content %}
+<!-- Estilos para edición directa de cuadros completos -->
+{% if session.user_role == 'admin' %}
+<style>
+.editable-card {
+    position: relative;
+}
+.editable-card:hover {
+    box-shadow: 0 0 15px rgba(0, 123, 255, 0.3) !important;
+    border: 2px solid rgba(0, 123, 255, 0.5) !important;
+}
+.card-edit-pencil {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #007bff;
+    color: white;
+    border-radius: 50%;
+    width: 25px;
+    height: 25px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 12px;
+    z-index: 1000;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+.editable-card:hover .card-edit-pencil {
+    display: flex;
+}
+.card-edit-pencil:hover {
+    background: #0056b3;
+    transform: scale(1.1);
+}
+.editable-section {
+    position: relative;
+}
+.editable-section:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+    border-radius: 8px;
+}
+.section-edit-pencil {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: #28a745;
+    color: white;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    z-index: 1000;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+.editable-section:hover .section-edit-pencil {
+    display: flex;
+}
+.section-edit-pencil:hover {
+    background: #218838;
+    transform: scale(1.1);
+}
+</style>
+{% endif %}
+<div class="container">
+    <!-- Welcome Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-gradient-primary text-white {% if session.user_role == 'admin' %}editable-card{% endif %}">
+                {% if session.user_role == 'admin' %}
+                <div class="card-edit-pencil" onclick="openEditModal('welcome_section', 'Sección de Bienvenida', {
+                    title: '¡Bienvenido, {{ session.username }}!',
+                    subtitle: 'Optimiza tu carrera profesional con nuestras herramientas de IA',
+                    stats_label1: 'CVs Analizados',
+                    stats_label2: 'Empleos Encontrados'
+                })">
+                    <i class="fas fa-pencil-alt"></i>
+                </div>
+                {% endif %}
+                <div class="card-body py-4">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h2 class="mb-2">
+                                <i class="fas fa-tachometer-alt me-2"></i>
+                                ¡Bienvenido, {{ session.username }}!
+                            </h2>
+                            <p class="mb-0 lead">
+                                {% if session.user_role == 'admin' %}
+                                <span class="editable-element" data-type="text" data-section="dashboard" data-key="welcome_subtitle">
+                                    Optimiza tu carrera profesional con nuestras herramientas de IA
+                                    <i class="fas fa-pencil-alt edit-pencil" onclick="editElement(this)"></i>
+                                </span>
+                                {% else %}
+                                Optimiza tu carrera profesional con nuestras herramientas de IA
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-4 text-md-end">
+                            <div class="d-flex justify-content-md-end justify-content-center">
+                                <div class="text-center me-3">
+                                    <h4 class="mb-0">{{ stats.cvs_analyzed or 0 }}</h4>
+                                    <small>CVs Analizados</small>
+                                </div>
+                                <div class="text-center">
+                                    <h4 class="mb-0">{{ stats.jobs_found or 0 }}</h4>
+                                    <small>Empleos Encontrados</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Actions -->
+    <div class="row mb-5">
+        <div class="col-12 mb-3">
+            <h3 class="fw-bold">
+                <i class="fas fa-bolt me-2 text-warning"></i>Acciones Rápidas
+            </h3>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card h-100 border-0 shadow-sm hover-card {% if session.user_role == 'admin' %}editable-card{% endif %}">
+                {% if session.user_role == 'admin' %}
+                <div class="card-edit-pencil" onclick="openEditModal('quick_action_analyze', 'Tarjeta: Analizar CV', {
+                    icon: 'fas fa-robot',
+                    icon_color: 'text-primary',
+                    title: 'Analizar CV',
+                    description: 'Sube tu currículum y obtén un análisis detallado con IA',
+                    button_text: 'Subir CV',
+                    button_icon: 'fas fa-upload'
+                })">
+                    <i class="fas fa-pencil-alt"></i>
+                </div>
+                {% endif %}
+                <div class="card-body text-center p-4">
+                    <div class="feature-icon bg-primary mb-3">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <h5 class="card-title">
+                        Analizar CV
+                    </h5>
+                    <p class="card-text text-muted">
+                        Sube tu currículum y obtén un análisis detallado con IA
+                    </p>
+                    <a href="{{ url_for('analyze_cv') }}" class="btn btn-primary">
+                        <i class="fas fa-upload me-2"></i>Subir CV
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card h-100 border-0 shadow-sm hover-card {% if session.user_role == 'admin' %}editable-card{% endif %}">
+                {% if session.user_role == 'admin' %}
+                <div class="card-edit-pencil" onclick="openEditModal('quick_action_create', 'Tarjeta: Crear CV', {
+                    icon: 'fas fa-file-alt',
+                    icon_color: 'text-success',
+                    title: 'Crear CV',
+                    description: 'Construye un currículum profesional en formato Harvard',
+                    button_text: 'Nuevo CV',
+                    button_icon: 'fas fa-plus'
+                })">
+                    <i class="fas fa-pencil-alt"></i>
+                </div>
+                {% endif %}
+                <div class="card-body text-center p-4">
+                    <div class="feature-icon bg-success mb-3">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                    <h5 class="card-title">
+                        Crear CV
+                    </h5>
+                    <p class="card-text text-muted">
+                        Construye un currículum profesional en formato Harvard
+                    </p>
+                    <a href="{{ url_for('cv_builder') }}" class="btn btn-success">
+                        <i class="fas fa-plus me-2"></i>Nuevo CV
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card h-100 border-0 shadow-sm hover-card {% if session.user_role == 'admin' %}editable-card{% endif %}">
+                {% if session.user_role == 'admin' %}
+                <div class="card-edit-pencil" onclick="openEditModal('quick_action_search', 'Tarjeta: Buscar Empleos', {
+                    icon: 'fas fa-search',
+                    icon_color: 'text-info',
+                    title: 'Buscar Empleos',
+                    description: 'Encuentra oportunidades laborales personalizadas',
+                    button_text: 'Buscar',
+                    button_icon: 'fas fa-search'
+                })">
+                    <i class="fas fa-pencil-alt"></i>
+                </div>
+                {% endif %}
+                <div class="card-body text-center p-4">
+                    <div class="feature-icon bg-info mb-3">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <h5 class="card-title">
+                        Buscar Empleos
+                    </h5>
+                    <p class="card-text text-muted">
+                        Encuentra oportunidades laborales personalizadas
+                    </p>
+                    <a href="{{ url_for('job_search') }}" class="btn btn-info">
+                        <i class="fas fa-search me-2"></i>Buscar
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card h-100 border-0 shadow-sm hover-card {% if session.user_role == 'admin' %}editable-card{% endif %}">
+                {% if session.user_role == 'admin' %}
+                <div class="card-edit-pencil" onclick="openEditModal('quick_action_analyses', 'Tarjeta: Mis Análisis', {
+                    icon: 'fas fa-chart-line',
+                    icon_color: 'text-warning',
+                    title: 'Mis Análisis',
+                    description: 'Revisa tus análisis anteriores y progreso',
+                    button_text: 'Ver Historial',
+                    button_icon: 'fas fa-history'
+                })">
+                    <i class="fas fa-pencil-alt"></i>
+                </div>
+                {% endif %}
+                <div class="card-body text-center p-4">
+                    <div class="feature-icon bg-warning mb-3">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <h5 class="card-title">Mis Análisis</h5>
+                    <p class="card-text text-muted">
+                        Revisa tus análisis anteriores y progreso
+                    </p>
+                    <a href="{{ url_for('my_analyses') }}" class="btn btn-warning">
+                        <i class="fas fa-history me-2"></i>Ver Historial
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+
+    </div>
+    
+    <!-- Recent Activity -->
+    <div class="row mb-5">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-clock me-2"></i>Actividad Reciente
+                    </h5>
+                    <a href="{{ url_for('my_analyses') }}" class="btn btn-sm btn-outline-primary">
+                        Ver Todo
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if recent_activities %}
+                        <div class="timeline">
+                            {% for activity in recent_activities %}
+                            <div class="timeline-item">
+                                <div class="timeline-marker bg-{{ activity.type_color }}"></div>
+                                <div class="timeline-content">
+                                    <h6 class="mb-1">{{ activity.title }}</h6>
+                                    <p class="text-muted mb-1">{{ activity.description }}</p>
+                                    <small class="text-muted">
+                                        <i class="fas fa-calendar me-1"></i>
+                                        {{ activity.created_at.strftime('%d/%m/%Y %H:%M') }}
+                                    </small>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                            <h6 class="text-muted">No hay actividad reciente</h6>
+                            <p class="text-muted">Comienza analizando tu CV o creando uno nuevo</p>
+                            <a href="{{ url_for('analyze_cv') }}" class="btn btn-primary">
+                                <i class="fas fa-rocket me-2"></i>Comenzar Ahora
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <!-- Tips Section -->
+            <div class="card mb-4 {% if session.user_role == 'admin' %}editable-section{% endif %}">
+                {% if session.user_role == 'admin' %}
+                <div class="section-edit-pencil" onclick="openEditModal('tips_section', 'Sección: Consejos del Día', {
+                    section_title: 'Consejos del Día',
+                    section_icon: 'fas fa-lightbulb',
+                    section_icon_color: 'text-warning'
+                })">
+                    <i class="fas fa-pencil-alt"></i>
+                </div>
+                {% endif %}
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-lightbulb me-2 text-warning"></i>Consejos del Día
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if daily_tips %}
+                    {% set first_tip = daily_tips[0] %}
+                    <div class="{% if session.user_role == 'admin' %}editable-card{% endif %}">
+                        {% if session.user_role == 'admin' %}
+                        <div class="card-edit-pencil" onclick="openEditModal('daily_tip_1', 'Consejo del Día', {
+                            icon: '{{ first_tip[2] or "fas fa-lightbulb" }}',
+                            icon_color: 'text-{{ first_tip[3] or "primary" }}',
+                            title: '{{ first_tip[0] }}',
+                            description: '{{ first_tip[1] }}'
+                        })">
+                            <i class="fas fa-pencil-alt"></i>
+                        </div>
+                        {% endif %}
+                        <div class="text-center">
+                            <i class="{{ first_tip[2] or 'fas fa-lightbulb' }} fa-2x text-{{ first_tip[3] or 'primary' }} mb-3"></i>
+                            <h6>
+                                {{ first_tip[0] }}
+                            </h6>
+                            <p class="small text-muted">
+                                {{ first_tip[1] }}
+                            </p>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted">
+                        <i class="fas fa-lightbulb fa-2x mb-3"></i>
+                        <p>No hay consejos disponibles en este momento.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Progress Section -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-trophy me-2 text-warning"></i>Tu Progreso
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small fw-bold">Perfil Completado</span>
+                            <span class="small text-muted">75%</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-primary" style="width: 75%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small fw-bold">CVs Analizados</span>
+                            <span class="small text-muted">{{ stats.cvs_analyzed or 0 }}/5</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-success" style="width: {{ ((stats.cvs_analyzed or 0) / 5 * 100) | round | default(0) }}%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small fw-bold">Búsquedas de Empleo</span>
+                            <span class="small text-muted">{{ stats.job_searches or 0 }}/10</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-info" style="width: {{ ((stats.job_searches or 0) / 10 * 100) | round | default(0) }}%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-star text-warning me-1"></i>
+                            ¡Sigue así para desbloquear nuevas funciones!
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Quick Stats -->
+    <div class="row">
+        <div class="col-12 mb-3">
+            <h3 class="fw-bold">
+                <i class="fas fa-chart-pie me-2 text-info"></i>Estadísticas Rápidas
+            </h3>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card bg-primary text-white shadow-lg border-0" style="box-shadow: 0 10px 30px rgba(0,0,0,0.2) !important; border-radius: 15px !important; border: 3px solid rgba(255,255,255,0.1) !important;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0 fw-bold text-white">{{ stats.avg_score or 0 }}%</h4>
+                            <p class="mb-0 text-white-50">Puntuación Promedio</p>
+                        </div>
+                        <div class="position-relative">
+                            <i class="fas fa-percentage fa-2x opacity-75"></i>
+                            <!-- Porcentaje adicional en cuadrito rojo -->
+                            <div class="position-absolute top-0 start-100 translate-middle">
+                                <span class="badge bg-danger rounded-pill fs-6 fw-bold shadow-lg" style="padding: 8px 12px; font-size: 14px; border: 2px solid #ffffff;">{{ stats.avg_score or 0 }}%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card bg-success text-white shadow-lg border-0" style="box-shadow: 0 10px 30px rgba(0,0,0,0.2) !important; border-radius: 15px !important; border: 3px solid rgba(255,255,255,0.1) !important;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0 fw-bold text-white">{{ stats.cvs_created or 0 }}</h4>
+                            <p class="mb-0 text-white-50">CVs Creados</p>
+                        </div>
+                        <i class="fas fa-file-alt fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card bg-info text-white shadow-lg border-0" style="box-shadow: 0 10px 30px rgba(0,0,0,0.2) !important; border-radius: 15px !important; border: 3px solid rgba(255,255,255,0.1) !important;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0 fw-bold text-white">{{ stats.jobs_applied or 0 }}</h4>
+                            <p class="mb-0 text-white-50">Empleos Aplicados</p>
+                        </div>
+                        <i class="fas fa-briefcase fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card bg-warning text-white shadow-lg border-0" style="box-shadow: 0 10px 30px rgba(0,0,0,0.2) !important; border-radius: 15px !important; border: 3px solid rgba(255,255,255,0.1) !important;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-0 fw-bold text-white">{{ stats.days_active or 0 }}</h4>
+                            <p class="mb-0 text-white-50">Días Activo</p>
+                        </div>
+                        <i class="fas fa-calendar fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de edición para cuadros completos -->
+{% if session.user_role == 'admin' %}
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">Editar Contenido</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editForm">
+                    <input type="hidden" id="editSection" name="section">
+                    <input type="hidden" id="editKey" name="key">
+                    
+                    <!-- Título del cuadro -->
+                    <div class="mb-3" id="titleGroup">
+                        <label for="editTitle" class="form-label">Título</label>
+                        <input type="text" class="form-control" id="editTitle" name="title">
+                    </div>
+                    
+                    <!-- Descripción del cuadro -->
+                    <div class="mb-3" id="descriptionGroup">
+                        <label for="editDescription" class="form-label">Descripción</label>
+                        <textarea class="form-control" id="editDescription" name="description" rows="3"></textarea>
+                    </div>
+                    
+                    <!-- Ícono del cuadro -->
+                    <div class="mb-3" id="iconGroup">
+                        <label for="editIcon" class="form-label">Ícono</label>
+                        <input type="text" class="form-control" id="editIcon" name="icon" placeholder="fas fa-example">
+                        <small class="form-text text-muted">Ejemplo: fas fa-star, fab fa-facebook, fas fa-lightbulb</small>
+                    </div>
+                    
+                    <!-- Color del ícono -->
+                    <div class="mb-3" id="iconColorGroup">
+                        <label for="editIconColor" class="form-label">Color del Ícono</label>
+                        <select class="form-control" id="editIconColor" name="icon_color">
+                            <option value="text-primary">Azul (primary)</option>
+                            <option value="text-success">Verde (success)</option>
+                            <option value="text-warning">Amarillo (warning)</option>
+                            <option value="text-danger">Rojo (danger)</option>
+                            <option value="text-info">Celeste (info)</option>
+                            <option value="text-dark">Negro (dark)</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Texto del botón -->
+                    <div class="mb-3" id="buttonTextGroup" style="display: none;">
+                        <label for="editButtonText" class="form-label">Texto del Botón</label>
+                        <input type="text" class="form-control" id="editButtonText" name="button_text">
+                    </div>
+                    
+                    <!-- Ícono del botón -->
+                    <div class="mb-3" id="buttonIconGroup" style="display: none;">
+                        <label for="editButtonIcon" class="form-label">Ícono del Botón</label>
+                        <input type="text" class="form-control" id="editButtonIcon" name="button_icon" placeholder="fas fa-example">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="saveCardEdit()">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Función para abrir el modal de edición de cuadros
+function openEditModal(cardId, cardTitle, cardData) {
+    // Configurar el título del modal
+    document.getElementById('modalTitle').textContent = 'Editar: ' + cardTitle;
+    
+    // Configurar los campos ocultos
+    document.getElementById('editSection').value = cardId;
+    document.getElementById('editKey').value = 'card_data';
+    
+    // Llenar los campos con los datos actuales
+    if (cardData.title) {
+        document.getElementById('editTitle').value = cardData.title;
+        document.getElementById('titleGroup').style.display = 'block';
+    } else {
+        document.getElementById('titleGroup').style.display = 'none';
+    }
+    
+    if (cardData.description) {
+        document.getElementById('editDescription').value = cardData.description;
+        document.getElementById('descriptionGroup').style.display = 'block';
+    } else {
+        document.getElementById('descriptionGroup').style.display = 'none';
+    }
+    
+    if (cardData.icon) {
+        document.getElementById('editIcon').value = cardData.icon;
+        document.getElementById('iconGroup').style.display = 'block';
+    } else {
+        document.getElementById('iconGroup').style.display = 'none';
+    }
+    
+    if (cardData.icon_color) {
+        document.getElementById('editIconColor').value = cardData.icon_color;
+        document.getElementById('iconColorGroup').style.display = 'block';
+    } else {
+        document.getElementById('iconColorGroup').style.display = 'none';
+    }
+    
+    if (cardData.button_text) {
+        document.getElementById('editButtonText').value = cardData.button_text;
+        document.getElementById('buttonTextGroup').style.display = 'block';
+    } else {
+        document.getElementById('buttonTextGroup').style.display = 'none';
+    }
+    
+    if (cardData.button_icon) {
+        document.getElementById('editButtonIcon').value = cardData.button_icon;
+        document.getElementById('buttonIconGroup').style.display = 'block';
+    } else {
+        document.getElementById('buttonIconGroup').style.display = 'none';
+    }
+    
+    // Mostrar el modal
+    new bootstrap.Modal(document.getElementById('editModal')).show();
+}
+
+// Función para guardar cambios del cuadro
+function saveCardEdit() {
+    const formData = new FormData(document.getElementById('editForm'));
+    const jsonData = {};
+    
+    // Convertir FormData a JSON
+    for (let [key, value] of formData.entries()) {
+        jsonData[key] = value;
+    }
+    
+    fetch('/admin/update_content', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(jsonData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Cerrar modal
+            bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+            
+            // Mostrar mensaje de éxito
+            showSuccessMessage('Contenido actualizado correctamente');
+            
+            // Actualizar contenido dinámicamente si es un consejo del día
+            const elementId = document.getElementById('editForm').querySelector('[name="element_id"]').value;
+            if (elementId && elementId.startsWith('daily_tip_')) {
+                updateTipContent(elementId, jsonData);
+                // Reinicializar el carrusel
+                setTimeout(() => {
+                    const carousel = bootstrap.Carousel.getInstance(document.getElementById('tipsCarousel'));
+                    if (carousel) {
+                        carousel.dispose();
+                        new bootstrap.Carousel(document.getElementById('tipsCarousel'), {
+                            interval: 5000,
+                            wrap: true
+                        });
+                    }
+                }, 500);
+            } else {
+                // Para otros elementos, recargar la página
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            }
+        } else {
+            alert('Error al guardar: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al guardar los cambios');
+    });
+}
+
+// Función para actualizar contenido del consejo del día dinámicamente
+function updateTipContent(elementId, data) {
+    const tipIndex = elementId.split('_')[2];
+    const carouselItems = document.querySelectorAll('#tipsCarousel .carousel-item');
+    const targetItem = carouselItems[tipIndex - 1];
+    
+    if (targetItem) {
+        // Actualizar icono
+        if (data.icon) {
+            const iconElement = targetItem.querySelector('i');
+            if (iconElement) {
+                iconElement.className = data.icon + ' fa-2x mb-3';
+                if (data.icon_color) {
+                    const colorClass = data.icon_color.startsWith('text-') ? data.icon_color : 'text-' + data.icon_color;
+                    iconElement.className += ' ' + colorClass;
+                }
+            }
+        }
+        
+        // Actualizar título
+        if (data.title) {
+            const titleElement = targetItem.querySelector('h6');
+            if (titleElement) {
+                titleElement.textContent = data.title;
+            }
+        }
+        
+        // Actualizar descripción
+        if (data.description) {
+            const descElement = targetItem.querySelector('p.small');
+            if (descElement) {
+                descElement.textContent = data.description;
+            }
+        }
+    }
+}
+
+// Función para mostrar mensaje de éxito
+function showSuccessMessage(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed';
+    alertDiv.style.top = '20px';
+    alertDiv.style.right = '20px';
+    alertDiv.style.zIndex = '9999';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alertDiv);
+    
+    // Auto-remover después de 3 segundos
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.parentNode.removeChild(alertDiv);
+        }
+    }, 3000);
+}
+</script>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .hover-card {
+        transition: all 0.3s ease;
+    }
+    
+    .hover-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.15) !important;
+    }
+    
+    .timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+    
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 15px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #e9ecef;
+    }
+    
+    .timeline-item {
+        position: relative;
+        margin-bottom: 20px;
+    }
+    
+    .timeline-marker {
+        position: absolute;
+        left: -22px;
+        top: 5px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 2px solid #fff;
+        box-shadow: 0 0 0 2px #e9ecef;
+    }
+    
+    .timeline-content {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        border-left: 3px solid var(--bs-primary);
+    }
+    
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, var(--bs-primary), var(--bs-info)) !important;
+    }
+    
+    .opacity-75 {
+        opacity: 0.75;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Auto-rotate tips carousel
+        const tipsCarousel = new bootstrap.Carousel(document.getElementById('tipsCarousel'), {
+            interval: 5000,
+            wrap: true
+        });
+        
+        // Add hover effects to cards
+        const cards = document.querySelectorAll('.hover-card');
+        cards.forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-5px)';
+            });
+            
+            card.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0)';
+            });
+        });
+        
+        // Animate progress bars on scroll
+        const progressBars = document.querySelectorAll('.progress-bar');
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const progressBar = entry.target;
+                    const width = progressBar.style.width;
+                    progressBar.style.width = '0%';
+                    setTimeout(() => {
+                        progressBar.style.transition = 'width 1s ease-in-out';
+                        progressBar.style.width = width;
+                    }, 100);
+                }
+            });
+        });
+        
+        progressBars.forEach(bar => observer.observe(bar));
+        
+        // Add click tracking for analytics
+        document.querySelectorAll('a[href]').forEach(link => {
+            link.addEventListener('click', function() {
+                const action = this.textContent.trim();
+                console.log('User clicked:', action);
+                // Here you could send analytics data
+            });
+        });
+    });
+    
+    // Función para abrir el modal de edición
+    function openEditModal(elementId, title, data) {
+        document.getElementById('editModalLabel').textContent = title;
+        document.getElementById('editElementId').value = elementId;
+        
+        // Llenar los campos del modal con los datos actuales
+        document.getElementById('editTitle').value = data.title || '';
+        document.getElementById('editDescription').value = data.description || '';
+        document.getElementById('editIcon').value = data.icon || '';
+        document.getElementById('editIconColor').value = data.icon_color || '#007bff';
+        document.getElementById('editButtonText').value = data.button_text || '';
+        document.getElementById('editButtonIcon').value = data.button_icon || '';
+        document.getElementById('editSubtitle').value = data.subtitle || '';
+        document.getElementById('editSectionTitle').value = data.section_title || '';
+        document.getElementById('editSectionIcon').value = data.section_icon || '';
+        document.getElementById('editSectionIconColor').value = data.section_icon_color || '';
+        document.getElementById('editStatsLabel1').value = data.stats_label1 || '';
+        document.getElementById('editStatsLabel2').value = data.stats_label2 || '';
+        
+        // Mostrar/ocultar campos según el tipo de elemento
+        const iconFields = document.getElementById('iconFields');
+        const buttonFields = document.getElementById('buttonFields');
+        const subtitleFields = document.getElementById('subtitleFields');
+        const sectionFields = document.getElementById('sectionFields');
+        const statsFields = document.getElementById('statsFields');
+        
+        // Ocultar todos los campos específicos
+        iconFields.style.display = 'none';
+        buttonFields.style.display = 'none';
+        subtitleFields.style.display = 'none';
+        sectionFields.style.display = 'none';
+        statsFields.style.display = 'none';
+        
+        // Mostrar campos relevantes según el tipo
+        if (data.icon) {
+            iconFields.style.display = 'block';
+        }
+        if (data.button_text) {
+            buttonFields.style.display = 'block';
+        }
+        if (data.subtitle) {
+            subtitleFields.style.display = 'block';
+        }
+        if (data.section_title) {
+            sectionFields.style.display = 'block';
+        }
+        if (data.stats_label1 || data.stats_label2) {
+            statsFields.style.display = 'block';
+        }
+        
+        // Mostrar el modal
+        const modal = new bootstrap.Modal(document.getElementById('editModal'));
+        modal.show();
+    }
+    
+    // Función para guardar los cambios
+    function saveCardEdit() {
+        const elementId = document.getElementById('editElementId').value;
+        const title = document.getElementById('editTitle').value;
+        const description = document.getElementById('editDescription').value;
+        const icon = document.getElementById('editIcon').value;
+        const iconColor = document.getElementById('editIconColor').value;
+        const buttonText = document.getElementById('editButtonText').value;
+        const buttonIcon = document.getElementById('editButtonIcon').value;
+        const subtitle = document.getElementById('editSubtitle').value;
+        const sectionTitle = document.getElementById('editSectionTitle').value;
+        const sectionIcon = document.getElementById('editSectionIcon').value;
+        const sectionIconColor = document.getElementById('editSectionIconColor').value;
+        const statsLabel1 = document.getElementById('editStatsLabel1').value;
+        const statsLabel2 = document.getElementById('editStatsLabel2').value;
+        
+        const data = {
+            element_id: elementId,
+            title: title,
+            description: description,
+            icon: icon,
+            icon_color: iconColor,
+            button_text: buttonText,
+            button_icon: buttonIcon,
+            subtitle: subtitle,
+            section_title: sectionTitle,
+            section_icon: sectionIcon,
+            section_icon_color: sectionIconColor,
+            stats_label1: statsLabel1,
+            stats_label2: statsLabel2
+        };
+        
+        fetch('/admin/update_content', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Cerrar el modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('editModal'));
+                modal.hide();
+                
+                // Mostrar mensaje de éxito
+                showSuccessMessage('Contenido actualizado exitosamente');
+                
+                // Recargar la página después de un breve delay
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else {
+                alert('Error al actualizar el contenido: ' + (data.error || 'Error desconocido'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al actualizar el contenido');
+        });
+    }
+    
+    // Función para mostrar mensaje de éxito
+    function showSuccessMessage(message) {
+        const successDiv = document.createElement('div');
+        successDiv.className = 'alert alert-success position-fixed';
+        successDiv.style.top = '20px';
+        successDiv.style.right = '20px';
+        successDiv.style.zIndex = '9999';
+        successDiv.textContent = message;
+        document.body.appendChild(successDiv);
+        
+        setTimeout(() => {
+            document.body.removeChild(successDiv);
+        }, 3000);
+    }
+</script>
+
+<!-- Modal de Edición -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editModalLabel">Editar Contenido</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editElementId" name="element_id">
+                
+                <div class="mb-3">
+                    <label for="editTitle" class="form-label">Título</label>
+                    <input type="text" class="form-control" id="editTitle" name="title">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="editDescription" class="form-label">Descripción</label>
+                    <textarea class="form-control" id="editDescription" name="description" rows="3"></textarea>
+                </div>
+                
+                <div id="subtitleFields" style="display: none;">
+                    <div class="mb-3">
+                        <label for="editSubtitle" class="form-label">Subtítulo</label>
+                        <input type="text" class="form-control" id="editSubtitle" name="subtitle">
+                    </div>
+                </div>
+                
+                <div id="iconFields" style="display: none;">
+                    <div class="mb-3">
+                        <label for="editIcon" class="form-label">Icono (clase CSS)</label>
+                        <input type="text" class="form-control" id="editIcon" name="icon" placeholder="fas fa-robot">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editIconColor" class="form-label">Color del Icono</label>
+                        <input type="color" class="form-control" id="editIconColor" name="icon_color">
+                    </div>
+                </div>
+                
+                <div id="buttonFields" style="display: none;">
+                    <div class="mb-3">
+                        <label for="editButtonText" class="form-label">Texto del Botón</label>
+                        <input type="text" class="form-control" id="editButtonText" name="button_text">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editButtonIcon" class="form-label">Icono del Botón</label>
+                        <input type="text" class="form-control" id="editButtonIcon" name="button_icon" placeholder="fas fa-arrow-right">
+                    </div>
+                </div>
+                
+                <div id="sectionFields" style="display: none;">
+                    <div class="mb-3">
+                        <label for="editSectionTitle" class="form-label">Título de Sección</label>
+                        <input type="text" class="form-control" id="editSectionTitle" name="section_title">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editSectionIcon" class="form-label">Icono de Sección</label>
+                        <input type="text" class="form-control" id="editSectionIcon" name="section_icon" placeholder="fas fa-lightbulb">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editSectionIconColor" class="form-label">Color del Icono de Sección</label>
+                        <input type="text" class="form-control" id="editSectionIconColor" name="section_icon_color" placeholder="text-warning">
+                    </div>
+                </div>
+                
+                <div id="statsFields" style="display: none;">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editStatsLabel1" class="form-label">Etiqueta Estadística 1</label>
+                                <input type="text" class="form-control" id="editStatsLabel1" name="stats_label1">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="editStatsLabel2" class="form-label">Etiqueta Estadística 2</label>
+                                <input type="text" class="form-control" id="editStatsLabel2" name="stats_label2">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="saveCardEdit()">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

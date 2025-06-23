@@ -2,72 +2,78 @@
 # -*- coding: utf-8 -*-
 
 import psycopg2
-from psycopg2.extras import RealDictCursor
-from config_manager import ConfigManager
-
-# Initialize configuration manager
-config_manager = ConfigManager()
+import os
 from dotenv import load_dotenv
 
 # Cargar variables de entorno
 load_dotenv()
 
-def check_users_table():
-    """Verificar la estructura de la tabla users"""
+def check_resumes_table():
+    """Verificar estructura de la tabla resumes"""
     try:
-        # Conectar a la base de datos PostgreSQL
-        print("Conectando a la base de datos PostgreSQL...")
-        db_config = config_manager.get_database_config()
-        conn = psycopg2.connect(**db_config)
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        conn = psycopg2.connect(
+            host=os.getenv('DB_HOST'),
+            database=os.getenv('DB_NAME'),
+            user=os.getenv('DB_USER'),
+            password=os.getenv('DB_PASSWORD'),
+            port=os.getenv('DB_PORT')
+        )
         
-        # Verificar si la tabla users existe
-        cursor.execute("""
-            SELECT column_name, data_type, is_nullable
+        cur = conn.cursor()
+        
+        print("=" * 60)
+        print("    VERIFICANDO TABLA RESUMES")
+        print("=" * 60)
+        
+        # Verificar columnas de la tabla resumes
+        cur.execute("""
+            SELECT column_name, data_type, is_nullable 
             FROM information_schema.columns 
-            WHERE table_name = 'users' AND table_schema = 'public'
-            ORDER BY ordinal_position
+            WHERE table_name = 'resumes' AND table_schema = 'public'
+            ORDER BY ordinal_position;
         """)
         
-        columns = cursor.fetchall()
-        
+        columns = cur.fetchall()
         if columns:
-            print("\n✅ Estructura de la tabla 'users':")
+            print("\n✅ Columnas en tabla 'resumes':")
             print("-" * 50)
             for col in columns:
-                print(f"  {col['column_name']:<20} {col['data_type']:<15} {'NULL' if col['is_nullable'] == 'YES' else 'NOT NULL'}")
+                print(f"  {col[0]:<20} {col[1]:<20} {col[2]}")
         else:
-            print("❌ La tabla 'users' no existe o no tiene columnas.")
+            print("❌ No se encontraron columnas en la tabla 'resumes'")
         
-        # Verificar todas las tablas existentes
-        cursor.execute("""
+        # Verificar todas las tablas que contienen 'resume' o 'cv'
+        cur.execute("""
             SELECT table_name 
             FROM information_schema.tables 
-            WHERE table_schema = 'public'
-            ORDER BY table_name
+            WHERE table_schema = 'public' 
+            AND (table_name LIKE '%resume%' OR table_name LIKE '%cv%')
+            ORDER BY table_name;
         """)
         
-        tables = cursor.fetchall()
-        print("\n📋 Tablas existentes en la base de datos:")
+        print("\n📋 Tablas relacionadas con CV/Resume:")
         print("-" * 40)
+        tables = cur.fetchall()
         for table in tables:
-            print(f"  - {table['table_name']}")
+            print(f"  - {table[0]}")
+            
+            # Mostrar columnas de cada tabla relacionada
+            cur.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = %s AND table_schema = 'public'
+                ORDER BY ordinal_position;
+            """, (table[0],))
+            
+            table_columns = cur.fetchall()
+            for tcol in table_columns:
+                print(f"    * {tcol[0]}")
+            print()
         
         conn.close()
-        return True
         
-    except psycopg2.Error as e:
-        print(f"Error de PostgreSQL: {e}")
-        return False
     except Exception as e:
-        print(f"Error general: {e}")
-        return False
+        print(f"❌ Error: {e}")
 
-if __name__ == '__main__':
-    print("=" * 60)
-    print("    VERIFICADOR DE ESTRUCTURA DE TABLA - ARMIND")
-    print("=" * 60)
-    print()
-    
-    check_users_table()
-    print("\n" + "=" * 60)
+if __name__ == "__main__":
+    check_resumes_table()

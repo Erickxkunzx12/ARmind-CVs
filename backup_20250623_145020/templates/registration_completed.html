@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}Registro Completado - ARMind CVs{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-6 col-md-8">
+            <div class="card shadow-lg">
+                <div class="card-header bg-success text-white text-center py-4">
+                    <h2 class="mb-0">
+                        <i class="fas fa-check-circle me-2"></i>¡Registro Completado!
+                    </h2>
+                </div>
+                
+                <div class="card-body p-5 text-center">
+                    <div class="mb-4">
+                        <i class="fas fa-user-check text-success" style="font-size: 4rem;"></i>
+                    </div>
+                    
+                    <h3 class="mb-4 text-success">¡Bienvenido a ARMind CVs!</h3>
+                    
+                    <div class="alert alert-success" role="alert">
+                        <i class="fas fa-thumbs-up me-2"></i>
+                        <strong>Tu cuenta ha sido verificada exitosamente.</strong>
+                    </div>
+                    
+                    <p class="mb-4">Tu dirección de correo electrónico ha sido confirmada y tu cuenta está ahora activa. Ya puedes acceder a todas las funcionalidades de nuestra plataforma.</p>
+                    
+                    <div class="mb-4">
+                        <h5>¿Qué puedes hacer ahora?</h5>
+                        <div class="row mt-3">
+                            <div class="col-md-6 mb-3">
+                                <div class="feature-box">
+                                    <i class="fas fa-file-upload text-primary mb-2" style="font-size: 2rem;"></i>
+                                    <h6>Subir CVs</h6>
+                                    <p class="small text-muted">Analiza currículums con IA</p>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="feature-box">
+                                    <i class="fas fa-chart-bar text-info mb-2" style="font-size: 2rem;"></i>
+                                    <h6>Ver Análisis</h6>
+                                    <p class="small text-muted">Obtén insights detallados</p>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="feature-box">
+                                    <i class="fas fa-download text-warning mb-2" style="font-size: 2rem;"></i>
+                                    <h6>Descargar Reportes</h6>
+                                    <p class="small text-muted">Exporta en PDF</p>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="feature-box">
+                                    <i class="fas fa-history text-secondary mb-2" style="font-size: 2rem;"></i>
+                                    <h6>Historial</h6>
+                                    <p class="small text-muted">Revisa análisis anteriores</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <a href="{{ url_for('login') }}" class="btn btn-success btn-lg me-2">
+                            <i class="fas fa-sign-in-alt me-2"></i>Iniciar Sesión
+                        </a>
+                        <a href="{{ url_for('index') }}" class="btn btn-outline-primary">
+                            <i class="fas fa-home me-2"></i>Ir al Inicio
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="card-footer text-center bg-light">
+                    <small class="text-muted">
+                        <i class="fas fa-shield-alt me-1"></i>
+                        Tu cuenta está protegida y verificada.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card {
+    border: none;
+    border-radius: 15px;
+    animation: slideInUp 0.6s ease-out;
+}
+
+.card-header {
+    border-radius: 15px 15px 0 0 !important;
+}
+
+.card-footer {
+    border-radius: 0 0 15px 15px !important;
+}
+
+.alert {
+    border-radius: 10px;
+}
+
+.btn {
+    border-radius: 25px;
+    padding: 12px 30px;
+    font-weight: 500;
+}
+
+.feature-box {
+    padding: 20px;
+    border-radius: 10px;
+    background: #f8f9fa;
+    height: 100%;
+    transition: transform 0.3s ease;
+}
+
+.feature-box:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.text-success {
+    color: #28a745 !important;
+}
+
+.bg-success {
+    background: linear-gradient(135deg, #28a745, #20c997) !important;
+}
+</style>
+{% endblock %}

@@ -6,15 +6,18 @@ import requests
 # Cargar variables de entorno
 load_dotenv()
 
+# Configuración de base de datos
+DB_CONFIG = {
+    'host': os.getenv('DB_HOST', 'localhost'),
+    'database': os.getenv('DB_NAME', 'armind_db'),
+    'user': os.getenv('DB_USER', 'postgres'),
+    'password': os.getenv('DB_PASSWORD', ''),
+    'port': int(os.getenv('DB_PORT', 5432))
+}
+
 def get_db_connection():
     """Obtener conexión a la base de datos"""
-    return psycopg2.connect(
-        host=os.getenv('DB_HOST'),
-        database=os.getenv('DB_NAME'),
-        user=os.getenv('DB_USER'),
-        password=os.getenv('DB_PASSWORD'),
-        port=os.getenv('DB_PORT', 5432)
-    )
+    return psycopg2.connect(**DB_CONFIG)
 
 def test_cv_data_mismatch():
     """Test para verificar el problema de mismatch entre CV ID y user_cv_data"""

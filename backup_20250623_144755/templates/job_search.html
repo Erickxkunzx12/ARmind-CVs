@@ -1,0 +1,1087 @@
+{% extends "base.html" %}
+
+{% block title %}Búsqueda de Empleos - CV Analyzer{% endblock %}
+
+{% block content %}
+<!-- Modal flotante para funcionalidad deshabilitada -->
+<div id="disabledOverlay" class="disabled-overlay">
+    <div class="disabled-modal">
+        <div class="disabled-modal-header">
+            <div class="warning-icon">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <h3>Funcionalidad Temporalmente No Disponible</h3>
+        </div>
+        <div class="disabled-modal-body">
+            <h4>Búsqueda de Empleos</h4>
+            <p>Actualmente no podemos ofrecer la funcionalidad de búsqueda de empleos debido a que <strong>no contamos con las autorizaciones necesarias</strong> de las plataformas de búsqueda de empleo para acceder a sus APIs.</p>
+            
+            <div class="platforms-section">
+                <h6>Plataformas que requieren autorización:</h6>
+                <div class="platforms-badges">
+                    <span class="platform-badge">LinkedIn</span>
+                    <span class="platform-badge">Laborum</span>
+                    <span class="platform-badge">Indeed</span>
+                    <span class="platform-badge">CompuTrabajo</span>
+                    <span class="platform-badge">ChileTrabajo</span>
+                    <span class="platform-badge">Y más...</span>
+                </div>
+            </div>
+            
+            <a href="{{ url_for('dashboard') }}" class="return-btn">
+                <i class="fas fa-arrow-left"></i>
+                <span>VOLVER AL DASHBOARD</span>
+            </a>
+        </div>
+    </div>
+</div>
+
+<style>
+.disabled-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(3px);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.disabled-modal {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    max-width: 600px;
+    width: 90%;
+    margin: 20px;
+    overflow: hidden;
+    transform: scale(0.9);
+    animation: modalSlideIn 0.4s ease-out forwards;
+}
+
+.disabled-modal-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    color: white;
+    padding: 30px 20px;
+    text-align: center;
+    position: relative;
+}
+
+.warning-icon {
+    margin-bottom: 15px;
+}
+
+.warning-icon i {
+    font-size: 3rem;
+    color: #f39c12;
+    animation: pulse 2s infinite;
+}
+
+.disabled-modal-header h3 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.disabled-modal-body {
+    padding: 40px 30px;
+    text-align: center;
+}
+
+.disabled-modal-body h4 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+
+.disabled-modal-body p {
+    color: #5a6c7d;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    margin-bottom: 30px;
+}
+
+.platforms-section {
+    margin-bottom: 35px;
+}
+
+.platforms-section h6 {
+    color: #7f8c8d;
+    margin-bottom: 15px;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.platforms-badges {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+}
+
+.platform-badge {
+    background: #6c757d;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    cursor: default;
+}
+
+.platform-badge:hover {
+    background: #5a6268;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+}
+
+.return-btn {
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    color: white;
+    text-decoration: none;
+    padding: 15px 35px;
+    border-radius: 30px;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(44, 62, 80, 0.3);
+}
+
+.return-btn:hover {
+    background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(44, 62, 80, 0.4);
+    color: white;
+    text-decoration: none;
+}
+
+.return-btn:active {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(44, 62, 80, 0.3);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes modalSlideIn {
+    from {
+        transform: scale(0.8) translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+@media (max-width: 768px) {
+    .disabled-modal {
+        width: 95%;
+        margin: 10px;
+    }
+    
+    .disabled-modal-header {
+        padding: 25px 15px;
+    }
+    
+    .disabled-modal-body {
+        padding: 30px 20px;
+    }
+    
+    .platforms-badges {
+        gap: 6px;
+    }
+    
+    .platform-badge {
+        padding: 6px 12px;
+        font-size: 0.8rem;
+    }
+    
+    .return-btn {
+        padding: 12px 25px;
+        font-size: 0.9rem;
+    }
+}
+</style>
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h4 class="mb-0"><i class="fas fa-search"></i> Buscar Empleos</h4>
+                </div>
+                <div class="card-body">
+                    <form id="jobSearchForm">
+                        <div class="mb-3">
+                            <label class="form-label">Palabra Clave *</label>
+                            <input type="text" class="form-control" id="query" placeholder="Ej: Desarrollador, Marketing, etc." required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Ubicación</label>
+                            <input type="text" class="form-control" id="location" placeholder="Ej: Madrid, Barcelona, etc.">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Portal de Empleo</label>
+                            <select class="form-control" id="source">
+                                <option value="all">Todos los portales</option>
+                                <option value="computrabajo">CompuTrabajo</option>
+                                <option value="indeed">Indeed</option>
+                                <option value="linkedin">LinkedIn</option>
+                            </select>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-info">
+                                <i class="fas fa-search"></i> Buscar Empleos
+                            </button>
+                            <button type="button" class="btn ai-search-btn" id="aiSearchBtn">
+                                <div class="ai-btn-content">
+                                    <i class="fas fa-brain ai-icon"></i>
+                                    <span class="ai-text">Búsqueda Inteligente con IA</span>
+                                    <div class="ai-particles">
+                                        <span class="particle"></span>
+                                        <span class="particle"></span>
+                                        <span class="particle"></span>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <hr>
+                    
+                    <!-- Filtros Avanzados -->
+                    <div class="accordion" id="advancedFilters">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFilters">
+                                    <i class="fas fa-filter me-2"></i> Filtros Avanzados
+                                </button>
+                            </h2>
+                            <div id="collapseFilters" class="accordion-collapse collapse" data-bs-parent="#advancedFilters">
+                                <div class="accordion-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Tipo de Contrato</label>
+                                        <select class="form-control" id="contractType">
+                                            <option value="">Todos</option>
+                                            <option value="tiempo-completo">Tiempo Completo</option>
+                                            <option value="medio-tiempo">Medio Tiempo</option>
+                                            <option value="freelance">Freelance</option>
+                                            <option value="practicas">Prácticas</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Experiencia Requerida</label>
+                                        <select class="form-control" id="experience">
+                                            <option value="">Cualquiera</option>
+                                            <option value="sin-experiencia">Sin experiencia</option>
+                                            <option value="1-2-anos">1-2 años</option>
+                                            <option value="3-5-anos">3-5 años</option>
+                                            <option value="mas-5-anos">Más de 5 años</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Modalidad</label>
+                                        <select class="form-control" id="workMode">
+                                            <option value="">Todas</option>
+                                            <option value="presencial">Presencial</option>
+                                            <option value="remoto">Remoto</option>
+                                            <option value="hibrido">Híbrido</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Rango de Salario</label>
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <input type="number" class="form-control" id="minSalary" placeholder="Mínimo">
+                                            </div>
+                                            <div class="col-6">
+                                                <input type="number" class="form-control" id="maxSalary" placeholder="Máximo">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Salario Esperado</label>
+                                        <input type="range" class="form-range" id="salarySlider" min="0" max="10000" step="100" value="0">
+                                        <div class="d-flex justify-content-between">
+                                            <small>0</small>
+                                            <small id="salarySliderValue">0</small>
+                                            <small>10,000</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+
+                    
+                    <!-- Búsquedas Guardadas -->
+                    <div class="mb-3">
+                        <h6 class="text-muted">Búsquedas Populares</h6>
+                        <div class="d-flex flex-wrap gap-1">
+                            <button type="button" class="btn btn-outline-secondary btn-sm quick-search" data-query="Desarrollador Python">Desarrollador Python</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm quick-search" data-query="Marketing Digital">Marketing Digital</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm quick-search" data-query="Diseñador Gráfico">Diseñador Gráfico</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm quick-search" data-query="Analista de Datos">Analista de Datos</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0"><i class="fas fa-briefcase"></i> Resultados de Búsqueda</h4>
+                    <span id="resultsCount" class="badge bg-light text-dark">0 empleos encontrados</span>
+                </div>
+                <div class="card-body">
+                    <!-- Loading Spinner -->
+                    <div id="loadingSpinner" class="text-center py-5" style="display: none;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Buscando empleos...</span>
+                        </div>
+                        <p class="mt-3 text-muted">Buscando empleos en diferentes portales...</p>
+                    </div>
+                    
+                    <!-- Mensaje inicial -->
+                    <div id="initialMessage" class="text-center py-5 text-muted">
+                        <i class="fas fa-search fa-3x mb-3"></i>
+                        <h5>Busca empleos que se adapten a tu perfil</h5>
+                        <p>Utiliza el formulario de la izquierda para encontrar oportunidades laborales en múltiples portales de empleo.</p>
+                    </div>
+                    
+                    <!-- Resultados -->
+                    <div id="jobResults"></div>
+                    
+                    <!-- Paginación -->
+                    <nav id="pagination" style="display: none;">
+                        <ul class="pagination justify-content-center">
+                            <!-- Páginas se generarán dinámicamente -->
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para detalles del empleo -->
+<div class="modal fade" id="jobDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalles del Empleo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="jobDetailContent">
+                    <!-- Contenido se cargará dinámicamente -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <a href="#" id="applyJobLink" class="btn btn-primary" target="_blank">
+                    <i class="fas fa-external-link-alt"></i> Aplicar al Empleo
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentJobs = [];
+let currentPage = 1;
+let totalPages = 1;
+let totalJobs = 0;
+const jobsPerPage = 10;
+
+// Enviar formulario de búsqueda
+document.getElementById('jobSearchForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    searchJobs(1); // Siempre empezar en la primera página al hacer una nueva búsqueda
+});
+
+// Búsqueda inteligente con IA
+document.getElementById('aiSearchBtn').addEventListener('click', function() {
+    performAISearch();
+});
+
+// Búsquedas rápidas
+document.querySelectorAll('.quick-search').forEach(button => {
+    button.addEventListener('click', function() {
+        document.getElementById('query').value = this.dataset.query;
+        searchJobs(1); // Siempre empezar en la primera página al hacer una nueva búsqueda
+    });
+});
+
+// Manejar el slider de salario
+const salarySlider = document.getElementById('salarySlider');
+const salarySliderValue = document.getElementById('salarySliderValue');
+const minSalaryInput = document.getElementById('minSalary');
+
+// Actualizar el valor mostrado cuando se mueve el slider
+salarySlider.addEventListener('input', function() {
+    const value = this.value;
+    salarySliderValue.textContent = value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    minSalaryInput.value = value; // Sincronizar con el campo de salario mínimo
+});
+
+// Sincronizar el slider cuando se cambia el campo de salario mínimo
+minSalaryInput.addEventListener('input', function() {
+    const value = parseInt(this.value) || 0;
+    if (value <= parseInt(salarySlider.max)) {
+        salarySlider.value = value;
+        salarySliderValue.textContent = value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+});
+
+// Función principal de búsqueda
+function searchJobs(page = 1) {
+    const query = document.getElementById('query').value.trim();
+    const location = document.getElementById('location').value.trim();
+    const source = document.getElementById('source').value;
+    const minSalary = parseInt(document.getElementById('minSalary').value) || 0;
+    const maxSalary = parseInt(document.getElementById('maxSalary').value) || 0;
+    
+    if (!query) {
+        alert('Por favor ingresa una palabra clave para buscar.');
+        return;
+    }
+    
+    // Mostrar spinner
+    document.getElementById('loadingSpinner').style.display = 'block';
+    document.getElementById('initialMessage').style.display = 'none';
+    document.getElementById('jobResults').innerHTML = '';
+    document.getElementById('pagination').style.display = 'none';
+    
+    // Realizar búsqueda
+    fetch('/search_jobs', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            query: query,
+            location: location,
+            source: source,
+            min_salary: minSalary,
+            max_salary: maxSalary,
+            page: page
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('loadingSpinner').style.display = 'none';
+        
+        if (data.jobs && data.jobs.length > 0) {
+            currentJobs = data.jobs;
+            currentPage = data.current_page || 1;
+            totalPages = data.total_pages || 1;
+            totalJobs = data.total_found || data.jobs.length;
+            
+            displayJobs();
+            displayPagination(totalPages, currentPage);
+            updateResultsCount(totalJobs);
+        } else {
+            displayNoResults();
+            updateResultsCount(0);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('loadingSpinner').style.display = 'none';
+        displayError();
+        updateResultsCount(0);
+    });
+}
+
+// Mostrar empleos
+function displayJobs() {
+    const startIndex = (currentPage - 1) * jobsPerPage;
+    const endIndex = startIndex + jobsPerPage;
+    const jobsToShow = currentJobs.slice(startIndex, endIndex);
+    
+    let html = '';
+    
+    jobsToShow.forEach((job, index) => {
+        const globalIndex = startIndex + index;
+        // Usar el score de compatibilidad de IA
+        const score = job.compatibility_score || job.ai_score || job.compatibility || 0;
+        const scoreColor = getScoreColor(score);
+        
+        html += `
+            <div class="job-item border rounded p-3 mb-3 hover-shadow" style="cursor: pointer; border-left: 4px solid ${scoreColor} !important;" onclick="showJobDetail(${globalIndex})">
+                <div class="row align-items-center">
+                    <div class="col-md-2">
+                        <div class="compatibility-section">
+                            <div class="compatibility-label">
+                                <small class="text-muted">${job.compatibility_score ? 'IA Match' : 'Compatibilidad'}</small>
+                                <span class="compatibility-percentage" style="color: ${scoreColor}; font-weight: bold; font-size: 16px;">${Math.round(score)}%</span>
+                            </div>
+                            <div class="progress compatibility-progress" style="height: 8px; margin-top: 5px;">
+                                <div class="progress-bar" role="progressbar" style="width: ${score}%; background-color: ${scoreColor}; transition: width 0.6s ease;" aria-valuenow="${score}" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h5 class="job-title text-primary mb-1">${job.title}</h5>
+                        <p class="job-company text-muted mb-1">
+                            <i class="fas fa-building me-1"></i> ${job.company}
+                        </p>
+                        <p class="job-location text-muted mb-2">
+                            <i class="fas fa-map-marker-alt me-1"></i> ${job.location}
+                        </p>
+                        ${job.description ? `<p class="job-description text-truncate">${job.description}</p>` : ''}
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <span class="badge bg-info mb-2">${job.source}</span>
+                        ${job.compatibility_score ? '<span class="badge bg-success ms-1"><i class="fas fa-brain"></i> IA</span>' : ''}
+                        <br>
+                        <button class="btn btn-outline-primary btn-sm" onclick="event.stopPropagation(); openJobUrl('${job.url}', '${job.source}')">
+                            <i class="fas fa-external-link-alt"></i> Ver Empleo
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    document.getElementById('jobResults').innerHTML = html;
+    
+    // Mostrar paginación si hay más de una página
+    if (currentJobs.length > jobsPerPage) {
+        displayPagination();
+    }
+}
+
+// Obtener color según porcentaje de compatibilidad
+function getCompatibilityColor(percentage) {
+    if (percentage >= 80) return '#28a745'; // Verde
+    if (percentage >= 60) return '#ffc107'; // Amarillo
+    if (percentage >= 40) return '#fd7e14'; // Naranja
+    return '#dc3545'; // Rojo
+}
+
+// Función para obtener color de compatibilidad
+function getCompatibilityColor(compatibility) {
+    if (compatibility >= 80) return '#28a745'; // Verde
+    if (compatibility >= 60) return '#ffc107'; // Amarillo
+    if (compatibility >= 40) return '#fd7e14'; // Naranja
+    return '#dc3545'; // Rojo
+}
+
+// Obtener color según score (para IA y compatibilidad) - Rangos más realistas
+function getScoreColor(score) {
+    if (score >= 75) return '#28a745'; // Verde - Excelente compatibilidad
+    if (score >= 60) return '#20c997'; // Verde claro - Buena compatibilidad
+    if (score >= 45) return '#ffc107'; // Amarillo - Compatibilidad moderada
+    if (score >= 30) return '#fd7e14'; // Naranja - Baja compatibilidad
+    return '#dc3545'; // Rojo - Muy baja compatibilidad
+}
+
+// Mostrar paginación
+function displayPagination(totalPages, currentPage) {
+    let paginationHtml = '';
+    
+    // Botón anterior
+    paginationHtml += `
+        <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changePage(${currentPage - 1}); return false;">
+                <i class="fas fa-chevron-left"></i>
+            </a>
+        </li>
+    `;
+    
+    // Números de página
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+            paginationHtml += `
+                <li class="page-item ${i === currentPage ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="changePage(${i}); return false;">${i}</a>
+                </li>
+            `;
+        } else if (i === currentPage - 3 || i === currentPage + 3) {
+            paginationHtml += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        }
+    }
+    
+    // Botón siguiente
+    paginationHtml += `
+        <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changePage(${currentPage + 1}); return false;">
+                <i class="fas fa-chevron-right"></i>
+            </a>
+        </li>
+    `;
+    
+    document.querySelector('#pagination .pagination').innerHTML = paginationHtml;
+    document.getElementById('pagination').style.display = totalPages > 1 ? 'block' : 'none';
+}
+
+// Cambiar página
+function changePage(page) {
+    // Realizar una nueva búsqueda con la página solicitada
+    searchJobs(page);
+    
+    // Scroll al inicio de los resultados
+    document.getElementById('jobResults').scrollIntoView({ behavior: 'smooth' });
+}
+
+// Mostrar detalles del empleo
+function showJobDetail(index) {
+    const job = currentJobs[index];
+    
+    const detailHtml = `
+        <div class="job-detail">
+            <h4 class="text-primary">${job.title}</h4>
+            <p class="text-muted mb-3">
+                <i class="fas fa-building me-2"></i> ${job.company} |
+                <i class="fas fa-map-marker-alt me-2 ms-3"></i> ${job.location} |
+                <span class="badge bg-info ms-2">${job.source}</span>
+            </p>
+            
+            ${job.description ? `
+                <div class="mb-3">
+                    <h6>Descripción:</h6>
+                    <p>${job.description}</p>
+                </div>
+            ` : ''}
+            
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                Para ver todos los detalles y aplicar a este empleo, haz clic en "Aplicar al Empleo" para ir al sitio web original.
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('jobDetailContent').innerHTML = detailHtml;
+    document.getElementById('applyJobLink').href = job.url;
+    
+    const modal = new bootstrap.Modal(document.getElementById('jobDetailModal'));
+    modal.show();
+}
+
+// Mostrar mensaje de no resultados
+function displayNoResults() {
+    document.getElementById('jobResults').innerHTML = `
+        <div class="text-center py-5 text-muted">
+            <i class="fas fa-search fa-3x mb-3"></i>
+            <h5>No se encontraron empleos</h5>
+            <p>Intenta con diferentes palabras clave o amplía tu búsqueda.</p>
+            <div class="mt-3">
+                <button class="btn btn-outline-primary" onclick="document.getElementById('query').focus()">
+                    <i class="fas fa-search"></i> Buscar de nuevo
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+// Mostrar mensaje de error
+function displayError() {
+    document.getElementById('jobResults').innerHTML = `
+        <div class="text-center py-5">
+            <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+            <h5>Error en la búsqueda</h5>
+            <p class="text-muted">Hubo un problema al buscar empleos. Por favor intenta de nuevo.</p>
+            <div class="mt-3">
+                <button class="btn btn-warning" onclick="searchJobs()">
+                    <i class="fas fa-redo"></i> Reintentar
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+// Actualizar contador de resultados
+function updateResultsCount(count) {
+    document.getElementById('resultsCount').textContent = `${count} empleos encontrados`;
+}
+
+// Agregar estilos CSS dinámicos
+const style = document.createElement('style');
+style.textContent = `
+    .job-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+    
+    .hover-shadow {
+        transition: all 0.3s ease;
+    }
+    
+    .job-title {
+        font-weight: 600;
+    }
+    
+    .compatibility-section {
+        padding: 8px 0;
+    }
+    
+    .compatibility-label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 3px;
+    }
+    
+    .compatibility-percentage {
+        font-size: 16px;
+        font-weight: bold;
+    }
+    
+    .compatibility-progress {
+        height: 8px;
+        background-color: #e9ecef;
+        border-radius: 4px;
+        overflow: hidden;
+        box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+    }
+    
+    .compatibility-progress .progress-bar {
+        border-radius: 4px;
+        transition: width 0.6s ease;
+        position: relative;
+    }
+    
+    .compatibility-progress .progress-bar::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(45deg, rgba(255,255,255,0.2) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.2) 75%, transparent 75%, transparent);
+        background-size: 8px 8px;
+        animation: progress-animation 1s linear infinite;
+    }
+    
+    @keyframes progress-animation {
+        0% { background-position: 0 0; }
+        100% { background-position: 8px 0; }
+    }
+    
+    .job-item:hover .compatibility-progress .progress-bar::after {
+        animation-duration: 0.5s;
+    }
+    
+    .job-description {
+        max-height: 3em;
+        overflow: hidden;
+    }
+    
+    .page-link {
+        color: #0d6efd;
+    }
+    
+    .page-item.active .page-link {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+    }
+    
+    /* Estilos avanzados para el botón de IA */
+    .ai-search-btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 12px;
+        padding: 12px 20px;
+        color: white;
+        font-weight: 600;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+    
+    .ai-search-btn:hover {
+        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+        color: white;
+    }
+    
+    .ai-search-btn:active {
+        transform: translateY(0);
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+    
+    .ai-btn-content {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        position: relative;
+        z-index: 2;
+    }
+    
+    .ai-icon {
+        font-size: 16px;
+        animation: brainPulse 2s ease-in-out infinite;
+    }
+    
+    .ai-text {
+        font-size: 14px;
+        letter-spacing: 0.5px;
+    }
+    
+    .ai-particles {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        pointer-events: none;
+        z-index: 1;
+    }
+    
+    .particle {
+        position: absolute;
+        width: 4px;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.6);
+        border-radius: 50%;
+        animation: particleFloat 3s ease-in-out infinite;
+    }
+    
+    .particle:nth-child(1) {
+        top: 20%;
+        left: 20%;
+        animation-delay: 0s;
+    }
+    
+    .particle:nth-child(2) {
+        top: 60%;
+        right: 25%;
+        animation-delay: 1s;
+    }
+    
+    .particle:nth-child(3) {
+        bottom: 25%;
+        left: 60%;
+        animation-delay: 2s;
+    }
+    
+    @keyframes brainPulse {
+        0%, 100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+        50% {
+            transform: scale(1.1);
+            opacity: 0.8;
+        }
+    }
+    
+    @keyframes particleFloat {
+        0%, 100% {
+            transform: translateY(0) scale(1);
+            opacity: 0.6;
+        }
+        50% {
+            transform: translateY(-10px) scale(1.2);
+            opacity: 1;
+        }
+    }
+    
+    .ai-search-btn:before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: left 0.5s;
+    }
+    
+    .ai-search-btn:hover:before {
+        left: 100%;
+    }
+    
+    .ai-search-btn:disabled {
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: 0 2px 8px rgba(108, 117, 125, 0.3);
+    }
+    
+    .ai-search-btn:disabled:hover {
+        transform: none;
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    }
+`;
+document.head.appendChild(style);
+
+// Función para búsqueda inteligente con IA
+function performAISearch() {
+    const aiSearchBtn = document.getElementById('aiSearchBtn');
+    
+    // Mostrar spinner y deshabilitar botón
+    aiSearchBtn.disabled = true;
+    aiSearchBtn.innerHTML = `
+        <div class="ai-btn-content">
+            <i class="fas fa-brain ai-icon"></i>
+            <span class="ai-text">Buscando con IA...</span>
+            <span class="spinner-border spinner-border-sm ms-2"></span>
+        </div>
+    `;
+    
+    // Mostrar spinner de carga principal
+    document.getElementById('loadingSpinner').style.display = 'block';
+    document.getElementById('initialMessage').style.display = 'none';
+    document.getElementById('jobResults').innerHTML = '';
+    document.getElementById('pagination').style.display = 'none';
+    
+    fetch('/ai_job_search', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Ocultar spinners
+        document.getElementById('loadingSpinner').style.display = 'none';
+        aiSearchBtn.disabled = false;
+        aiSearchBtn.innerHTML = `
+            <div class="ai-btn-content">
+                <i class="fas fa-brain ai-icon"></i>
+                <span class="ai-text">Búsqueda Inteligente con IA</span>
+                <div class="ai-particles">
+                    <span class="particle"></span>
+                    <span class="particle"></span>
+                    <span class="particle"></span>
+                </div>
+            </div>
+        `;
+        
+        if (data.error) {
+            alert('Error: ' + data.error);
+            document.getElementById('initialMessage').style.display = 'block';
+            return;
+        }
+        
+        if (data.jobs && data.jobs.length > 0) {
+            currentJobs = data.jobs;
+            displayJobs(currentJobs);
+            document.getElementById('resultsCount').textContent = `${currentJobs.length} empleos seleccionados por IA`;
+            
+            // Mostrar mensaje especial para búsqueda IA
+            const aiMessage = document.createElement('div');
+            aiMessage.className = 'alert alert-info mb-3';
+            aiMessage.innerHTML = `
+                <i class="fas fa-brain"></i> <strong>Búsqueda Inteligente Completada</strong><br>
+                La IA ha seleccionado estos ${currentJobs.length} empleos basándose en tu perfil y análisis de CV.
+                Los trabajos están ordenados por compatibilidad (mayor a menor).
+            `;
+            document.getElementById('jobResults').insertBefore(aiMessage, document.getElementById('jobResults').firstChild);
+        } else {
+            document.getElementById('jobResults').innerHTML = `
+                <div class="alert alert-warning text-center">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h5>No se encontraron empleos</h5>
+                    <p>La IA no pudo encontrar empleos que coincidan con tu perfil. Intenta actualizar tu CV o realizar una búsqueda manual.</p>
+                </div>
+            `;
+            document.getElementById('resultsCount').textContent = '0 empleos encontrados';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('loadingSpinner').style.display = 'none';
+        aiSearchBtn.disabled = false;
+        aiSearchBtn.innerHTML = `
+            <div class="ai-btn-content">
+                <i class="fas fa-brain ai-icon"></i>
+                <span class="ai-text">Búsqueda Inteligente con IA</span>
+                <div class="ai-particles">
+                    <span class="particle"></span>
+                    <span class="particle"></span>
+                    <span class="particle"></span>
+                </div>
+            </div>
+        `;
+        
+        alert('Error al realizar la búsqueda con IA. Por favor intenta nuevamente.');
+        document.getElementById('initialMessage').style.display = 'block';
+    });
+}
+
+// Función para manejar la apertura de URLs según la plataforma
+function openJobUrl(url, source) {
+    // Verificar si la URL es válida
+    if (!url || url === 'undefined' || url === '#') {
+        alert('Lo sentimos, no se pudo obtener el enlace del trabajo. Por favor intenta con otro empleo.');
+        return;
+    }
+    
+    // Manejar URLs según la plataforma
+    if (source.toLowerCase().includes('computrabajo')) {
+        // Para CompuTrabajo, usar una redirección proxy para evitar el error 403
+        fetch('/proxy_job_url', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                url: url,
+                source: 'computrabajo'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.redirect_url) {
+                window.open(data.redirect_url, '_blank');
+            } else {
+                alert('Lo sentimos, no se pudo acceder a este empleo de CompuTrabajo. Error: ' + (data.error || 'Desconocido'));
+            }
+        })
+        .catch(error => {
+            console.error('Error al acceder al empleo:', error);
+            alert('Error al intentar acceder al empleo. Por favor intenta nuevamente.');
+        });
+    } else if (source.toLowerCase().includes('linkedin')) {
+        // Para LinkedIn, asegurar que la URL sea completa
+        let linkedinUrl = url;
+        if (!linkedinUrl.startsWith('http')) {
+            linkedinUrl = 'https://www.linkedin.com' + (linkedinUrl.startsWith('/') ? '' : '/') + linkedinUrl;
+        }
+        window.open(linkedinUrl, '_blank');
+    } else {
+        // Para otras plataformas, abrir directamente
+        window.open(url, '_blank');
+    }
+}
+
+</script>
+{% endblock %}
