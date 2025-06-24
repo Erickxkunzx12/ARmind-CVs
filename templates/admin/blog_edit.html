@@ -1,0 +1,373 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Post - ARMIND{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-2">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-edit me-2 text-warning"></i>Editar Post
+                    </h1>
+                    <p class="text-muted mb-0">Modifica el contenido del post</p>
+                </div>
+                <a href="{{ url_for('admin_blog') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Volver
+                </a>
+            </div>
+
+            <!-- Información del post -->
+            <div class="card mb-3">
+                <div class="card-body py-2">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <small class="text-muted">
+                                <i class="fas fa-calendar me-1"></i>Creado: {{ post.created_at.strftime('%d/%m/%Y %H:%M') }}
+                            </small>
+                        </div>
+                        <div class="col-md-6 text-md-end">
+                            {% if post.updated_at != post.created_at %}
+                                <small class="text-muted">
+                                    <i class="fas fa-edit me-1"></i>Última edición: {{ post.updated_at.strftime('%d/%m/%Y %H:%M') }}
+                                </small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulario -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-edit me-2"></i>Editar Información del Post
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="blogEditForm">
+                        <!-- Título -->
+                        <div class="mb-4">
+                            <label for="title" class="form-label">
+                                <i class="fas fa-heading me-2"></i>Título del Post
+                                <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" 
+                                   class="form-control form-control-lg" 
+                                   id="title" 
+                                   name="title" 
+                                   value="{{ post.title }}" 
+                                   required 
+                                   maxlength="200">
+                            <div class="form-text">
+                                <i class="fas fa-info-circle me-1"></i>Máximo 200 caracteres. 
+                                <span id="titleCount">{{ post.title|length }}/200</span>
+                            </div>
+                        </div>
+
+                        <!-- Contenido -->
+                        <div class="mb-4">
+                            <label for="content" class="form-label">
+                                <i class="fas fa-align-left me-2"></i>Contenido
+                                <span class="text-danger">*</span>
+                            </label>
+                            <textarea class="form-control" 
+                                      id="content" 
+                                      name="content" 
+                                      rows="10" 
+                                      required>{{ post.content }}</textarea>
+                            <div class="form-text">
+                                <i class="fas fa-info-circle me-1"></i>Puedes usar saltos de línea para separar párrafos.
+                                <span id="contentCount">{{ post.content|length }} caracteres</span>
+                            </div>
+                        </div>
+
+                        <!-- URL de Imagen -->
+                        <div class="mb-4">
+                            <label for="image_url" class="form-label">
+                                <i class="fas fa-image me-2"></i>URL de Imagen (Opcional)
+                            </label>
+                            <input type="url" 
+                                   class="form-control" 
+                                   id="image_url" 
+                                   name="image_url" 
+                                   value="{{ post.image_url or '' }}" 
+                                   placeholder="https://ejemplo.com/imagen.jpg">
+                            <div class="form-text">
+                                <i class="fas fa-info-circle me-1"></i>URL completa de la imagen que acompañará el post.
+                            </div>
+                            
+                            <!-- Vista previa de imagen -->
+                            <div id="imagePreview" class="mt-3" {% if not post.image_url %}style="display: none;"{% endif %}>
+                                <div class="card">
+                                    <div class="card-header py-2">
+                                        <small class="text-muted">
+                                            <i class="fas fa-eye me-1"></i>Vista previa de la imagen
+                                        </small>
+                                    </div>
+                                    <div class="card-body p-2">
+                                        <img id="previewImg" 
+                                             src="{{ post.image_url or '' }}" 
+                                             class="img-fluid rounded" 
+                                             style="max-height: 200px; width: 100%; object-fit: cover;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Estado de Publicación -->
+                        <div class="mb-4">
+                            <label class="form-label">
+                                <i class="fas fa-toggle-on me-2"></i>Estado de Publicación
+                            </label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" 
+                                       type="checkbox" 
+                                       id="is_published" 
+                                       name="is_published" 
+                                       {% if post.is_published %}checked{% endif %}>
+                                <label class="form-check-label" for="is_published">
+                                    <span id="publishLabel">
+                                        {% if post.is_published %}Publicado{% else %}Guardar como borrador{% endif %}
+                                    </span>
+                                </label>
+                            </div>
+                            <div class="form-text">
+                                <i class="fas fa-info-circle me-1"></i>
+                                <span id="publishHelp">
+                                    {% if post.is_published %}
+                                        El post es visible para todos los usuarios.
+                                    {% else %}
+                                        El post se guardará como borrador y no será visible para los usuarios.
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Vista previa del post -->
+                        <div class="mb-4">
+                            <button type="button" class="btn btn-outline-info" onclick="showPreview()">
+                                <i class="fas fa-eye me-2"></i>Vista Previa
+                            </button>
+                        </div>
+
+                        <!-- Botones de acción -->
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-warning">
+                                <i class="fas fa-save me-2"></i>Actualizar Post
+                            </button>
+                            <a href="{{ url_for('admin_blog') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-2"></i>Cancelar
+                            </a>
+                            <button type="button" class="btn btn-outline-danger ms-auto" onclick="confirmDelete()">
+                                <i class="fas fa-trash me-2"></i>Eliminar Post
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de vista previa -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-eye me-2"></i>Vista Previa del Post
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Aquí se mostrará la vista previa -->
+                <div id="previewContent">
+                    <!-- El contenido se generará dinámicamente -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmación para eliminar -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle text-danger me-2"></i>Confirmar Eliminación
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de que deseas eliminar este post?</p>
+                <p><strong>{{ post.title }}</strong></p>
+                <p class="text-danger"><small>Esta acción no se puede deshacer.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Contador de caracteres para título
+document.getElementById('title').addEventListener('input', function() {
+    const count = this.value.length;
+    document.getElementById('titleCount').textContent = `${count}/200`;
+    
+    if (count > 180) {
+        document.getElementById('titleCount').className = 'text-warning';
+    } else if (count > 200) {
+        document.getElementById('titleCount').className = 'text-danger';
+    } else {
+        document.getElementById('titleCount').className = '';
+    }
+});
+
+// Contador de caracteres para contenido
+document.getElementById('content').addEventListener('input', function() {
+    const count = this.value.length;
+    document.getElementById('contentCount').textContent = `${count} caracteres`;
+});
+
+// Vista previa de imagen
+document.getElementById('image_url').addEventListener('input', function() {
+    const url = this.value.trim();
+    const preview = document.getElementById('imagePreview');
+    const img = document.getElementById('previewImg');
+    
+    if (url && isValidUrl(url)) {
+        img.src = url;
+        img.onload = function() {
+            preview.style.display = 'block';
+        };
+        img.onerror = function() {
+            preview.style.display = 'none';
+        };
+    } else {
+        preview.style.display = 'none';
+    }
+});
+
+// Toggle de publicación
+document.getElementById('is_published').addEventListener('change', function() {
+    const label = document.getElementById('publishLabel');
+    const help = document.getElementById('publishHelp');
+    
+    if (this.checked) {
+        label.textContent = 'Publicado';
+        help.innerHTML = '<i class="fas fa-info-circle me-1"></i>El post es visible para todos los usuarios.';
+    } else {
+        label.textContent = 'Guardar como borrador';
+        help.innerHTML = '<i class="fas fa-info-circle me-1"></i>El post se guardará como borrador y no será visible para los usuarios.';
+    }
+});
+
+// Función para validar URL
+function isValidUrl(string) {
+    try {
+        new URL(string);
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
+// Vista previa del post
+function showPreview() {
+    const title = document.getElementById('title').value;
+    const content = document.getElementById('content').value;
+    const imageUrl = document.getElementById('image_url').value;
+    const isPublished = document.getElementById('is_published').checked;
+    
+    if (!title.trim()) {
+        alert('Por favor, ingresa un título para el post.');
+        return;
+    }
+    
+    if (!content.trim()) {
+        alert('Por favor, ingresa contenido para el post.');
+        return;
+    }
+    
+    const currentDate = new Date().toLocaleDateString('es-ES');
+    
+    let previewHtml = `
+        <div class="blog-post-preview">
+            <h3 class="mb-3">${title}</h3>
+            ${imageUrl ? `<img src="${imageUrl}" class="img-fluid rounded mb-3" style="max-height: 300px; width: 100%; object-fit: cover;">` : ''}
+            <div class="mb-3">${content.replace(/\n/g, '<br>')}</div>
+            <div class="d-flex justify-content-between text-muted">
+                <small><i class="fas fa-user me-1"></i>{{ post.author_name or 'Admin' }}</small>
+                <small><i class="fas fa-calendar me-1"></i>${currentDate}</small>
+            </div>
+            <div class="mt-3">
+                <span class="badge ${isPublished ? 'bg-success' : 'bg-warning'}">
+                    <i class="fas ${isPublished ? 'fa-eye' : 'fa-edit'} me-1"></i>
+                    ${isPublished ? 'Publicado' : 'Borrador'}
+                </span>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('previewContent').innerHTML = previewHtml;
+    new bootstrap.Modal(document.getElementById('previewModal')).show();
+}
+
+// Confirmación de eliminación
+function confirmDelete() {
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+    
+    document.getElementById('confirmDeleteBtn').onclick = function() {
+        // Redirigir a la URL de eliminación
+        window.location.href = '{{ url_for("admin_blog_delete", post_id=post.id) }}';
+    };
+}
+
+// Validación del formulario
+document.getElementById('blogEditForm').addEventListener('submit', function(e) {
+    const title = document.getElementById('title').value.trim();
+    const content = document.getElementById('content').value.trim();
+    
+    if (!title) {
+        e.preventDefault();
+        alert('Por favor, ingresa un título para el post.');
+        document.getElementById('title').focus();
+        return;
+    }
+    
+    if (!content) {
+        e.preventDefault();
+        alert('Por favor, ingresa contenido para el post.');
+        document.getElementById('content').focus();
+        return;
+    }
+    
+    if (title.length > 200) {
+        e.preventDefault();
+        alert('El título no puede exceder los 200 caracteres.');
+        document.getElementById('title').focus();
+        return;
+    }
+    
+    // Mostrar indicador de carga
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Actualizando...';
+    submitBtn.disabled = true;
+    
+    // Si llegamos aquí, el formulario es válido
+    // El navegador enviará el formulario automáticamente
+});
+</script>
+{% endblock %}

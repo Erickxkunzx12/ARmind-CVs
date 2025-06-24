@@ -525,63 +525,50 @@
     
     // Funciones para edición de contenido
     function openEditModal(section, title, data) {
-        document.getElementById('editModalTitle').textContent = title;
-        document.getElementById('editSection').value = section;
-        
-        // Llenar campos del modal
-        document.getElementById('editTitle').value = data.title || data.section_title || '';
-        document.getElementById('editDescription').value = data.description || '';
-        document.getElementById('editIcon').value = data.icon || '';
-        document.getElementById('editIconColor').value = data.icon_color || '';
-        document.getElementById('editButtonText').value = data.button_text || '';
-        document.getElementById('editButtonIcon').value = data.button_icon || '';
-        
-        // Mostrar modal
-        const modal = new bootstrap.Modal(document.getElementById('editModal'));
-        modal.show();
-    }
+    document.getElementById('editModalTitle').textContent = title;
+    document.getElementById('editSection').value = section;
+    
+    // Llenar campos del modal
+    document.getElementById('editTitle').value = data.title || data.section_title || '';
+    document.getElementById('editDescription').value = data.description || '';
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('editModal'));
+    modal.show();
+}
     
     function saveCardEdit() {
-        const formData = new FormData();
-        formData.append('element_id', document.getElementById('editSection').value);
-        formData.append('title', document.getElementById('editTitle').value);
-        formData.append('description', document.getElementById('editDescription').value);
-        formData.append('icon', document.getElementById('editIcon').value);
-        formData.append('icon_color', document.getElementById('editIconColor').value);
-        formData.append('button_text', document.getElementById('editButtonText').value);
-        formData.append('button_icon', document.getElementById('editButtonIcon').value);
-        
-        // Convertir FormData a JSON
-        const jsonData = {};
-        for (let [key, value] of formData.entries()) {
-            jsonData[key] = value;
+    const jsonData = {
+        element_id: document.getElementById('editSection').value,
+        title: document.getElementById('editTitle').value,
+        description: document.getElementById('editDescription').value
+    };
+    
+    fetch('/admin/update_content', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(jsonData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSuccessMessage('Contenido actualizado correctamente');
+            // Cerrar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editModal'));
+            modal.hide();
+            // Recargar página para mostrar cambios inmediatamente
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            alert('Error: ' + data.message);
         }
-        
-        fetch('/admin/update_content', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(jsonData)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showSuccessMessage('Contenido actualizado correctamente');
-                // Cerrar modal
-                const modal = bootstrap.Modal.getInstance(document.getElementById('editModal'));
-                modal.hide();
-                // Recargar página para mostrar cambios
-                setTimeout(() => location.reload(), 1000);
-            } else {
-                alert('Error: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error al actualizar el contenido');
-        });
-    }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al actualizar el contenido');
+    });
+}
     
     function showSuccessMessage(message) {
         const successDiv = document.createElement('div');
@@ -616,34 +603,7 @@
                     
                     <div class="mb-3">
                         <label for="editDescription" class="form-label">Descripción</label>
-                        <textarea class="form-control" id="editDescription" name="description" rows="3"></textarea>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="editIcon" class="form-label">Icono (clase CSS)</label>
-                        <input type="text" class="form-control" id="editIcon" name="icon" placeholder="ej: fas fa-lightbulb">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="editIconColor" class="form-label">Color del Icono</label>
-                        <select class="form-control" id="editIconColor" name="color">
-                            <option value="text-primary">Azul</option>
-                            <option value="text-success">Verde</option>
-                            <option value="text-warning">Amarillo</option>
-                            <option value="text-danger">Rojo</option>
-                            <option value="text-info">Cian</option>
-                            <option value="text-secondary">Gris</option>
-                        </select>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="editButtonText" class="form-label">Texto del Botón</label>
-                        <input type="text" class="form-control" id="editButtonText" name="button_text">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="editButtonIcon" class="form-label">Icono del Botón</label>
-                        <input type="text" class="form-control" id="editButtonIcon" name="button_icon" placeholder="ej: fas fa-arrow-right">
+                        <textarea class="form-control" id="editDescription" name="description" rows="5"></textarea>
                     </div>
                 </form>
             </div>

@@ -109,7 +109,7 @@
         
         .main-content {
             min-height: calc(100vh - 120px);
-            padding: 1rem 0;
+            padding: 0.25rem 0;
         }
         
         .card {
@@ -557,6 +557,11 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('my_analyses') }}">Mis Análisis</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('blog_tips') }}">
+                            <i class="fas fa-lightbulb me-1"></i>Tips y Sugerencias
+                        </a>
+                    </li>
                     {% if session.user_role == 'admin' %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('admin_dashboard') }}">
@@ -593,7 +598,7 @@
     </nav>
     
     <!-- Flash Messages -->
-    <div class="container" style="margin-top: 80px; position: relative; z-index: 1050;">
+    <div class="container" style="margin-top: 10px; position: relative; z-index: 1050;">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -680,9 +685,9 @@
             });
         });
         
-        // Auto-hide alerts after 5 seconds
+        // Auto-hide alerts after 5 seconds (except admin controls)
         setTimeout(function() {
-            const alerts = document.querySelectorAll('.alert');
+            const alerts = document.querySelectorAll('.alert:not(.admin-controls .alert)');
             alerts.forEach(function(alert) {
                 const bsAlert = new bootstrap.Alert(alert);
                 bsAlert.close();

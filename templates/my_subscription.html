@@ -22,8 +22,13 @@
             <div class="card border-0 shadow-lg">
                 <div class="card-header bg-primary text-white text-center py-4">
                     <h3 class="mb-2">
+                        {% if current_user.role == 'admin' %}
+                        <i class="fas fa-shield-alt me-2"></i>
+                        Administrador
+                        {% else %}
                         <i class="fas fa-{% if user_subscription.plan_type == 'free_trial' %}gift{% elif user_subscription.plan_type == 'standard' %}star{% elif user_subscription.plan_type == 'pro' %}crown{% endif %} me-2"></i>
                         {{ subscription_plans[user_subscription.plan_type].name }}
+                        {% endif %}
                     </h3>
                     <p class="mb-0 opacity-75">Plan Activo</p>
                 </div>
@@ -58,7 +63,9 @@
                                 <li class="mb-2">
                                     <i class="fas fa-tag text-info me-2"></i>
                                     <strong>Precio:</strong> 
-                                    {% if subscription_plans[user_subscription.plan_type].price == 0 %}
+                                    {% if current_user.role == 'admin' %}
+                                        Acceso administrativo
+                                    {% elif subscription_plans[user_subscription.plan_type].price == 0 %}
                                         Gratis
                                     {% else %}
                                         ${{ "{:,.0f}".format(subscription_plans[user_subscription.plan_type].price) }} CLP/mes
@@ -119,6 +126,20 @@
                     <i class="fas fa-chart-line text-primary mb-3" style="font-size: 3rem;"></i>
                     <h5 class="fw-bold mb-3">Análisis de CV</h5>
                     
+                    {% if current_user.role == 'admin' %}
+                    <div class="mb-3">
+                        <span class="display-6 fw-bold text-primary">{{ user_usage.cv_analysis_count }}</span>
+                        <span class="text-muted">/ ∞</span>
+                    </div>
+                    
+                    <div class="progress mb-3" style="height: 12px;">
+                        <div class="progress-bar bg-success" style="width: 100%"></div>
+                    </div>
+                    
+                    <p class="text-muted mb-0">
+                        <strong>Acceso ilimitado</strong> como administrador
+                    </p>
+                    {% else %}
                     {% set analysis_limit = subscription_plans[user_subscription.plan_type].limits.cv_analysis %}
                     {% set analysis_used = user_usage.cv_analysis_count %}
                     {% set analysis_percentage = (analysis_used / analysis_limit * 100) if analysis_limit > 0 else 0 %}
@@ -140,6 +161,7 @@
                             Has alcanzado el límite de análisis
                         {% endif %}
                     </p>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -150,6 +172,20 @@
                     <i class="fas fa-file-alt text-success mb-3" style="font-size: 3rem;"></i>
                     <h5 class="fw-bold mb-3">Creación de CVs</h5>
                     
+                    {% if current_user.role == 'admin' %}
+                    <div class="mb-3">
+                        <span class="display-6 fw-bold text-success">{{ user_usage.cv_creation_count }}</span>
+                        <span class="text-muted">/ ∞</span>
+                    </div>
+                    
+                    <div class="progress mb-3" style="height: 12px;">
+                        <div class="progress-bar bg-success" style="width: 100%"></div>
+                    </div>
+                    
+                    <p class="text-muted mb-0">
+                        <strong>Acceso ilimitado</strong> como administrador
+                    </p>
+                    {% else %}
                     {% set creation_limit = subscription_plans[user_subscription.plan_type].limits.cv_creation %}
                     {% set creation_used = user_usage.cv_creation_count %}
                     {% set creation_percentage = (creation_used / creation_limit * 100) if creation_limit > 0 else 0 %}
@@ -171,6 +207,7 @@
                             Has alcanzado el límite de creaciones
                         {% endif %}
                     </p>
+                    {% endif %}
                 </div>
             </div>
         </div>

@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+
+{% block title %}Administrar Blog - ARMIND{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-2">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-blog me-2 text-primary"></i>Administrar Blog
+                    </h1>
+                    <p class="text-muted mb-0">Gestiona los posts de tips y sugerencias</p>
+                </div>
+                <a href="{{ url_for('admin_blog_create') }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Nuevo Post
+                </a>
+            </div>
+
+            <!-- Estadísticas rápidas -->
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="mb-0">{{ posts|length }}</h4>
+                                    <p class="mb-0">Total Posts</p>
+                                </div>
+                                <i class="fas fa-file-alt fa-2x opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="mb-0">{{ posts|selectattr('is_published')|list|length }}</h4>
+                                    <p class="mb-0">Publicados</p>
+                                </div>
+                                <i class="fas fa-eye fa-2x opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="mb-0">{{ posts|rejectattr('is_published')|list|length }}</h4>
+                                    <p class="mb-0">Borradores</p>
+                                </div>
+                                <i class="fas fa-edit fa-2x opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="mb-0">{{ posts|selectattr('image_url')|list|length }}</h4>
+                                    <p class="mb-0">Con Imagen</p>
+                                </div>
+                                <i class="fas fa-image fa-2x opacity-75"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lista de Posts -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>Posts del Blog
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if posts %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Título</th>
+                                        <th>Autor</th>
+                                        <th>Estado</th>
+                                        <th>Imagen</th>
+                                        <th>Fecha</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for post in posts %}
+                                    <tr>
+                                        <td>
+                                            <div>
+                                                <strong>{{ post.title }}</strong>
+                                                <br>
+                                                <small class="text-muted">
+                                                    {{ post.content[:100] }}{% if post.content|length > 100 %}...{% endif %}
+                                                </small>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-secondary">
+                                                <i class="fas fa-user me-1"></i>{{ post.author_name or 'Admin' }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% if post.is_published %}
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-eye me-1"></i>Publicado
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-warning">
+                                                    <i class="fas fa-edit me-1"></i>Borrador
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if post.image_url %}
+                                                <span class="badge bg-info">
+                                                    <i class="fas fa-image me-1"></i>Sí
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-light text-dark">
+                                                    <i class="fas fa-times me-1"></i>No
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">
+                                                {{ post.created_at.strftime('%d/%m/%Y %H:%M') }}
+                                                {% if post.updated_at != post.created_at %}
+                                                    <br><em>Editado: {{ post.updated_at.strftime('%d/%m/%Y') }}</em>
+                                                {% endif %}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-outline-info" 
+                                                        onclick="previewPost({{ post.id }}, '{{ post.title }}', `{{ post.content|replace('`', '\\`')|replace('\n', '\\n') }}`, '{{ post.image_url or '' }}', '{{ post.author_name or 'Admin' }}', '{{ post.created_at.strftime('%d/%m/%Y') }}')">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <a href="{{ url_for('admin_blog_edit', post_id=post.id) }}" class="btn btn-outline-warning">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <button class="btn btn-outline-danger" onclick="deletePost({{ post.id }}, '{{ post.title }}')">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                            <h4 class="text-muted">No hay posts creados</h4>
+                            <p class="text-muted mb-4">Comienza creando tu primer post del blog.</p>
+                            <a href="{{ url_for('admin_blog_create') }}" class="btn btn-primary">
+                                <i class="fas fa-plus me-2"></i>Crear Primer Post
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para vista previa -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-eye me-2"></i>Vista Previa
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h4 id="previewTitle" class="mb-3"></h4>
+                <div id="previewImage" class="mb-3" style="display: none;">
+                    <img id="previewImageSrc" class="img-fluid rounded" style="max-height: 300px; width: 100%; object-fit: cover;">
+                </div>
+                <div id="previewContent" class="mb-3"></div>
+                <div class="d-flex justify-content-between text-muted">
+                    <small><i class="fas fa-user me-1"></i><span id="previewAuthor"></span></small>
+                    <small><i class="fas fa-calendar me-1"></i><span id="previewDate"></span></small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmación para eliminar -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle text-danger me-2"></i>Confirmar Eliminación
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de que deseas eliminar el post <strong id="deletePostTitle"></strong>?</p>
+                <p class="text-danger"><small>Esta acción no se puede deshacer.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function previewPost(id, title, content, imageUrl, author, date) {
+    document.getElementById('previewTitle').textContent = title;
+    document.getElementById('previewContent').innerHTML = content.replace(/\n/g, '<br>');
+    document.getElementById('previewAuthor').textContent = author;
+    document.getElementById('previewDate').textContent = date;
+    
+    const imageContainer = document.getElementById('previewImage');
+    const imageSrc = document.getElementById('previewImageSrc');
+    
+    if (imageUrl && imageUrl.trim() !== '') {
+        imageSrc.src = imageUrl;
+        imageContainer.style.display = 'block';
+    } else {
+        imageContainer.style.display = 'none';
+    }
+    
+    new bootstrap.Modal(document.getElementById('previewModal')).show();
+}
+
+function deletePost(postId, title) {
+    document.getElementById('deletePostTitle').textContent = title;
+    
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+    
+    document.getElementById('confirmDeleteBtn').onclick = function() {
+        fetch(`/admin/blog/delete/${postId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Mostrar alerta de éxito
+                showAlert('success', data.message);
+                // Recargar la página después de un breve delay
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                showAlert('error', data.message);
+            }
+            modal.hide();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('error', 'Error eliminando el post');
+            modal.hide();
+        });
+    };
+}
+
+function showAlert(type, message) {
+    const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+    const iconClass = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+    
+    const alertHtml = `
+        <div class="alert ${alertClass} alert-dismissible fade show position-fixed" 
+             style="top: 20px; right: 20px; z-index: 9999; min-width: 300px;">
+            <i class="fas ${iconClass} me-2"></i>${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', alertHtml);
+    
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+        const alert = document.querySelector('.alert');
+        if (alert) {
+            const bsAlert = new bootstrap.Alert(alert);
+            bsAlert.close();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

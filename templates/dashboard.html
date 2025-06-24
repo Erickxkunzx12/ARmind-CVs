@@ -130,13 +130,23 @@
                     <div class="row align-items-center">
                         <div class="col-md-8">
                             <h4 class="mb-2">
+                                {% if current_user.role == 'admin' %}
+                                <i class="fas fa-shield-alt me-2 text-primary"></i>
+                                Administrador
+                                {% else %}
                                 <i class="fas fa-{% if user_subscription.plan_type == 'free_trial' %}gift{% elif user_subscription.plan_type == 'standard' %}star{% elif user_subscription.plan_type == 'pro' %}crown{% endif %} me-2 text-primary"></i>
-                                Plan {{ subscription_plans[user_subscription.plan_type].name }}
+                                {{ subscription_plans[user_subscription.plan_type].name }}
+                                {% endif %}
                             </h4>
                             <p class="text-muted mb-0">
                                 {% if user_usage %}
-                                Análisis: {{ user_usage.cv_analysis_count }}/{{ subscription_plans[user_subscription.plan_type].limits.cv_analysis }} |
-                CVs creados: {{ user_usage.cv_creation_count }}/{{ subscription_plans[user_subscription.plan_type].limits.cv_creation }}
+                                {% if current_user.role == 'admin' %}
+                                    Análisis: {{ user_usage.cv_analysis_count }}/∞ |
+                                    CVs creados: {{ user_usage.cv_creation_count }}/∞
+                                {% elif user_subscription %}
+                                    Análisis: {{ user_usage.cv_analysis_count }}/{{ subscription_plans[user_subscription.plan_type].limits.cv_analysis }} |
+                                    CVs creados: {{ user_usage.cv_creation_count }}/{{ subscription_plans[user_subscription.plan_type].limits.cv_creation }}
+                                {% endif %}
                                 {% endif %}
                             </p>
                         </div>
@@ -144,7 +154,7 @@
                             <a href="{{ url_for('subscription.my_subscription') }}" class="btn btn-outline-primary me-2">
                                 <i class="fas fa-cog me-1"></i>Gestionar
                             </a>
-                            {% if user_subscription.plan_type != 'pro' %}
+                            {% if current_user.role != 'admin' and (not user_subscription or user_subscription.plan_type != 'pro') %}
                             <a href="{{ url_for('subscription.view_plans') }}" class="btn btn-success">
                                 <i class="fas fa-arrow-up me-1"></i>Mejorar
                             </a>
@@ -750,27 +760,10 @@ function saveCardEdit() {
             // Mostrar mensaje de éxito
             showSuccessMessage('Contenido actualizado correctamente');
             
-            // Actualizar contenido dinámicamente si es un consejo del día
-            const elementId = document.getElementById('editForm').querySelector('[name="element_id"]').value;
-            if (elementId && elementId.startsWith('daily_tip_')) {
-                updateTipContent(elementId, jsonData);
-                // Reinicializar el carrusel
-                setTimeout(() => {
-                    const carousel = bootstrap.Carousel.getInstance(document.getElementById('tipsCarousel'));
-                    if (carousel) {
-                        carousel.dispose();
-                        new bootstrap.Carousel(document.getElementById('tipsCarousel'), {
-                            interval: 5000,
-                            wrap: true
-                        });
-                    }
-                }, 500);
-            } else {
-                // Para otros elementos, recargar la página
-                setTimeout(() => {
-                    location.reload();
-                }, 1000);
-            }
+            // Recargar la página para mostrar cambios inmediatamente
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
         } else {
             alert('Error al guardar: ' + data.message);
         }
@@ -956,87 +949,33 @@ function showSuccessMessage(message) {
         document.getElementById('editModalLabel').textContent = title;
         document.getElementById('editElementId').value = elementId;
         
-        // Llenar los campos del modal con los datos actuales
-        document.getElementById('editTitle').value = data.title || '';
-        document.getElementById('editDescription').value = data.description || '';
-        document.getElementById('editIcon').value = data.icon || '';
-        document.getElementById('editIconColor').value = data.icon_color || '#007bff';
-        document.getElementById('editButtonText').value = data.button_text || '';
-        document.getElementById('editButtonIcon').value = data.button_icon || '';
-        document.getElementById('editSubtitle').value = data.subtitle || '';
-        document.getElementById('editSectionTitle').value = data.section_title || '';
-        document.getElementById('editSectionIcon').value = data.section_icon || '';
-        document.getElementById('editSectionIconColor').value = data.section_icon_color || '';
-        document.getElementById('editStatsLabel1').value = data.stats_label1 || '';
-        document.getElementById('editStatsLabel2').value = data.stats_label2 || '';
+        // Limpiar campos
+        document.getElementById('editTitle').value = '';
+        document.getElementById('editDescription').value = '';
         
-        // Mostrar/ocultar campos según el tipo de elemento
-        const iconFields = document.getElementById('iconFields');
-        const buttonFields = document.getElementById('buttonFields');
-        const subtitleFields = document.getElementById('subtitleFields');
-        const sectionFields = document.getElementById('sectionFields');
-        const statsFields = document.getElementById('statsFields');
-        
-        // Ocultar todos los campos específicos
-        iconFields.style.display = 'none';
-        buttonFields.style.display = 'none';
-        subtitleFields.style.display = 'none';
-        sectionFields.style.display = 'none';
-        statsFields.style.display = 'none';
-        
-        // Mostrar campos relevantes según el tipo
-        if (data.icon) {
-            iconFields.style.display = 'block';
+        // Llenar campos con datos existentes
+        if (data.title) {
+            document.getElementById('editTitle').value = data.title;
         }
-        if (data.button_text) {
-            buttonFields.style.display = 'block';
-        }
-        if (data.subtitle) {
-            subtitleFields.style.display = 'block';
-        }
-        if (data.section_title) {
-            sectionFields.style.display = 'block';
-        }
-        if (data.stats_label1 || data.stats_label2) {
-            statsFields.style.display = 'block';
+        if (data.description) {
+            document.getElementById('editDescription').value = data.description;
         }
         
-        // Mostrar el modal
         const modal = new bootstrap.Modal(document.getElementById('editModal'));
         modal.show();
     }
     
     // Función para guardar los cambios
     function saveCardEdit() {
-        const elementId = document.getElementById('editElementId').value;
-        const title = document.getElementById('editTitle').value;
-        const description = document.getElementById('editDescription').value;
-        const icon = document.getElementById('editIcon').value;
-        const iconColor = document.getElementById('editIconColor').value;
-        const buttonText = document.getElementById('editButtonText').value;
-        const buttonIcon = document.getElementById('editButtonIcon').value;
-        const subtitle = document.getElementById('editSubtitle').value;
-        const sectionTitle = document.getElementById('editSectionTitle').value;
-        const sectionIcon = document.getElementById('editSectionIcon').value;
-        const sectionIconColor = document.getElementById('editSectionIconColor').value;
-        const statsLabel1 = document.getElementById('editStatsLabel1').value;
-        const statsLabel2 = document.getElementById('editStatsLabel2').value;
-        
-        const data = {
-            element_id: elementId,
-            title: title,
-            description: description,
-            icon: icon,
-            icon_color: iconColor,
-            button_text: buttonText,
-            button_icon: buttonIcon,
-            subtitle: subtitle,
-            section_title: sectionTitle,
-            section_icon: sectionIcon,
-            section_icon_color: sectionIconColor,
-            stats_label1: statsLabel1,
-            stats_label2: statsLabel2
-        };
+    const elementId = document.getElementById('editElementId').value;
+    const title = document.getElementById('editTitle').value;
+    const description = document.getElementById('editDescription').value;
+    
+    const jsonData = {
+        element_id: elementId,
+        title: title,
+        description: description
+    };
         
         fetch('/admin/update_content', {
             method: 'POST',
@@ -1103,72 +1042,7 @@ function showSuccessMessage(message) {
                 
                 <div class="mb-3">
                     <label for="editDescription" class="form-label">Descripción</label>
-                    <textarea class="form-control" id="editDescription" name="description" rows="3"></textarea>
-                </div>
-                
-                <div id="subtitleFields" style="display: none;">
-                    <div class="mb-3">
-                        <label for="editSubtitle" class="form-label">Subtítulo</label>
-                        <input type="text" class="form-control" id="editSubtitle" name="subtitle">
-                    </div>
-                </div>
-                
-                <div id="iconFields" style="display: none;">
-                    <div class="mb-3">
-                        <label for="editIcon" class="form-label">Icono (clase CSS)</label>
-                        <input type="text" class="form-control" id="editIcon" name="icon" placeholder="fas fa-robot">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="editIconColor" class="form-label">Color del Icono</label>
-                        <input type="color" class="form-control" id="editIconColor" name="icon_color">
-                    </div>
-                </div>
-                
-                <div id="buttonFields" style="display: none;">
-                    <div class="mb-3">
-                        <label for="editButtonText" class="form-label">Texto del Botón</label>
-                        <input type="text" class="form-control" id="editButtonText" name="button_text">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="editButtonIcon" class="form-label">Icono del Botón</label>
-                        <input type="text" class="form-control" id="editButtonIcon" name="button_icon" placeholder="fas fa-arrow-right">
-                    </div>
-                </div>
-                
-                <div id="sectionFields" style="display: none;">
-                    <div class="mb-3">
-                        <label for="editSectionTitle" class="form-label">Título de Sección</label>
-                        <input type="text" class="form-control" id="editSectionTitle" name="section_title">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="editSectionIcon" class="form-label">Icono de Sección</label>
-                        <input type="text" class="form-control" id="editSectionIcon" name="section_icon" placeholder="fas fa-lightbulb">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="editSectionIconColor" class="form-label">Color del Icono de Sección</label>
-                        <input type="text" class="form-control" id="editSectionIconColor" name="section_icon_color" placeholder="text-warning">
-                    </div>
-                </div>
-                
-                <div id="statsFields" style="display: none;">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="editStatsLabel1" class="form-label">Etiqueta Estadística 1</label>
-                                <input type="text" class="form-control" id="editStatsLabel1" name="stats_label1">
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label for="editStatsLabel2" class="form-label">Etiqueta Estadística 2</label>
-                                <input type="text" class="form-control" id="editStatsLabel2" name="stats_label2">
-                            </div>
-                        </div>
-                    </div>
+                    <textarea class="form-control" id="editDescription" name="description" rows="5"></textarea>
                 </div>
             </div>
             <div class="modal-footer">

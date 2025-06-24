@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+
+{% block title %}Tips y Sugerencias - ARMIND{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-2">
+    <div class="row">
+        <div class="col-12">
+            <!-- Botones de administración -->
+            {% if session.user_role == 'admin' %}
+            <div class="admin-controls mb-3">
+                <div class="alert alert-info d-flex align-items-center justify-content-between">
+                    <div>
+                        <i class="fas fa-shield-alt me-2"></i>
+                        <strong>Panel de Administración</strong> - Gestiona el contenido de Tips y Sugerencias
+                    </div>
+                    <div>
+                        <a href="{{ url_for('admin_blog') }}" class="btn btn-primary me-2">
+                            <i class="fas fa-cogs me-1"></i>Gestionar Posts
+                        </a>
+                        <a href="{{ url_for('admin_blog_create') }}" class="btn btn-success">
+                            <i class="fas fa-plus me-1"></i>Crear Nuevo Post
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Header -->
+            <div class="text-center mb-3">
+                <h1 class="display-4 fw-bold text-primary mb-3">
+                    <i class="fas fa-lightbulb me-3"></i>Tips y Sugerencias
+                </h1>
+                <p class="lead text-muted">Consejos útiles y sugerencias para mejorar tu experiencia profesional</p>
+            </div>
+
+            <!-- Posts del Blog -->
+            <div class="row">
+                {% if posts %}
+                    {% for post in posts %}
+                    <div class="col-lg-6 col-xl-4 mb-4">
+                        <div class="card h-100 shadow-sm border-0 hover-card">
+                            {% if post.image_url %}
+                            <div class="card-img-top-container" style="height: 200px; overflow: hidden;">
+                                <img src="{{ post.image_url }}" class="card-img-top" alt="{{ post.title }}" 
+                                     style="width: 100%; height: 100%; object-fit: cover;">
+                            </div>
+                            {% endif %}
+                            
+                            <div class="card-body d-flex flex-column">
+                                <h5 class="card-title fw-bold text-dark mb-3">{{ post.title }}</h5>
+                                
+                                <div class="card-text text-muted mb-3 flex-grow-1">
+                                    {{ post.content[:200] }}{% if post.content|length > 200 %}...{% endif %}
+                                </div>
+                                
+                                <!-- Información del autor y fecha -->
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <small class="text-muted">
+                                        <i class="fas fa-user me-1"></i>{{ post.author_name or 'Administrador' }}
+                                    </small>
+                                    <small class="text-muted">
+                                        <i class="fas fa-calendar me-1"></i>{{ post.created_at.strftime('%d/%m/%Y') }}
+                                    </small>
+                                </div>
+                                
+                                <!-- Botón para ver más -->
+                                <button class="btn btn-outline-primary btn-sm mb-3" 
+                                        onclick="showFullPost({{ post.id }}, '{{ post.title }}', `{{ post.content|replace('`', '\\`')|replace('\n', '\\n') }}`, '{{ post.image_url or '' }}', '{{ post.author_name or 'Administrador' }}', '{{ post.created_at.strftime('%d/%m/%Y') }}')">
+                                    <i class="fas fa-eye me-1"></i>Leer más
+                                </button>
+                                
+                                <!-- Reacciones -->
+                                <div class="reactions-container">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div class="reaction-buttons">
+                                            {% set emojis = ['👍', '❤️', '😊', '🎉', '💡'] %}
+                                            {% for emoji in emojis %}
+                                            <button class="btn btn-sm reaction-btn {% if user_reactions.get(post.id) == emoji %}active{% endif %}" 
+                                                    onclick="toggleReaction({{ post.id }}, '{{ emoji }}')" 
+                                                    data-post-id="{{ post.id }}" 
+                                                    data-emoji="{{ emoji }}">
+                                                {{ emoji }}
+                                                <span class="reaction-count" id="count-{{ post.id }}-{{ emoji }}">
+                                                    {{ reactions_count.get(post.id, {}).get(emoji, 0) or '' }}
+                                                </span>
+                                            </button>
+                                            {% endfor %}
+                                        </div>
+                                        <small class="text-muted total-reactions" id="total-{{ post.id }}">
+                                            {% set total = reactions_count.get(post.id, {}).values() | sum %}
+                                            {% if total > 0 %}{{ total }} reacción{% if total != 1 %}es{% endif %}{% endif %}
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="col-12">
+                        <div class="text-center py-5">
+                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                            <h4 class="text-muted">No hay posts disponibles</h4>
+                            <p class="text-muted">Los administradores aún no han publicado contenido.</p>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para mostrar post completo -->
+<div class="modal fade" id="postModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="postModalTitle"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="postModalImage" class="mb-3" style="display: none;">
+                    <img id="postModalImageSrc" class="img-fluid rounded" style="max-height: 300px; width: 100%; object-fit: cover;">
+                </div>
+                <div id="postModalContent" class="mb-3"></div>
+                <div class="d-flex justify-content-between text-muted">
+                    <small><i class="fas fa-user me-1"></i><span id="postModalAuthor"></span></small>
+                    <small><i class="fas fa-calendar me-1"></i><span id="postModalDate"></span></small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.hover-card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.hover-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+}
+
+.reaction-btn {
+    border: 1px solid #dee2e6;
+    background: white;
+    margin-right: 5px;
+    padding: 2px 8px;
+    border-radius: 15px;
+    transition: all 0.2s;
+}
+
+.reaction-btn:hover {
+    background: #f8f9fa;
+    transform: scale(1.1);
+}
+
+.reaction-btn.active {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.reaction-count {
+    font-size: 0.8em;
+    margin-left: 3px;
+}
+
+.reactions-container {
+    border-top: 1px solid #eee;
+    padding-top: 10px;
+}
+
+.total-reactions {
+    font-size: 0.8em;
+}
+</style>
+
+<script>
+function showFullPost(id, title, content, imageUrl, author, date) {
+    document.getElementById('postModalTitle').textContent = title;
+    document.getElementById('postModalContent').innerHTML = content.replace(/\n/g, '<br>');
+    document.getElementById('postModalAuthor').textContent = author;
+    document.getElementById('postModalDate').textContent = date;
+    
+    const imageContainer = document.getElementById('postModalImage');
+    const imageSrc = document.getElementById('postModalImageSrc');
+    
+    if (imageUrl && imageUrl.trim() !== '') {
+        imageSrc.src = imageUrl;
+        imageContainer.style.display = 'block';
+    } else {
+        imageContainer.style.display = 'none';
+    }
+    
+    new bootstrap.Modal(document.getElementById('postModal')).show();
+}
+
+function toggleReaction(postId, emoji) {
+    fetch('/tips-sugerencias/react', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            post_id: postId,
+            emoji: emoji
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Actualizar contadores de reacciones
+            const reactions = data.reactions;
+            const emojis = ['👍', '❤️', '😊', '🎉', '💡'];
+            
+            // Actualizar cada emoji
+            emojis.forEach(e => {
+                const countElement = document.getElementById(`count-${postId}-${e}`);
+                const btnElement = document.querySelector(`[data-post-id="${postId}"][data-emoji="${e}"]`);
+                
+                if (countElement) {
+                    const count = reactions[e] || 0;
+                    countElement.textContent = count > 0 ? count : '';
+                }
+                
+                // Actualizar estado activo
+                if (btnElement) {
+                    if (data.action === 'added' && e === emoji) {
+                        btnElement.classList.add('active');
+                    } else if (data.action === 'removed' && e === emoji) {
+                        btnElement.classList.remove('active');
+                    } else if (data.action === 'added' && e !== emoji) {
+                        btnElement.classList.remove('active');
+                    }
+                }
+            });
+            
+            // Actualizar total
+            const total = Object.values(reactions).reduce((sum, count) => sum + count, 0);
+            const totalElement = document.getElementById(`total-${postId}`);
+            if (totalElement) {
+                if (total > 0) {
+                    totalElement.textContent = `${total} reacción${total !== 1 ? 'es' : ''}`;
+                } else {
+                    totalElement.textContent = '';
+                }
+            }
+        } else {
+            console.error('Error:', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+}
+</script>
+{% endblock %}

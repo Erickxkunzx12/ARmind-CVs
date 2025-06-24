@@ -612,6 +612,46 @@ def init_database():
             )
         """)
         
+        # Crear tabla para blog de tips y sugerencias
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS blog_posts (
+                id SERIAL PRIMARY KEY,
+                title VARCHAR(255) NOT NULL,
+                content TEXT NOT NULL,
+                image_url VARCHAR(500),
+                author_id INTEGER REFERENCES users(id),
+                is_published BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Crear tabla para reacciones de usuarios a los posts del blog
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS blog_reactions (
+                id SERIAL PRIMARY KEY,
+                post_id INTEGER REFERENCES blog_posts(id) ON DELETE CASCADE,
+                user_id INTEGER REFERENCES users(id),
+                emoji VARCHAR(10) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(post_id, user_id, emoji)
+            )
+        """)
+        
+        # Crear tabla para almacenar imágenes
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS uploaded_images (
+                id SERIAL PRIMARY KEY,
+                filename VARCHAR(255) NOT NULL,
+                original_filename VARCHAR(255) NOT NULL,
+                content_type VARCHAR(100) NOT NULL,
+                file_size INTEGER NOT NULL,
+                image_data BYTEA NOT NULL,
+                uploaded_by INTEGER REFERENCES users(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
         # Verificar si la columna professional_summary existe (PostgreSQL)
         cursor.execute("""
             SELECT column_name 
@@ -662,6 +702,120 @@ def init_database():
             connection.rollback()
             connection.close()
         return False
+
+def save_image_to_database(image_file):
+    """Guardar imagen en la base de datos y retornar URL"""
+    try:
+        import uuid
+        import os
+        
+        app.logger.info(f"Iniciando guardado de imagen: {image_file.filename}")
+        
+        # Generar nombre único para la imagen
+        file_extension = os.path.splitext(image_file.filename)[1].lower()
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        
+        app.logger.info(f"Nombre único generado: {unique_filename}")
+        
+        # Leer datos del archivo
+        image_file.seek(0)
+        image_data = image_file.read()
+        
+        app.logger.info(f"Datos leídos: {len(image_data)} bytes")
+        
+        connection = get_db_connection()
+        if not connection:
+            app.logger.error("No se pudo obtener conexión a la base de datos")
+            return None
+            
+        try:
+            cursor = connection.cursor()
+            
+            app.logger.info("Ejecutando INSERT en uploaded_images")
+            
+            cursor.execute("""
+                INSERT INTO uploaded_images (filename, original_filename, content_type, file_size, image_data, uploaded_by)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (
+                unique_filename,
+                image_file.filename,
+                image_file.content_type,
+                len(image_data),
+                image_data,
+                session.get('user_id')
+            ))
+            
+            result = cursor.fetchone()
+            if result:
+                image_id = result[0]
+                app.logger.info(f"Imagen guardada con ID: {image_id}")
+            else:
+                app.logger.error("No se obtuvo ID de la imagen insertada")
+                return None
+                
+            connection.commit()
+            cursor.close()
+            connection.close()
+            
+            # Retornar URL para acceder a la imagen
+            return f"/image/{image_id}"
+            
+        except Exception as db_error:
+            error_msg = str(db_error)
+            app.logger.error(f"Error en base de datos: {error_msg}")
+            app.logger.error(f"Tipo de error: {type(db_error).__name__}")
+            if connection:
+                try:
+                    connection.rollback()
+                    connection.close()
+                except Exception as close_error:
+                    app.logger.error(f"Error cerrando conexión: {str(close_error)}")
+            return None
+            
+    except Exception as general_error:
+        error_msg = str(general_error)
+        app.logger.error(f"Error general procesando imagen: {error_msg}")
+        app.logger.error(f"Tipo de error general: {type(general_error).__name__}")
+        return None
+
+@app.route('/image/<int:image_id>')
+def serve_image(image_id):
+    """Servir imagen desde la base de datos"""
+    try:
+        connection = get_db_connection()
+        if not connection:
+            abort(404)
+            
+        cursor = connection.cursor()
+        cursor.execute("""
+            SELECT image_data, content_type, filename
+            FROM uploaded_images
+            WHERE id = %s
+        """, (image_id,))
+        
+        result = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        
+        if not result:
+            abort(404)
+            
+        image_data, content_type, filename = result
+        
+        from flask import Response
+        return Response(
+            image_data,
+            mimetype=content_type,
+            headers={
+                'Content-Disposition': f'inline; filename="{filename}"',
+                'Cache-Control': 'public, max-age=31536000'  # Cache por 1 año
+            }
+        )
+        
+    except Exception as e:
+        app.logger.error(f"Error sirviendo imagen: {e}")
+        abort(404)
 
 @app.route('/')
 def index():
@@ -5814,6 +5968,352 @@ def admin_delete_tip():
     except Exception as e:
         app.logger.error(f"Error eliminando consejo: {e}")
         return jsonify({'success': False, 'message': 'Error eliminando consejo'})
+
+# ==================== RUTAS DEL BLOG DE TIPS Y SUGERENCIAS ====================
+
+@app.route('/tips-sugerencias')
+def blog_tips():
+    """Mostrar blog de tips y sugerencias para usuarios"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    connection = get_db_connection()
+    if not connection:
+        flash('Error de conexión a la base de datos', 'error')
+        return redirect(url_for('dashboard'))
+    
+    try:
+        cursor = connection.cursor(cursor_factory=RealDictCursor)
+        
+        # Obtener posts publicados con información del autor y conteo de reacciones
+        cursor.execute("""
+            SELECT bp.*, u.username as author_name,
+                   COUNT(br.id) as total_reactions
+            FROM blog_posts bp
+            LEFT JOIN users u ON bp.author_id = u.id
+            LEFT JOIN blog_reactions br ON bp.id = br.post_id
+            WHERE bp.is_published = TRUE
+            GROUP BY bp.id, u.username
+            ORDER BY bp.created_at DESC
+        """)
+        posts = cursor.fetchall()
+        
+        # Obtener reacciones del usuario actual para cada post
+        user_reactions = {}
+        if posts:
+            post_ids = [post['id'] for post in posts]
+            cursor.execute("""
+                SELECT post_id, emoji
+                FROM blog_reactions
+                WHERE user_id = %s AND post_id = ANY(%s)
+            """, (session['user_id'], post_ids))
+            user_reactions = {row['post_id']: row['emoji'] for row in cursor.fetchall()}
+        
+        # Obtener conteo de reacciones por emoji para cada post
+        reactions_count = {}
+        if posts:
+            cursor.execute("""
+                SELECT post_id, emoji, COUNT(*) as count
+                FROM blog_reactions
+                WHERE post_id = ANY(%s)
+                GROUP BY post_id, emoji
+            """, (post_ids,))
+            for row in cursor.fetchall():
+                if row['post_id'] not in reactions_count:
+                    reactions_count[row['post_id']] = {}
+                reactions_count[row['post_id']][row['emoji']] = row['count']
+        
+        cursor.close()
+        connection.close()
+        
+        return render_template('blog_tips.html', 
+                             posts=posts, 
+                             user_reactions=user_reactions,
+                             reactions_count=reactions_count)
+        
+    except Exception as e:
+        app.logger.error(f"Error cargando blog: {e}")
+        flash('Error cargando el blog', 'error')
+        return redirect(url_for('dashboard'))
+
+@app.route('/tips-sugerencias/react', methods=['POST'])
+def blog_react():
+    """Agregar o quitar reacción a un post del blog"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'No autorizado'})
+    
+    data = request.get_json()
+    post_id = data.get('post_id')
+    emoji = data.get('emoji')
+    
+    if not post_id or not emoji:
+        return jsonify({'success': False, 'message': 'Datos incompletos'})
+    
+    connection = get_db_connection()
+    if not connection:
+        return jsonify({'success': False, 'message': 'Error de conexión'})
+    
+    try:
+        cursor = connection.cursor()
+        
+        # Verificar si ya existe la reacción
+        cursor.execute("""
+            SELECT id FROM blog_reactions 
+            WHERE post_id = %s AND user_id = %s AND emoji = %s
+        """, (post_id, session['user_id'], emoji))
+        
+        existing = cursor.fetchone()
+        
+        if existing:
+            # Quitar reacción
+            cursor.execute("""
+                DELETE FROM blog_reactions 
+                WHERE post_id = %s AND user_id = %s AND emoji = %s
+            """, (post_id, session['user_id'], emoji))
+            action = 'removed'
+        else:
+            # Agregar reacción (primero quitar cualquier otra reacción del usuario en este post)
+            cursor.execute("""
+                DELETE FROM blog_reactions 
+                WHERE post_id = %s AND user_id = %s
+            """, (post_id, session['user_id']))
+            
+            cursor.execute("""
+                INSERT INTO blog_reactions (post_id, user_id, emoji)
+                VALUES (%s, %s, %s)
+            """, (post_id, session['user_id'], emoji))
+            action = 'added'
+        
+        # Obtener nuevo conteo de reacciones
+        cursor.execute("""
+            SELECT emoji, COUNT(*) as count
+            FROM blog_reactions
+            WHERE post_id = %s
+            GROUP BY emoji
+        """, (post_id,))
+        reactions = {row[0]: row[1] for row in cursor.fetchall()}
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True, 
+            'action': action,
+            'reactions': reactions
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error procesando reacción: {e}")
+        return jsonify({'success': False, 'message': 'Error procesando reacción'})
+
+# ==================== RUTAS DE ADMINISTRACIÓN DEL BLOG ====================
+
+@app.route('/admin/blog')
+@admin_required
+def admin_blog():
+    """Panel de administración del blog"""
+    connection = get_db_connection()
+    if not connection:
+        flash('Error de conexión a la base de datos', 'error')
+        return redirect(url_for('admin_dashboard'))
+    
+    try:
+        cursor = connection.cursor(cursor_factory=RealDictCursor)
+        
+        # Obtener todos los posts con información del autor
+        cursor.execute("""
+            SELECT bp.*, u.username as author_name
+            FROM blog_posts bp
+            LEFT JOIN users u ON bp.author_id = u.id
+            ORDER BY bp.created_at DESC
+        """)
+        posts = cursor.fetchall()
+        
+        cursor.close()
+        connection.close()
+        
+        return render_template('admin/blog.html', posts=posts)
+        
+    except Exception as e:
+        app.logger.error(f"Error cargando admin blog: {e}")
+        flash('Error cargando el panel de blog', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/blog/create', methods=['GET', 'POST'])
+@admin_required
+def admin_blog_create():
+    """Crear nuevo post del blog"""
+    if request.method == 'POST':
+        title = request.form.get('title')
+        content = request.form.get('content')
+        image_option = request.form.get('image_option', 'url')
+        image_url = request.form.get('image_url')
+        is_published = 'is_published' in request.form
+        
+        if not title or not content:
+            flash('Título y contenido son requeridos', 'error')
+            return render_template('admin/blog_create.html')
+        
+        # Manejar imagen
+        final_image_url = None
+        if image_option == 'url' and image_url:
+            final_image_url = image_url
+        elif image_option == 'upload' and 'image_file' in request.files:
+            image_file = request.files['image_file']
+            if image_file and image_file.filename:
+                try:
+                    # Validar archivo
+                    if not image_file.content_type.startswith('image/'):
+                        flash('El archivo debe ser una imagen válida', 'error')
+                        return render_template('admin/blog_create.html')
+                    
+                    # Validar tamaño (5MB máximo)
+                    image_file.seek(0, 2)  # Ir al final del archivo
+                    file_size = image_file.tell()
+                    image_file.seek(0)  # Volver al inicio
+                    
+                    if file_size > 5 * 1024 * 1024:  # 5MB
+                        flash('La imagen es demasiado grande. Máximo 5MB', 'error')
+                        return render_template('admin/blog_create.html')
+                    
+                    # Guardar imagen en base de datos
+                    final_image_url = save_image_to_database(image_file)
+                    if not final_image_url:
+                        flash('Error al guardar la imagen', 'error')
+                        return render_template('admin/blog_create.html')
+                        
+                except Exception as e:
+                    app.logger.error(f"Error procesando imagen: {e}")
+                    flash('Error procesando la imagen', 'error')
+                    return render_template('admin/blog_create.html')
+        
+        connection = get_db_connection()
+        if not connection:
+            flash('Error de conexión a la base de datos', 'error')
+            return render_template('admin/blog_create.html')
+        
+        try:
+            cursor = connection.cursor()
+            
+            cursor.execute("""
+                INSERT INTO blog_posts (title, content, image_url, author_id, is_published)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (title, content, final_image_url, session['user_id'], is_published))
+            
+            connection.commit()
+            cursor.close()
+            connection.close()
+            
+            username = session.get('username', 'unknown')
+            add_console_log('INFO', f'Admin {username} creó nuevo post: {title}', 'CONTENT')
+            flash('Post creado exitosamente', 'success')
+            return redirect(url_for('admin_blog'))
+            
+        except Exception as e:
+            app.logger.error(f"Error creando post: {e}")
+            flash('Error creando el post', 'error')
+    
+    return render_template('admin/blog_create.html')
+
+@app.route('/admin/blog/edit/<int:post_id>', methods=['GET', 'POST'])
+@admin_required
+def admin_blog_edit(post_id):
+    """Editar post del blog"""
+    connection = get_db_connection()
+    if not connection:
+        flash('Error de conexión a la base de datos', 'error')
+        return redirect(url_for('admin_blog'))
+    
+    try:
+        cursor = connection.cursor(cursor_factory=RealDictCursor)
+        
+        if request.method == 'POST':
+            title = request.form.get('title')
+            content = request.form.get('content')
+            image_url = request.form.get('image_url')
+            is_published = 'is_published' in request.form
+            
+            if not title or not content:
+                flash('Título y contenido son requeridos', 'error')
+                return redirect(url_for('admin_blog_edit', post_id=post_id))
+            
+            cursor.execute("""
+                UPDATE blog_posts 
+                SET title = %s, content = %s, image_url = %s, is_published = %s, updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            """, (title, content, image_url, is_published, post_id))
+            
+            connection.commit()
+            cursor.close()
+            connection.close()
+            
+            username = session.get('username', 'unknown')
+            add_console_log('INFO', f'Admin {username} editó post ID {post_id}', 'CONTENT')
+            flash('Post actualizado exitosamente', 'success')
+            return redirect(url_for('admin_blog'))
+        
+        # GET request - mostrar formulario de edición
+        cursor.execute("SELECT * FROM blog_posts WHERE id = %s", (post_id,))
+        post = cursor.fetchone()
+        
+        if not post:
+            flash('Post no encontrado', 'error')
+            return redirect(url_for('admin_blog'))
+        
+        cursor.close()
+        connection.close()
+        
+        return render_template('admin/blog_edit.html', post=post)
+        
+    except Exception as e:
+        app.logger.error(f"Error editando post: {e}")
+        flash('Error editando el post', 'error')
+        return redirect(url_for('admin_blog'))
+
+@app.route('/admin/blog/delete/<int:post_id>', methods=['POST'])
+@admin_required
+def admin_blog_delete(post_id):
+    """Eliminar post del blog"""
+    connection = get_db_connection()
+    if not connection:
+        return jsonify({'success': False, 'message': 'Error de conexión'})
+    
+    try:
+        cursor = connection.cursor()
+        
+        # Obtener información del post antes de eliminarlo
+        cursor.execute("SELECT title, image_url FROM blog_posts WHERE id = %s", (post_id,))
+        post = cursor.fetchone()
+        
+        if not post:
+            return jsonify({'success': False, 'message': 'Post no encontrado'})
+        
+        title, image_url = post
+        
+        # Si la imagen es una imagen subida (formato /image/ID), eliminarla de la BD
+        if image_url and image_url.startswith('/image/'):
+            try:
+                image_id = int(image_url.split('/')[-1])
+                cursor.execute("DELETE FROM uploaded_images WHERE id = %s", (image_id,))
+            except (ValueError, IndexError):
+                # Si no se puede extraer el ID, continuar sin eliminar la imagen
+                pass
+        
+        # Eliminar el post
+        cursor.execute("DELETE FROM blog_posts WHERE id = %s", (post_id,))
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        username = session.get('username', 'unknown')
+        add_console_log('INFO', f'Admin {username} eliminó post: {title}', 'CONTENT')
+        return jsonify({'success': True, 'message': 'Post eliminado exitosamente'})
+        
+    except Exception as e:
+        app.logger.error(f"Error eliminando post: {e}")
+        return jsonify({'success': False, 'message': 'Error eliminando el post'})
 
 # Manejadores de errores
 @app.errorhandler(404)

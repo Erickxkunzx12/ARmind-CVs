@@ -294,8 +294,27 @@ def my_subscription():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
+    # Verificar si es administrador
+    from database import get_db_connection
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    cursor.execute("SELECT role FROM users WHERE id = %s", (session['user_id'],))
+    user_role = cursor.fetchone()
+    cursor.close()
+    connection.close()
+    
     user_subscription = get_user_subscription(session['user_id'])
     user_usage = get_complete_user_usage(session['user_id'])
+    
+    # Si es administrador y no tiene suscripción, crear una virtual para la vista
+    if user_role and user_role[0] == 'admin' and not user_subscription:
+        from datetime import datetime
+        user_subscription = {
+            'created_at': datetime.now(),
+            'expires_at': None,
+            'status': 'active',
+            'payment_method': 'admin'
+        }
     
     return render_template('my_subscription.html',
                          user_subscription=user_subscription,

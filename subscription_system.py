@@ -184,6 +184,18 @@ def get_user_subscription(user_id):
     
     try:
         cursor = connection.cursor()
+        
+        # Primero verificar si es administrador
+        cursor.execute("SELECT role FROM users WHERE id = %s", (user_id,))
+        user_role = cursor.fetchone()
+        
+        if user_role and user_role[0] == 'admin':
+            # Los administradores no necesitan suscripción, tienen acceso completo
+            cursor.close()
+            connection.close()
+            return None
+        
+        # Para usuarios normales, buscar en la tabla subscriptions
         cursor.execute("""
             SELECT s.*, u.current_plan, u.subscription_status, u.subscription_end_date
             FROM subscriptions s
@@ -212,9 +224,21 @@ def get_user_usage(user_id, resource_type):
     try:
         cursor = connection.cursor()
         
-        # Obtener la suscripción activa
+        # Verificar si es administrador
+        cursor.execute("SELECT role FROM users WHERE id = %s", (user_id,))
+        user_role = cursor.fetchone()
+        
+        if user_role and user_role[0] == 'admin':
+            # Los administradores tienen uso ilimitado
+            cursor.close()
+            connection.close()
+            return 0
+        
+        # Obtener la suscripción activa para usuarios normales
         subscription = get_user_subscription(user_id)
         if not subscription:
+            cursor.close()
+            connection.close()
             return 0
         
         # Obtener el uso actual del mes
@@ -236,45 +260,42 @@ def get_user_usage(user_id, resource_type):
         print(f"Error al obtener uso de recursos: {e}")
         return 0
 
-def check_user_limits(user_id, resource_type):
-    """Verificar si el usuario puede usar un recurso específico"""
-    subscription = get_user_subscription(user_id)
-    if not subscription:
-        return False, "No hay suscripción activa"
+def check_user_limits(user_id, action_type):
+    """Verificar si el usuario puede realizar una acción específica"""
+    try:
+        # Verificar si es administrador primero
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute("SELECT role FROM users WHERE id = %s", (user_id,))
+        user_role = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        
+        if user_role and user_role[0] == 'admin':
+            # Los administradores tienen acceso ilimitado a todo
+            return True, "Acceso administrativo completo"
+        
+        subscription = get_user_subscription(user_id)
+        if not subscription:
+            return False, "No tienes una suscripción activa"
+        
+        plan_type = subscription.get('plan_type', subscription.get('current_plan'))
+        if plan_type not in SUBSCRIPTION_PLANS:
+            return False, "Plan de suscripción no válido"
+        
+        plan_limits = SUBSCRIPTION_PLANS[plan_type]['limits']
+        
+        # Verificar límites específicos
+        if action_type in plan_limits:
+            current_usage = get_user_usage(user_id)
+            if current_usage >= plan_limits[action_type]:
+                return False, f"Has alcanzado el límite de {plan_limits[action_type]} para {action_type}"
+        
+        return True, "Acción permitida"
     
-    # Verificar si la suscripción ha expirado
-    if subscription['end_date'] < datetime.now():
-        return False, "Suscripción expirada"
-    
-    plan_type = subscription['plan_type']
-    plan_config = SUBSCRIPTION_PLANS.get(plan_type)
-    
-    if not plan_config:
-        return False, "Plan no válido"
-    
-    # Obtener límites del plan
-    if resource_type == 'analysis':
-        # Usar la nueva estructura 'limits' si existe, sino usar la antigua
-        if 'limits' in plan_config:
-            max_allowed = plan_config['limits']['cv_analysis']
-        else:
-            max_allowed = plan_config['max_analyses']
-    elif resource_type == 'cv_creation':
-        # Usar la nueva estructura 'limits' si existe, sino usar la antigua
-        if 'limits' in plan_config:
-            max_allowed = plan_config['limits']['cv_creation']
-        else:
-            max_allowed = plan_config['max_cvs']
-    else:
-        return False, "Tipo de recurso no válido"
-    
-    # Obtener uso actual
-    current_usage = get_user_usage(user_id, resource_type)
-    
-    if current_usage >= max_allowed:
-        return False, f"Límite alcanzado ({current_usage}/{max_allowed})"
-    
-    return True, f"Disponible ({current_usage}/{max_allowed})"
+    except Exception as e:
+        print(f"Error checking user limits: {e}")
+        return False, "Error al verificar límites"
 
 def increment_usage(user_id, resource_type):
     """Incrementar el contador de uso de un recurso"""

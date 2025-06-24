@@ -1,0 +1,398 @@
+{% extends "base.html" %}
+
+{% block title %}Crear Post - ARMIND{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-2">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-plus-circle me-2 text-primary"></i>Crear Nuevo Post
+                    </h1>
+                    <p class="text-muted mb-0">Agrega un nuevo tip o sugerencia al blog</p>
+                </div>
+                <a href="{{ url_for('admin_blog') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Volver
+                </a>
+            </div>
+
+            <!-- Formulario -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-edit me-2"></i>Información del Post
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" class="needs-validation" enctype="multipart/form-data" novalidate id="blogForm">
+                        <!-- Título -->
+                        <div class="mb-4">
+                            <label for="title" class="form-label">
+                                <i class="fas fa-heading me-2"></i>Título del Post
+                                <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" 
+                                   class="form-control form-control-lg" 
+                                   id="title" 
+                                   name="title" 
+                                   placeholder="Ej: 5 Tips para mejorar tu CV" 
+                                   required 
+                                   maxlength="200">
+                            <div class="form-text">
+                                <i class="fas fa-info-circle me-1"></i>Máximo 200 caracteres. 
+                                <span id="titleCount">0/200</span>
+                            </div>
+                        </div>
+
+                        <!-- Contenido -->
+                        <div class="mb-4">
+                            <label for="content" class="form-label">
+                                <i class="fas fa-align-left me-2"></i>Contenido
+                                <span class="text-danger">*</span>
+                            </label>
+                            <textarea class="form-control" 
+                                      id="content" 
+                                      name="content" 
+                                      rows="10" 
+                                      placeholder="Escribe aquí el contenido de tu post..." 
+                                      required></textarea>
+                            <div class="form-text">
+                                <i class="fas fa-info-circle me-1"></i>Puedes usar saltos de línea para separar párrafos.
+                                <span id="contentCount">0 caracteres</span>
+                            </div>
+                        </div>
+
+                        <!-- Imagen del Post -->
+                        <div class="mb-4">
+                            <label class="form-label">
+                                <i class="fas fa-image me-2"></i>Imagen del Post (Opcional)
+                            </label>
+                            
+                            <!-- Opciones de imagen -->
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="image_option" id="image_url_option" value="url" checked>
+                                        <label class="form-check-label" for="image_url_option">
+                                            <i class="fas fa-link me-1"></i>Usar URL de imagen
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="image_option" id="image_upload_option" value="upload">
+                                        <label class="form-check-label" for="image_upload_option">
+                                            <i class="fas fa-upload me-1"></i>Subir imagen desde dispositivo
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- URL de Imagen -->
+                            <div id="url_section" class="mb-3">
+                                <input type="url" 
+                                       class="form-control" 
+                                       id="image_url" 
+                                       name="image_url" 
+                                       placeholder="https://ejemplo.com/imagen.jpg">
+                                <div class="form-text">
+                                    <i class="fas fa-info-circle me-1"></i>URL completa de la imagen que acompañará el post.
+                                </div>
+                            </div>
+                            
+                            <!-- Subir Imagen -->
+                            <div id="upload_section" class="mb-3" style="display: none;">
+                                <input type="file" 
+                                       class="form-control" 
+                                       id="image_file" 
+                                       name="image_file" 
+                                       accept="image/*">
+                                <div class="form-text">
+                                    <i class="fas fa-info-circle me-1"></i>Formatos soportados: JPG, PNG, GIF, WebP (máximo 5MB).
+                                </div>
+                            </div>
+                            
+                            <!-- Vista previa de imagen -->
+                            <div id="imagePreview" class="mt-3" style="display: none;">
+                                <div class="card">
+                                    <div class="card-header py-2">
+                                        <small class="text-muted">
+                                            <i class="fas fa-eye me-1"></i>Vista previa de la imagen
+                                        </small>
+                                    </div>
+                                    <div class="card-body p-2">
+                                        <img id="previewImg" class="img-fluid rounded" style="max-height: 200px; width: 100%; object-fit: cover;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Estado de Publicación -->
+                        <div class="mb-4">
+                            <label class="form-label">
+                                <i class="fas fa-toggle-on me-2"></i>Estado de Publicación
+                            </label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" 
+                                       type="checkbox" 
+                                       id="is_published" 
+                                       name="is_published" 
+                                       checked>
+                                <label class="form-check-label" for="is_published">
+                                    <span id="publishLabel">Publicar inmediatamente</span>
+                                </label>
+                            </div>
+                            <div class="form-text">
+                                <i class="fas fa-info-circle me-1"></i>
+                                <span id="publishHelp">El post será visible para todos los usuarios.</span>
+                            </div>
+                        </div>
+
+                        <!-- Vista previa del post -->
+                        <div class="mb-4">
+                            <button type="button" class="btn btn-outline-info" onclick="showPreview()">
+                                <i class="fas fa-eye me-2"></i>Vista Previa
+                            </button>
+                        </div>
+
+                        <!-- Botones de acción -->
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Guardar Post
+                            </button>
+                            <a href="{{ url_for('admin_blog') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-2"></i>Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de vista previa -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-eye me-2"></i>Vista Previa del Post
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Aquí se mostrará la vista previa -->
+                <div id="previewContent">
+                    <!-- El contenido se generará dinámicamente -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Contador de caracteres para título
+document.getElementById('title').addEventListener('input', function() {
+    const count = this.value.length;
+    document.getElementById('titleCount').textContent = `${count}/200`;
+    
+    if (count > 180) {
+        document.getElementById('titleCount').className = 'text-warning';
+    } else if (count > 200) {
+        document.getElementById('titleCount').className = 'text-danger';
+    } else {
+        document.getElementById('titleCount').className = '';
+    }
+});
+
+// Contador de caracteres para contenido
+document.getElementById('content').addEventListener('input', function() {
+    const count = this.value.length;
+    document.getElementById('contentCount').textContent = `${count} caracteres`;
+});
+
+// Manejo de opciones de imagen
+document.querySelectorAll('input[name="image_option"]').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+        const urlSection = document.getElementById('url_section');
+        const uploadSection = document.getElementById('upload_section');
+        const preview = document.getElementById('imagePreview');
+        
+        if (this.value === 'url') {
+            urlSection.style.display = 'block';
+            uploadSection.style.display = 'none';
+            // Limpiar archivo subido
+            document.getElementById('image_file').value = '';
+        } else {
+            urlSection.style.display = 'none';
+            uploadSection.style.display = 'block';
+            // Limpiar URL
+            document.getElementById('image_url').value = '';
+        }
+        // Ocultar vista previa al cambiar
+        preview.style.display = 'none';
+    });
+});
+
+// Vista previa de imagen desde URL
+document.getElementById('image_url').addEventListener('input', function() {
+    const url = this.value.trim();
+    const preview = document.getElementById('imagePreview');
+    const img = document.getElementById('previewImg');
+    
+    if (url && isValidUrl(url)) {
+        img.src = url;
+        img.onload = function() {
+            preview.style.display = 'block';
+        };
+        img.onerror = function() {
+            preview.style.display = 'none';
+        };
+    } else {
+        preview.style.display = 'none';
+    }
+});
+
+// Vista previa de imagen subida
+document.getElementById('image_file').addEventListener('change', function() {
+    const file = this.files[0];
+    const preview = document.getElementById('imagePreview');
+    const img = document.getElementById('previewImg');
+    
+    if (file) {
+        // Validar tamaño del archivo (5MB máximo)
+        if (file.size > 5 * 1024 * 1024) {
+            alert('El archivo es demasiado grande. El tamaño máximo es 5MB.');
+            this.value = '';
+            preview.style.display = 'none';
+            return;
+        }
+        
+        // Validar tipo de archivo
+        if (!file.type.startsWith('image/')) {
+            alert('Por favor, selecciona un archivo de imagen válido.');
+            this.value = '';
+            preview.style.display = 'none';
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            img.src = e.target.result;
+            preview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    } else {
+        preview.style.display = 'none';
+    }
+});
+
+// Toggle de publicación
+document.getElementById('is_published').addEventListener('change', function() {
+    const label = document.getElementById('publishLabel');
+    const help = document.getElementById('publishHelp');
+    
+    if (this.checked) {
+        label.textContent = 'Publicar inmediatamente';
+        help.innerHTML = '<i class="fas fa-info-circle me-1"></i>El post será visible para todos los usuarios.';
+    } else {
+        label.textContent = 'Guardar como borrador';
+        help.innerHTML = '<i class="fas fa-info-circle me-1"></i>El post se guardará como borrador y no será visible para los usuarios.';
+    }
+});
+
+// Función para validar URL
+function isValidUrl(string) {
+    try {
+        new URL(string);
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
+// Vista previa del post
+function showPreview() {
+    const title = document.getElementById('title').value;
+    const content = document.getElementById('content').value;
+    const imageUrl = document.getElementById('image_url').value;
+    const isPublished = document.getElementById('is_published').checked;
+    
+    if (!title.trim()) {
+        alert('Por favor, ingresa un título para el post.');
+        return;
+    }
+    
+    if (!content.trim()) {
+        alert('Por favor, ingresa contenido para el post.');
+        return;
+    }
+    
+    const currentDate = new Date().toLocaleDateString('es-ES');
+    
+    let previewHtml = `
+        <div class="blog-post-preview">
+            <h3 class="mb-3">${title}</h3>
+            ${imageUrl ? `<img src="${imageUrl}" class="img-fluid rounded mb-3" style="max-height: 300px; width: 100%; object-fit: cover;">` : ''}
+            <div class="mb-3">${content.replace(/\n/g, '<br>')}</div>
+            <div class="d-flex justify-content-between text-muted">
+                <small><i class="fas fa-user me-1"></i>Admin</small>
+                <small><i class="fas fa-calendar me-1"></i>${currentDate}</small>
+            </div>
+            <div class="mt-3">
+                <span class="badge ${isPublished ? 'bg-success' : 'bg-warning'}">
+                    <i class="fas ${isPublished ? 'fa-eye' : 'fa-edit'} me-1"></i>
+                    ${isPublished ? 'Publicado' : 'Borrador'}
+                </span>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('previewContent').innerHTML = previewHtml;
+    new bootstrap.Modal(document.getElementById('previewModal')).show();
+}
+
+// Validación del formulario
+document.getElementById('blogForm').addEventListener('submit', function(e) {
+    const title = document.getElementById('title').value.trim();
+    const content = document.getElementById('content').value.trim();
+    
+    if (!title) {
+        e.preventDefault();
+        alert('Por favor, ingresa un título para el post.');
+        document.getElementById('title').focus();
+        return;
+    }
+    
+    if (!content) {
+        e.preventDefault();
+        alert('Por favor, ingresa contenido para el post.');
+        document.getElementById('content').focus();
+        return;
+    }
+    
+    if (title.length > 200) {
+        e.preventDefault();
+        alert('El título no puede exceder los 200 caracteres.');
+        document.getElementById('title').focus();
+        return;
+    }
+    
+    // Mostrar indicador de carga
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Guardando...';
+    submitBtn.disabled = true;
+    
+    // Si llegamos aquí, el formulario es válido
+    // El navegador enviará el formulario automáticamente
+});
+</script>
+{% endblock %}
