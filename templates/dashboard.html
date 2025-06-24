@@ -200,61 +200,53 @@
         </div>
         
         {% for plan_key, plan in subscription_plans.items() %}
-        <div class="col-lg-4 col-md-6 mb-4">
-            <div class="card h-100 border-0 shadow-sm hover-card {% if plan_key == 'pro' %}border-warning{% elif plan_key == 'standard' %}border-primary{% endif %}">
-                {% if plan_key == 'pro' %}
-                <div class="card-header bg-warning text-dark text-center py-3">
-                    <i class="fas fa-crown me-2"></i>
-                    <strong>MÁS POPULAR</strong>
+        <div class="col-lg-4 col-md-6 mb-4 d-flex">
+            <div class="card h-100 border-0 shadow-sm text-center w-100 {% if session.user_role == 'admin' %}editable-card{% endif %}" style="background-color: #ffffff; border: 1px solid #e9ecef !important; display: flex; flex-direction: column;">
+                {% if session.user_role == 'admin' %}
+                <div class="card-edit-pencil" onclick="openEditModal('plan_{{ plan_key }}', 'Plan: {{ plan.name }}', {
+                    icon: 'fas fa-{% if plan_key == 'free_trial' %}gift{% elif plan_key == 'standard' %}star{% elif plan_key == 'pro' %}crown{% endif %}',
+                    icon_color: '{% if plan_key == 'standard' %}text-warning{% elif plan_key == 'pro' %}text-purple{% else %}text-secondary{% endif %}',
+                    title: '{{ plan.name }}',
+                    description: '{% if plan.price == 0 %}Plan gratuito por 7 días con funciones básicas{% elif plan_key == 'standard' %}Plan más popular con análisis avanzados{% else %}Plan premium con todas las funciones{% endif %}',
+                    price: '{% if plan.price == 0 %}Gratis{% else %}\${{ "{:,.0f}".format(plan.price) }} CLP{% endif %}',
+                    features: ['{{ plan.limits.cv_analysis }} análisis de CV', '{{ plan.limits.cv_creation }} creaciones de CV'{% if plan.features.ai_analysis %}, 'Análisis avanzado con IA'{% endif %}{% if plan.features.priority_support %}, 'Soporte prioritario'{% endif %}]
+                })">
+                    <i class="fas fa-pencil-alt"></i>
                 </div>
                 {% endif %}
-                <div class="card-body text-center p-4">
-                    <div class="mb-3">
-                        <i class="fas fa-{% if plan_key == 'free_trial' %}gift{% elif plan_key == 'standard' %}star{% elif plan_key == 'pro' %}crown{% endif %} text-{% if plan_key == 'free_trial' %}success{% elif plan_key == 'standard' %}primary{% elif plan_key == 'pro' %}warning{% endif %}" style="font-size: 3rem;"></i>
-                    </div>
-                    <h4 class="fw-bold mb-2">{{ plan.name }}</h4>
-                    <div class="mb-3">
+                <div class="card-header py-4" style="background-color: {% if plan_key == 'standard' %}#fff3cd{% else %}#f8f9fa{% endif %}; border-bottom: 1px solid #e9ecef; flex-shrink: 0;">
+                    {% if plan_key == 'standard' %}
+                    <span class="badge" style="background-color: #ffc107; color: #212529; margin-bottom: 1rem;">Más Popular</span>
+                    {% endif %}
+                    <i class="fas fa-{% if plan_key == 'free_trial' %}gift{% elif plan_key == 'standard' %}star{% elif plan_key == 'pro' %}crown{% endif %}" style="font-size: 2.5rem; color: {% if plan_key == 'standard' %}#f39c12{% elif plan_key == 'pro' %}#8e44ad{% else %}#6c757d{% endif %};"></i>
+                    <h4 class="mt-3 mb-0" style="color: #495057;">{{ plan.name }}</h4>
+                </div>
+                <div class="card-body py-4 d-flex flex-column" style="flex-grow: 1;">
+                    <div class="mb-4">
                         {% if plan.price == 0 %}
-                            <span class="display-6 fw-bold text-success">Gratis</span>
-                            <small class="text-muted d-block">por 7 días</small>
+                            <span class="display-4 fw-bold" style="color: #495057;">Gratis</span>
+                            <div class="text-muted">Por 7 días</div>
                         {% else %}
-                            <span class="display-6 fw-bold text-primary">${{ "{:,.0f}".format(plan.price) }}</span>
-                            <small class="text-muted d-block">CLP/mes</small>
+                            <span class="display-4 fw-bold" style="color: #495057;">${{ "{:,.0f}".format(plan.price) }}</span>
+                            <div class="text-muted">CLP / mes</div>
                         {% endif %}
                     </div>
-                    <p class="text-muted mb-4">{{ plan.description }}</p>
-                    
-                    <ul class="list-unstyled text-start mb-4">
-                        <li class="mb-2">
-                            <i class="fas fa-check text-success me-2"></i>
-                            {{ plan.limits.cv_analysis }} análisis de CV
-                        </li>
-                        <li class="mb-2">
-                            <i class="fas fa-check text-success me-2"></i>
-                            {{ plan.limits.cv_creation }} creaciones de CV
-                        </li>
+                    <ul class="list-unstyled text-start flex-grow-1">
+                        <li class="mb-2"><i class="fas fa-check me-2" style="color: #28a745;"></i>{{ plan.limits.cv_analysis }} análisis de CV</li>
+                        <li class="mb-2"><i class="fas fa-check me-2" style="color: #28a745;"></i>{{ plan.limits.cv_creation }} creaciones de CV</li>
                         {% if plan.features.ai_analysis %}
-                        <li class="mb-2">
-                            <i class="fas fa-check text-success me-2"></i>
-                            Análisis con IA avanzada
-                        </li>
+                        <li class="mb-2"><i class="fas fa-check me-2" style="color: #28a745;"></i>Análisis avanzado con IA</li>
                         {% endif %}
                         {% if plan.features.priority_support %}
-                        <li class="mb-2">
-                            <i class="fas fa-check text-success me-2"></i>
-                            Soporte prioritario
-                        </li>
+                        <li class="mb-2"><i class="fas fa-check me-2" style="color: #28a745;"></i>Soporte prioritario</li>
                         {% endif %}
                     </ul>
-                    
+                </div>
+                <div class="card-footer bg-transparent" style="flex-shrink: 0;">
                     {% if plan_key == 'free_trial' %}
-                        <a href="{{ url_for('subscription.subscribe', plan_type=plan_key) }}" class="btn btn-success btn-lg w-100">
-                            <i class="fas fa-gift me-2"></i>Comenzar Gratis
-                        </a>
+                        <a href="{{ url_for('subscription.subscribe', plan_type=plan_key) }}" class="btn btn-lg w-100" style="background-color: #6c757d; border-color: #6c757d; color: white;">Comenzar Gratis</a>
                     {% else %}
-                        <a href="{{ url_for('subscription.payment_options', plan_type=plan_key) }}" class="btn btn-{% if plan_key == 'pro' %}warning{% else %}primary{% endif %} btn-lg w-100">
-                            <i class="fas fa-credit-card me-2"></i>Suscribirse
-                        </a>
+                        <a href="{{ url_for('subscription.payment_options', plan_type=plan_key) }}" class="btn btn-lg w-100" style="background-color: {% if plan_key == 'standard' %}#f39c12{% elif plan_key == 'pro' %}#8e44ad{% else %}#6c757d{% endif %}; border-color: {% if plan_key == 'standard' %}#f39c12{% elif plan_key == 'pro' %}#8e44ad{% else %}#6c757d{% endif %}; color: white;">Suscribirse</a>
                     {% endif %}
                 </div>
             </div>
@@ -458,32 +450,45 @@
                 </div>
                 <div class="card-body">
                     {% if daily_tips %}
-                    {% set first_tip = daily_tips[0] %}
-                    <div class="{% if session.user_role == 'admin' %}editable-card{% endif %}">
+                    {% for tip in daily_tips %}
+                    <div class="tip-item mb-3 {% if session.user_role == 'admin' %}editable-card{% endif %} position-relative">
                         {% if session.user_role == 'admin' %}
-                        <div class="card-edit-pencil" onclick="openEditModal('daily_tip_1', 'Consejo del Día', {
-                    icon: '{{ first_tip[2] or "fas fa-lightbulb" }}',
-                    icon_color: 'text-{{ first_tip[3] or "primary" }}',
-                            title: '{{ first_tip[0] }}',
-                            description: '{{ first_tip[1] }}'
+                        <div class="card-edit-pencil" onclick="openEditModal('daily_tip_{{ loop.index }}', 'Consejo: {{ tip[0] }}', {
+                            title: '{{ tip[0] }}',
+                            description: '{{ tip[1] }}',
+                            icon: '{{ tip[2] or "fas fa-lightbulb" }}',
+                            icon_color: '{{ tip[3] or "text-primary" }}'
                         })">
                             <i class="fas fa-pencil-alt"></i>
                         </div>
                         {% endif %}
-                        <div class="text-center">
-                            <i class="{{ first_tip[2] or 'fas fa-lightbulb' }} fa-2x text-{{ first_tip[3] or 'primary' }} mb-3"></i>
-                            <h6>
-                                {{ first_tip[0] }}
-                            </h6>
-                            <p class="small text-muted">
-                                {{ first_tip[1] }}
-                            </p>
+                        <div class="d-flex p-3 border rounded" style="background-color: #f8f9fa;">
+                            <div class="tip-icon me-3">
+                                <i class="{{ tip[2] or 'fas fa-lightbulb' }} {{ tip[3] or 'text-primary' }}" style="font-size: 1.5rem;"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-1">{{ tip[0] }}</h6>
+                                <small class="text-muted">
+                                    {{ tip[1] }}
+                                </small>
+                            </div>
                         </div>
                     </div>
+                    {% endfor %}
                     {% else %}
-                    <div class="text-center text-muted">
+                    <div class="text-center text-muted p-3">
                         <i class="fas fa-lightbulb fa-2x mb-3"></i>
                         <p>No hay consejos disponibles en este momento.</p>
+                        {% if session.user_role == 'admin' %}
+                        <button class="btn btn-sm btn-primary" onclick="openEditModal('daily_tip_new', 'Nuevo Consejo del Día', {
+                            icon: 'fas fa-lightbulb',
+                            icon_color: 'primary',
+                            title: '',
+                            description: ''
+                        })">
+                            <i class="fas fa-plus me-1"></i>Agregar Consejo
+                        </button>
+                        {% endif %}
                     </div>
                     {% endif %}
                 </div>
@@ -892,6 +897,38 @@ function showSuccessMessage(message) {
     .opacity-75 {
         opacity: 0.75;
     }
+    
+    /* Estilos para el selector de iconos */
+    .icon-selector {
+        max-height: 200px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 10px;
+    }
+    .icon-option {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 50px;
+        border: 2px solid transparent;
+        border-radius: 0.375rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        background-color: #f8f9fa;
+    }
+    .icon-option:hover {
+        border-color: #007bff;
+        background-color: #e3f2fd;
+    }
+    .icon-option.selected {
+        border-color: #007bff;
+        background-color: #007bff;
+        color: white;
+    }
+    .icon-option.selected i {
+        color: white !important;
+    }
 </style>
 {% endblock %}
 
@@ -949,32 +986,58 @@ function showSuccessMessage(message) {
         document.getElementById('editModalLabel').textContent = title;
         document.getElementById('editElementId').value = elementId;
         
-        // Limpiar campos
-        document.getElementById('editTitle').value = '';
-        document.getElementById('editDescription').value = '';
-        
         // Llenar campos con datos existentes
-        if (data.title) {
-            document.getElementById('editTitle').value = data.title;
-        }
-        if (data.description) {
-            document.getElementById('editDescription').value = data.description;
-        }
+        document.getElementById('editTitle').value = data.title || '';
+        document.getElementById('editDescription').value = data.description || '';
+        document.getElementById('editIcon').value = data.icon || 'fas fa-lightbulb';
+        document.getElementById('editIconColor').value = data.icon_color || 'text-primary';
+        
+        // Seleccionar el icono actual en el selector
+        document.querySelectorAll('.icon-option').forEach(option => {
+            option.classList.remove('selected');
+            if (option.dataset.icon === (data.icon || 'fas fa-lightbulb') && 
+                option.dataset.color === (data.icon_color || 'text-primary')) {
+                option.classList.add('selected');
+            }
+        });
         
         const modal = new bootstrap.Modal(document.getElementById('editModal'));
         modal.show();
     }
+    
+    // Funcionalidad para seleccionar iconos
+    document.addEventListener('DOMContentLoaded', function() {
+        const iconOptions = document.querySelectorAll('.icon-option');
+        
+        iconOptions.forEach(option => {
+            option.addEventListener('click', function() {
+                // Remover selección anterior
+                iconOptions.forEach(opt => opt.classList.remove('selected'));
+                
+                // Seleccionar el icono actual
+                this.classList.add('selected');
+                
+                // Actualizar los campos ocultos
+                document.getElementById('editIcon').value = this.dataset.icon;
+                document.getElementById('editIconColor').value = this.dataset.color;
+            });
+        });
+    });
     
     // Función para guardar los cambios
     function saveCardEdit() {
     const elementId = document.getElementById('editElementId').value;
     const title = document.getElementById('editTitle').value;
     const description = document.getElementById('editDescription').value;
+    const icon = document.getElementById('editIcon').value;
+    const iconColor = document.getElementById('editIconColor').value;
     
     const jsonData = {
         element_id: elementId,
         title: title,
-        description: description
+        description: description,
+        icon: icon,
+        icon_color: iconColor
     };
         
         fetch('/admin/update_content', {
@@ -982,7 +1045,7 @@ function showSuccessMessage(message) {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(data)
+            body: JSON.stringify(jsonData)
         })
         .then(response => response.json())
         .then(data => {
@@ -1034,6 +1097,8 @@ function showSuccessMessage(message) {
             </div>
             <div class="modal-body">
                 <input type="hidden" id="editElementId" name="element_id">
+                <input type="hidden" id="editIcon" name="icon">
+                <input type="hidden" id="editIconColor" name="icon_color">
                 
                 <div class="mb-3">
                     <label for="editTitle" class="form-label">Título</label>
@@ -1042,7 +1107,75 @@ function showSuccessMessage(message) {
                 
                 <div class="mb-3">
                     <label for="editDescription" class="form-label">Descripción</label>
-                    <textarea class="form-control" id="editDescription" name="description" rows="5"></textarea>
+                    <textarea class="form-control" id="editDescription" name="description" rows="3"></textarea>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Seleccionar Icono</label>
+                    <div class="icon-selector">
+                        <div class="row g-2">
+                            <div class="col-2">
+                                <div class="icon-option" data-icon="fas fa-lightbulb" data-color="text-warning">
+                                    <i class="fas fa-lightbulb text-warning" style="font-size: 1.5rem;"></i>
+                                </div>
+                            </div>
+                            <div class="col-2">
+                                <div class="icon-option" data-icon="fas fa-star" data-color="text-warning">
+                                    <i class="fas fa-star text-warning" style="font-size: 1.5rem;"></i>
+                                </div>
+                            </div>
+                            <div class="col-2">
+                                <div class="icon-option" data-icon="fas fa-heart" data-color="text-danger">
+                                    <i class="fas fa-heart text-danger" style="font-size: 1.5rem;"></i>
+                                </div>
+                            </div>
+                            <div class="col-2">
+                                <div class="icon-option" data-icon="fas fa-thumbs-up" data-color="text-success">
+                                    <i class="fas fa-thumbs-up text-success" style="font-size: 1.5rem;"></i>
+                                </div>
+                            </div>
+                            <div class="col-2">
+                                <div class="icon-option" data-icon="fas fa-rocket" data-color="text-info">
+                                    <i class="fas fa-rocket text-info" style="font-size: 1.5rem;"></i>
+                                </div>
+                            </div>
+                            <div class="col-2">
+                                <div class="icon-option" data-icon="fas fa-trophy" data-color="text-warning">
+                                    <i class="fas fa-trophy text-warning" style="font-size: 1.5rem;"></i>
+                                </div>
+                            </div>
+                            <div class="col-2">
+                                <div class="icon-option" data-icon="fas fa-fire" data-color="text-danger">
+                                    <i class="fas fa-fire text-danger" style="font-size: 1.5rem;"></i>
+                                </div>
+                            </div>
+                            <div class="col-2">
+                                <div class="icon-option" data-icon="fas fa-gem" data-color="text-primary">
+                                    <i class="fas fa-gem text-primary" style="font-size: 1.5rem;"></i>
+                                </div>
+                            </div>
+                            <div class="col-2">
+                                <div class="icon-option" data-icon="fas fa-check-circle" data-color="text-success">
+                                    <i class="fas fa-check-circle text-success" style="font-size: 1.5rem;"></i>
+                                </div>
+                            </div>
+                            <div class="col-2">
+                                <div class="icon-option" data-icon="fas fa-chart-bar" data-color="text-primary">
+                                    <i class="fas fa-chart-bar text-primary" style="font-size: 1.5rem;"></i>
+                                </div>
+                            </div>
+                            <div class="col-2">
+                                <div class="icon-option" data-icon="fas fa-brain" data-color="text-info">
+                                    <i class="fas fa-brain text-info" style="font-size: 1.5rem;"></i>
+                                </div>
+                            </div>
+                            <div class="col-2">
+                                <div class="icon-option" data-icon="fas fa-magic" data-color="text-purple">
+                                    <i class="fas fa-magic text-primary" style="font-size: 1.5rem;"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">

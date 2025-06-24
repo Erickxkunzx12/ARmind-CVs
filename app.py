@@ -1367,7 +1367,76 @@ def analyze_cv():
             add_console_log('WARNING', f'Archivo no permitido subido: {file.filename} por {username}', 'CV')
             flash('Tipo de archivo no permitido. Solo se permiten archivos PDF, DOC y DOCX.', 'error')
     
-    return render_template('analyze_cv.html')
+    # Definir consejos de análisis con valores por defecto
+    tips_data = {
+        'tip_format': {
+            'title': 'Formato Claro',
+            'description': 'Asegúrate de que tu CV tenga un formato limpio y sea fácil de leer.',
+            'icon': 'fas fa-check-circle',
+            'icon_color': 'text-success'
+        },
+        'tip_keywords': {
+            'title': 'Palabras Clave',
+            'description': 'Incluye palabras clave relevantes para tu industria y puesto objetivo.',
+            'icon': 'fas fa-key',
+            'icon_color': 'text-primary'
+        },
+        'tip_achievements': {
+            'title': 'Logros Cuantificados',
+            'description': 'Usa números y porcentajes para demostrar tus logros.',
+            'icon': 'fas fa-chart-bar',
+            'icon_color': 'text-info'
+        },
+        'tip_errors': {
+            'title': 'Sin Errores',
+            'description': 'Revisa la ortografía y gramática antes de subir tu CV.',
+            'icon': 'fas fa-spell-check',
+            'icon_color': 'text-warning'
+        }
+    }
+    
+    # Intentar cargar desde base de datos para sobrescribir valores por defecto
+    try:
+        connection = get_db_connection()
+        if connection:
+            cursor = connection.cursor()
+            
+            # Obtener todos los consejos de análisis desde la base de datos
+            cursor.execute("""
+                SELECT content_key, content_value 
+                FROM site_content 
+                WHERE section = 'analysis_tips'
+            """)
+            
+            results = cursor.fetchall()
+            analysis_tips = {}
+            for row in results:
+                analysis_tips[row['content_key']] = row['content_value']
+            
+            # Sobrescribir valores por defecto con los de la base de datos si existen
+            if analysis_tips:
+                for tip_type in ['tip_format', 'tip_keywords', 'tip_achievements', 'tip_errors']:
+                    if f'{tip_type}_title' in analysis_tips:
+                        tips_data[tip_type]['title'] = analysis_tips[f'{tip_type}_title']
+                    if f'{tip_type}_description' in analysis_tips:
+                        tips_data[tip_type]['description'] = analysis_tips[f'{tip_type}_description']
+                    if f'{tip_type}_icon' in analysis_tips:
+                        tips_data[tip_type]['icon'] = analysis_tips[f'{tip_type}_icon']
+                    if f'{tip_type}_icon_color' in analysis_tips:
+                        tips_data[tip_type]['icon_color'] = analysis_tips[f'{tip_type}_icon_color']
+                
+                print(f"Consejos cargados desde BD: {len(analysis_tips)} elementos")
+            else:
+                print("No hay consejos personalizados en BD, usando valores por defecto")
+            
+            cursor.close()
+            connection.close()
+    except Exception as e:
+        print(f"Error cargando desde BD, usando valores por defecto: {e}")
+    
+    print("Consejos de análisis cargados correctamente")
+    
+    return render_template('analyze_cv.html', tips_data=tips_data)
 
 @app.route('/select_ai_provider')
 def select_ai_provider():
@@ -5787,65 +5856,115 @@ def update_content_inline():
             # Actualizar acciones rápidas
             action_type = section.replace('quick_action_', '')
             
+            # Función helper para insertar o actualizar quick actions
+            def upsert_quick_action(content_key, content_value):
+                try:
+                    cursor.execute("""
+                        UPDATE site_content 
+                        SET content_value = %s, updated_at = CURRENT_TIMESTAMP, updated_by = %s 
+                        WHERE section = %s AND content_key = %s
+                    """, (content_value, user_id, 'quick_actions', content_key))
+                    
+                    if cursor.rowcount == 0:
+                        cursor.execute("""
+                            INSERT INTO site_content (section, content_key, content_value, updated_by) 
+                            VALUES (%s, %s, %s, %s)
+                        """, ('quick_actions', content_key, content_value, user_id))
+                except Exception as e:
+                    app.logger.error(f"Error en upsert_quick_action para {content_key}: {e}")
+                    raise
+            
             if title:
-                cursor.execute("""
-                    INSERT INTO site_content (section, content_key, content_value, updated_by) 
-                    VALUES (%s, %s, %s, %s) 
-                    ON CONFLICT (section, content_key) DO UPDATE SET 
-                    content_value = EXCLUDED.content_value, updated_at = CURRENT_TIMESTAMP
-                """, ('quick_actions', f'{action_type}_title', title, user_id))
+                upsert_quick_action(f'{action_type}_title', title)
             
             if description:
-                cursor.execute("""
-                    INSERT INTO site_content (section, content_key, content_value, updated_by) 
-                    VALUES (%s, %s, %s, %s) 
-                    ON CONFLICT (section, content_key) DO UPDATE SET 
-                    content_value = EXCLUDED.content_value, updated_at = CURRENT_TIMESTAMP
-                """, ('quick_actions', f'{action_type}_description', description, user_id))
+                upsert_quick_action(f'{action_type}_description', description)
             
             if icon:
-                cursor.execute("""
-                    INSERT INTO site_content (section, content_key, content_value, updated_by) 
-                    VALUES (%s, %s, %s, %s) 
-                    ON CONFLICT (section, content_key) DO UPDATE SET 
-                    content_value = EXCLUDED.content_value, updated_at = CURRENT_TIMESTAMP
-                """, ('quick_actions', f'{action_type}_icon', icon, user_id))
+                upsert_quick_action(f'{action_type}_icon', icon)
             
             if button_text:
-                cursor.execute("""
-                    INSERT INTO site_content (section, content_key, content_value, updated_by) 
-                    VALUES (%s, %s, %s, %s) 
-                    ON CONFLICT (section, content_key) DO UPDATE SET 
-                    content_value = EXCLUDED.content_value, updated_at = CURRENT_TIMESTAMP
-                """, ('quick_actions', f'{action_type}_button_text', button_text, user_id))
+                upsert_quick_action(f'{action_type}_button_text', button_text)
         
         elif section == 'welcome_section':
             # Actualizar sección de bienvenida
+            def upsert_welcome(content_key, content_value):
+                try:
+                    cursor.execute("""
+                        UPDATE site_content 
+                        SET content_value = %s, updated_at = CURRENT_TIMESTAMP, updated_by = %s 
+                        WHERE section = %s AND content_key = %s
+                    """, (content_value, user_id, 'welcome', content_key))
+                    
+                    if cursor.rowcount == 0:
+                        cursor.execute("""
+                            INSERT INTO site_content (section, content_key, content_value, updated_by) 
+                            VALUES (%s, %s, %s, %s)
+                        """, ('welcome', content_key, content_value, user_id))
+                except Exception as e:
+                    app.logger.error(f"Error en upsert_welcome para {content_key}: {e}")
+                    raise
+            
             if title:
-                cursor.execute("""
-                    INSERT INTO site_content (section, content_key, content_value, updated_by) 
-                    VALUES (%s, %s, %s, %s) 
-                    ON CONFLICT (section, content_key) DO UPDATE SET 
-                    content_value = EXCLUDED.content_value, updated_at = CURRENT_TIMESTAMP
-                """, ('welcome', 'title', title, user_id))
+                upsert_welcome('title', title)
             
             if description:
-                cursor.execute("""
-                    INSERT INTO site_content (section, content_key, content_value, updated_by) 
-                    VALUES (%s, %s, %s, %s) 
-                    ON CONFLICT (section, content_key) DO UPDATE SET 
-                    content_value = EXCLUDED.content_value, updated_at = CURRENT_TIMESTAMP
-                """, ('welcome', 'subtitle', description, user_id))
+                upsert_welcome('subtitle', description)
         
         elif section == 'tips_section':
             # Actualizar configuración general de la sección de consejos
             if title:
-                cursor.execute("""
-                    INSERT INTO site_content (section, content_key, content_value, updated_by) 
-                    VALUES (%s, %s, %s, %s) 
-                    ON CONFLICT (section, content_key) DO UPDATE SET 
-                    content_value = EXCLUDED.content_value, updated_at = CURRENT_TIMESTAMP
-                """, ('tips', 'section_title', title, user_id))
+                try:
+                    cursor.execute("""
+                        UPDATE site_content 
+                        SET content_value = %s, updated_at = CURRENT_TIMESTAMP, updated_by = %s 
+                        WHERE section = %s AND content_key = %s
+                    """, (title, user_id, 'tips', 'section_title'))
+                    
+                    if cursor.rowcount == 0:
+                        cursor.execute("""
+                            INSERT INTO site_content (section, content_key, content_value, updated_by) 
+                            VALUES (%s, %s, %s, %s)
+                        """, ('tips', 'section_title', title, user_id))
+                except Exception as e:
+                    app.logger.error(f"Error actualizando tips_section: {e}")
+                    raise
+        
+        elif section.startswith('tip_'):
+            # Actualizar consejos de análisis individuales
+            tip_type = section  # tip_format, tip_keywords, etc.
+            
+            # Función helper para insertar o actualizar
+            def upsert_content(content_key, content_value):
+                try:
+                    # Intentar actualizar primero
+                    cursor.execute("""
+                        UPDATE site_content 
+                        SET content_value = %s, updated_at = CURRENT_TIMESTAMP, updated_by = %s 
+                        WHERE section = %s AND content_key = %s
+                    """, (content_value, user_id, 'analysis_tips', content_key))
+                    
+                    # Si no se actualizó ninguna fila, insertar
+                    if cursor.rowcount == 0:
+                        cursor.execute("""
+                            INSERT INTO site_content (section, content_key, content_value, updated_by) 
+                            VALUES (%s, %s, %s, %s)
+                        """, ('analysis_tips', content_key, content_value, user_id))
+                except Exception as e:
+                    app.logger.error(f"Error en upsert_content para {content_key}: {e}")
+                    raise
+            
+            if title:
+                upsert_content(f'{tip_type}_title', title)
+            
+            if description:
+                upsert_content(f'{tip_type}_description', description)
+            
+            if icon:
+                upsert_content(f'{tip_type}_icon', icon)
+            
+            if icon_color:
+                upsert_content(f'{tip_type}_icon_color', icon_color)
         
         connection.commit()
         cursor.close()
