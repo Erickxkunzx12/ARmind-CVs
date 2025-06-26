@@ -183,13 +183,13 @@ def get_user_subscription(user_id):
         return None
     
     try:
-        cursor = connection.cursor(cursor_factory=RealDictCursor)
+        cursor = connection.cursor()
         
         # Primero verificar si es administrador
         cursor.execute("SELECT role FROM users WHERE id = %s", (user_id,))
         user_role = cursor.fetchone()
         
-        if user_role and user_role['role'] == 'admin':
+        if user_role and user_role[0] == 'admin':
             # Los administradores no necesitan suscripción, tienen acceso completo
             cursor.close()
             connection.close()
@@ -197,14 +197,11 @@ def get_user_subscription(user_id):
         
         # Para usuarios normales, buscar en la tabla subscriptions
         cursor.execute("""
-            SELECT s.id, s.user_id, s.plan_type, s.status, s.start_date, s.end_date, 
-                   s.payment_method, s.transaction_id, s.amount, s.currency,
-                   s.created_at, s.updated_at,
-                   u.current_plan, u.subscription_status, u.subscription_end_date
+            SELECT s.*, u.current_plan, u.subscription_status, u.subscription_end_date
             FROM subscriptions s
             JOIN users u ON s.user_id = u.id
             WHERE s.user_id = %s AND s.status = 'active'
-            ORDER BY s.start_date DESC
+            ORDER BY s.created_at DESC
             LIMIT 1
         """, (user_id,))
         
@@ -212,34 +209,12 @@ def get_user_subscription(user_id):
         cursor.close()
         connection.close()
         
-        if subscription:
-            # Convertir a diccionario para compatibilidad con templates
-            return {
-                'id': subscription[0],
-                'user_id': subscription[1],
-                'plan_type': subscription[2],
-                'status': subscription[3],
-                'start_date': subscription[4],
-                'end_date': subscription[5],
-                'payment_method': subscription[6],
-                'transaction_id': subscription[7],
-                'amount': subscription[8],
-                'currency': subscription[9],
-                'created_at': subscription[10],
-                'updated_at': subscription[11],
-                'expires_at': subscription[5],  # Alias para compatibilidad con templates
-                'current_plan': subscription[12],
-                'subscription_status': subscription[13],
-                'subscription_end_date': subscription[14]
-            }
-        
-        return None
+        return subscription
         
     except Exception as e:
         print(f"Error al obtener suscripción del usuario: {e}")
-        if connection:
-            connection.close()
         return None
+
 def get_user_usage(user_id, resource_type):
     """Obtener el uso actual de recursos del usuario"""
     connection = get_db_connection()
@@ -247,13 +222,13 @@ def get_user_usage(user_id, resource_type):
         return 0
     
     try:
-        cursor = connection.cursor(cursor_factory=RealDictCursor)
+        cursor = connection.cursor()
         
         # Verificar si es administrador
         cursor.execute("SELECT role FROM users WHERE id = %s", (user_id,))
         user_role = cursor.fetchone()
         
-        if user_role and user_role['role'] == 'admin':
+        if user_role and user_role[0] == 'admin':
             # Los administradores tienen uso ilimitado
             cursor.close()
             connection.close()
@@ -290,7 +265,7 @@ def check_user_limits(user_id, action_type):
     try:
         # Verificar si es administrador primero
         connection = get_db_connection()
-        cursor = connection.cursor(cursor_factory=RealDictCursor)
+        cursor = connection.cursor()
         cursor.execute("SELECT role FROM users WHERE id = %s", (user_id,))
         user_role = cursor.fetchone()
         cursor.close()
@@ -329,7 +304,7 @@ def increment_usage(user_id, resource_type):
         return False
     
     try:
-        cursor = connection.cursor(cursor_factory=RealDictCursor)
+        cursor = connection.cursor()
         subscription = get_user_subscription(user_id)
         
         if not subscription:

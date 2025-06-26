@@ -1,0 +1,585 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Gestión de Vendedores - Panel de Administración{% endblock %}
+
+{% block extra_css %}
+<style>
+.filter-card {
+    background: white;
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.sellers-table {
+    background: white;
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.table th {
+    background: #f8f9fa;
+    border: none;
+    font-weight: 600;
+}
+
+.seller-card {
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.seller-card:hover {
+    border-color: #667eea;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.1);
+}
+
+.seller-card.active {
+    border-color: #28a745;
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+}
+
+.seller-card.inactive {
+    border-color: #dc3545;
+    background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+    opacity: 0.8;
+}
+
+.status-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+}
+
+.status-active {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
+}
+
+.status-inactive {
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    color: white;
+}
+
+.btn-create {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.btn-create:hover {
+    transform: translateY(-2px);
+    color: white;
+}
+
+.seller-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-right: 15px;
+}
+
+.seller-info h5 {
+    color: #333;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.seller-info p {
+    color: #6c757d;
+    font-size: 0.9rem;
+    margin-bottom: 3px;
+}
+
+.stats-row {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 15px;
+}
+
+.stat-item {
+    text-align: center;
+}
+
+.stat-number {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    color: #6c757d;
+    text-transform: uppercase;
+}
+
+.action-buttons .btn {
+    margin: 2px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+}
+
+.filter-form .form-control {
+    border-radius: 8px;
+    border: 1px solid #ddd;
+}
+
+.filter-form .btn {
+    border-radius: 8px;
+}
+
+.commission-badge {
+    background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+    color: #212529;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.contact-info {
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+.contact-info i {
+    width: 15px;
+    margin-right: 5px;
+}
+
+@media (max-width: 768px) {
+    .seller-card {
+        padding: 15px;
+    }
+    
+    .seller-avatar {
+        width: 50px;
+        height: 50px;
+        font-size: 1.2rem;
+    }
+    
+    .stats-row {
+        padding: 10px;
+    }
+    
+    .stat-number {
+        font-size: 1.2rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3">👥 Gestión de Vendedores</h1>
+                <button type="button" class="btn btn-create" data-toggle="modal" data-target="#createSellerModal">
+                    <i class="fas fa-plus"></i> Agregar Vendedor
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filtros -->
+    <div class="row">
+        <div class="col-12">
+            <div class="filter-card">
+                <h5 class="mb-3">🔍 Filtros de Búsqueda</h5>
+                <form method="GET" class="filter-form">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label for="search" class="form-label">Buscar</label>
+                            <input type="text" name="search" id="search" class="form-control" 
+                                   placeholder="Nombre, email o teléfono..." 
+                                   value="{{ current_filters.search }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="status" class="form-label">Estado</label>
+                            <select name="status" id="status" class="form-control">
+                                <option value="">Todos los estados</option>
+                                <option value="active" {% if current_filters.status == 'active' %}selected{% endif %}>Activos</option>
+                                <option value="inactive" {% if current_filters.status == 'inactive' %}selected{% endif %}>Inactivos</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="sort_by" class="form-label">Ordenar por</label>
+                            <select name="sort_by" id="sort_by" class="form-control">
+                                <option value="name" {% if current_filters.sort_by == 'name' %}selected{% endif %}>Nombre</option>
+                                <option value="created_at" {% if current_filters.sort_by == 'created_at' %}selected{% endif %}>Fecha de registro</option>
+                                <option value="total_sales" {% if current_filters.sort_by == 'total_sales' %}selected{% endif %}>Total de ventas</option>
+                                <option value="commission_rate" {% if current_filters.sort_by == 'commission_rate' %}selected{% endif %}>Comisión</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <div>
+                                <button type="submit" class="btn btn-primary btn-block">
+                                    <i class="fas fa-search"></i> Buscar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Lista de Vendedores -->
+    <div class="row">
+        <div class="col-12">
+            <div class="sellers-table">
+                {% if sellers %}
+                <div class="row">
+                    {% for seller in sellers %}
+                    <div class="col-lg-6 col-xl-4">
+                        <div class="seller-card {{ 'active' if seller.is_active else 'inactive' }}">
+                            <!-- Encabezado del Vendedor -->
+                            <div class="d-flex align-items-start mb-3">
+                                <div class="seller-avatar">
+                                    {{ seller.name[0].upper() }}
+                                </div>
+                                <div class="seller-info flex-grow-1">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h5>{{ seller.name }}</h5>
+                                            <div class="status-badge status-{{ 'active' if seller.is_active else 'inactive' }}">
+                                                {{ 'Activo' if seller.is_active else 'Inactivo' }}
+                                            </div>
+                                        </div>
+                                        <div class="commission-badge">
+                                            {{ seller.commission_rate }}% comisión
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Información de Contacto -->
+                            <div class="contact-info mb-3">
+                                {% if seller.email %}
+                                <div class="mb-1">
+                                    <i class="fas fa-envelope"></i> {{ seller.email }}
+                                </div>
+                                {% endif %}
+                                {% if seller.phone %}
+                                <div class="mb-1">
+                                    <i class="fas fa-phone"></i> {{ seller.phone }}
+                                </div>
+                                {% endif %}
+                                <div class="mb-1">
+                                    <i class="fas fa-calendar"></i> Registrado: {{ seller.created_at.strftime('%d/%m/%Y') }}
+                                </div>
+                            </div>
+                            
+                            <!-- Estadísticas -->
+                            <div class="stats-row">
+                                <div class="row">
+                                    <div class="col-4 stat-item">
+                                        <div class="stat-number">{{ seller.total_sales or 0 }}</div>
+                                        <div class="stat-label">Ventas</div>
+                                    </div>
+                                    <div class="col-4 stat-item">
+                                        <div class="stat-number">{{ seller.active_coupons or 0 }}</div>
+                                        <div class="stat-label">Cupones</div>
+                                    </div>
+                                    <div class="col-4 stat-item">
+                                        <div class="stat-number">${{ "{:,.0f}".format(seller.total_commission or 0) }}</div>
+                                        <div class="stat-label">Comisión</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Acciones -->
+                            <div class="action-buttons text-center mt-3">
+                                <button type="button" class="btn btn-sm btn-outline-info" 
+                                        onclick="viewSellerDetails({{ seller.id }})" title="Ver detalles">
+                                    <i class="fas fa-eye"></i> Detalles
+                                </button>
+                                
+                                <button type="button" class="btn btn-sm btn-outline-primary" 
+                                        onclick="editSeller({{ seller.id }})" title="Editar">
+                                    <i class="fas fa-edit"></i> Editar
+                                </button>
+                                
+                                {% if seller.is_active %}
+                                <button type="button" class="btn btn-sm btn-outline-warning" 
+                                        onclick="toggleSellerStatus({{ seller.id }}, false)" title="Desactivar">
+                                    <i class="fas fa-pause"></i> Desactivar
+                                </button>
+                                {% else %}
+                                <button type="button" class="btn btn-sm btn-outline-success" 
+                                        onclick="toggleSellerStatus({{ seller.id }}, true)" title="Activar">
+                                    <i class="fas fa-play"></i> Activar
+                                </button>
+                                {% endif %}
+                                
+                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                        onclick="deleteSeller({{ seller.id }}, '{{ seller.name }}')" title="Eliminar">
+                                    <i class="fas fa-trash"></i> Eliminar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Paginación -->
+                <div class="d-flex justify-content-between align-items-center mt-4">
+                    <div>
+                        <small class="text-muted">Mostrando {{ sellers|length }} vendedores</small>
+                    </div>
+                    <div>
+                        <!-- Aquí se puede agregar paginación si es necesario -->
+                    </div>
+                </div>
+                
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No hay vendedores para mostrar</h5>
+                    <p class="text-muted">Agrega tu primer vendedor para comenzar</p>
+                    <button type="button" class="btn btn-create" data-toggle="modal" data-target="#createSellerModal">
+                        <i class="fas fa-plus"></i> Agregar Primer Vendedor
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Crear/Editar Vendedor -->
+<div class="modal fade" id="createSellerModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">Agregar Nuevo Vendedor</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <form id="sellerForm" method="POST">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="name">Nombre Completo *</label>
+                                <input type="text" class="form-control" id="name" name="name" 
+                                       placeholder="Ej: Juan Pérez" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="email">Email</label>
+                                <input type="email" class="form-control" id="email" name="email" 
+                                       placeholder="juan@ejemplo.com">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="phone">Teléfono</label>
+                                <input type="tel" class="form-control" id="phone" name="phone" 
+                                       placeholder="+1234567890">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="commission_rate">Tasa de Comisión (%) *</label>
+                                <input type="number" class="form-control" id="commission_rate" name="commission_rate" 
+                                       min="0" max="100" step="0.1" placeholder="10.5" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="description">Descripción</label>
+                        <textarea class="form-control" id="description" name="description" 
+                                  rows="3" placeholder="Información adicional sobre el vendedor..."></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="is_active" name="is_active" checked>
+                            <label class="form-check-label" for="is_active">
+                                Vendedor activo
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                        <i class="fas fa-save"></i> Guardar Vendedor
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Detalles del Vendedor -->
+<div class="modal fade" id="detailsModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalles del Vendedor</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="sellerDetails">
+                <!-- Los detalles se cargarán aquí -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmación de Eliminación -->
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Eliminación</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de que deseas eliminar al vendedor <strong id="sellerNameToDelete"></strong>?</p>
+                <p class="text-warning"><small>Esta acción eliminará también todos los cupones asociados y no se puede deshacer.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let editingId = null;
+
+function viewSellerDetails(sellerId) {
+    $('#sellerDetails').html('<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando...</div>');
+    $('#detailsModal').modal('show');
+    
+    // Aquí se puede implementar una llamada AJAX para obtener detalles
+    setTimeout(function() {
+        $('#sellerDetails').html(`
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Información General</h6>
+                    <p><strong>ID:</strong> ${sellerId}</p>
+                    <p><strong>Cupones Activos:</strong> Información no disponible</p>
+                    <p><strong>Ventas del Mes:</strong> Información no disponible</p>
+                </div>
+                <div class="col-md-6">
+                    <h6>Estadísticas</h6>
+                    <p><strong>Total Comisiones:</strong> Información no disponible</p>
+                    <p><strong>Último Uso:</strong> Información no disponible</p>
+                    <p><strong>Rendimiento:</strong> Información no disponible</p>
+                </div>
+            </div>
+        `);
+    }, 1000);
+}
+
+function editSeller(sellerId) {
+    editingId = sellerId;
+    $('#modalTitle').text('Editar Vendedor');
+    $('#submitBtn').html('<i class="fas fa-save"></i> Actualizar Vendedor');
+    
+    // Aquí se cargarían los datos del vendedor
+    // Por ahora, solo mostramos el modal
+    $('#createSellerModal').modal('show');
+}
+
+function toggleSellerStatus(sellerId, newStatus) {
+    const action = newStatus ? 'activar' : 'desactivar';
+    if (confirm(`¿Estás seguro de que deseas ${action} este vendedor?`)) {
+        // Aquí se haría la llamada AJAX para cambiar el estado
+        // Por ahora, solo recargamos la página
+        location.reload();
+    }
+}
+
+function deleteSeller(sellerId, sellerName) {
+    $('#sellerNameToDelete').text(sellerName);
+    $('#deleteForm').attr('action', '/admin/sellers/delete/' + sellerId);
+    $('#deleteModal').modal('show');
+}
+
+// Resetear modal al cerrarlo
+$('#createSellerModal').on('hidden.bs.modal', function() {
+    editingId = null;
+    $('#modalTitle').text('Agregar Nuevo Vendedor');
+    $('#submitBtn').html('<i class="fas fa-save"></i> Guardar Vendedor');
+    $('#sellerForm')[0].reset();
+    $('#is_active').prop('checked', true);
+});
+
+// Validación del formulario
+$('#sellerForm').on('submit', function(e) {
+    const name = $('#name').val().trim();
+    const commissionRate = parseFloat($('#commission_rate').val());
+    
+    if (name.length < 2) {
+        e.preventDefault();
+        alert('El nombre debe tener al menos 2 caracteres');
+        return false;
+    }
+    
+    if (isNaN(commissionRate) || commissionRate < 0 || commissionRate > 100) {
+        e.preventDefault();
+        alert('La tasa de comisión debe estar entre 0 y 100');
+        return false;
+    }
+    
+    // Deshabilitar botón para evitar doble envío
+    $('#submitBtn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Guardando...');
+});
+
+// Filtros automáticos
+$('#status, #sort_by').on('change', function() {
+    $(this).closest('form').submit();
+});
+
+// Búsqueda con delay
+let searchTimeout;
+$('#search').on('input', function() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(function() {
+        $('#search').closest('form').submit();
+    }, 500);
+});
+</script>
+{% endblock %}

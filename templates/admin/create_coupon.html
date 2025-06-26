@@ -1,0 +1,415 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Crear Cupón - Panel de Administración{% endblock %}
+
+{% block extra_css %}
+<style>
+.form-card {
+    background: white;
+    border-radius: 15px;
+    padding: 30px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+.form-control {
+    border-radius: 8px;
+    border: 2px solid #e9ecef;
+    padding: 12px 15px;
+    transition: border-color 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+.btn-create {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+    padding: 12px 30px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.btn-create:hover {
+    transform: translateY(-2px);
+    color: white;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.btn-cancel {
+    background: #6c757d;
+    border: none;
+    color: white;
+    padding: 12px 30px;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.btn-cancel:hover {
+    background: #5a6268;
+    color: white;
+}
+
+.code-preview {
+    background: #f8f9fa;
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    padding: 15px;
+    text-align: center;
+    margin-top: 10px;
+}
+
+.code-preview .coupon-code {
+    font-family: 'Courier New', monospace;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #667eea;
+    letter-spacing: 2px;
+}
+
+.help-text {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-top: 5px;
+}
+
+.validation-feedback {
+    display: block;
+    width: 100%;
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+}
+
+.validation-feedback.valid {
+    color: #28a745;
+}
+
+.validation-feedback.invalid {
+    color: #dc3545;
+}
+
+.percentage-input {
+    position: relative;
+}
+
+.percentage-input::after {
+    content: '%';
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    font-weight: bold;
+}
+
+.input-group-text {
+    background: #f8f9fa;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+}
+
+.required {
+    color: #dc3545;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3">🎫 Crear Nuevo Cupón</h1>
+                <a href="{{ url_for('admin_coupons') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Volver a Cupones
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="form-card">
+                <form method="POST" id="couponForm">
+                    <div class="row">
+                        <!-- Código del Cupón -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="code">Código del Cupón <span class="required">*</span></label>
+                                <input type="text" class="form-control" id="code" name="code" 
+                                       placeholder="Ej: DESCUENTO20" maxlength="20" required
+                                       style="text-transform: uppercase;">
+                                <div class="help-text">El código debe ser único y fácil de recordar</div>
+                                <div id="codeValidation" class="validation-feedback"></div>
+                            </div>
+                            
+                            <!-- Vista previa del código -->
+                            <div class="code-preview" id="codePreview" style="display: none;">
+                                <div class="coupon-code" id="previewCode"></div>
+                                <small class="text-muted">Vista previa del código</small>
+                            </div>
+                        </div>
+                        
+                        <!-- Vendedor -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="seller_id">Vendedor Asociado <span class="required">*</span></label>
+                                <select class="form-control" id="seller_id" name="seller_id" required>
+                                    <option value="">Seleccionar vendedor...</option>
+                                    {% for seller in sellers %}
+                                    <option value="{{ seller.id }}">{{ seller.name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="help-text">El vendedor que recibirá la comisión</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <!-- Porcentaje de Descuento -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="discount_percentage">Porcentaje de Descuento <span class="required">*</span></label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="discount_percentage" 
+                                           name="discount_percentage" min="1" max="100" step="0.01" required>
+                                    <div class="input-group-append">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </div>
+                                <div class="help-text">Entre 1% y 100%</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Porcentaje de Comisión -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="commission_percentage">Porcentaje de Comisión <span class="required">*</span></label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="commission_percentage" 
+                                           name="commission_percentage" min="0" max="100" step="0.01" value="10" required>
+                                    <div class="input-group-append">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </div>
+                                <div class="help-text">Comisión que recibirá el vendedor</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <!-- Máximo de Usos -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="max_usage">Máximo de Usos</label>
+                                <input type="number" class="form-control" id="max_usage" 
+                                       name="max_usage" min="1" placeholder="Ilimitado">
+                                <div class="help-text">Dejar vacío para uso ilimitado</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Fecha de Vencimiento -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="valid_until">Válido Hasta</label>
+                                <input type="date" class="form-control" id="valid_until" 
+                                       name="valid_until" min="{{ today }}">
+                                <div class="help-text">Dejar vacío para sin fecha límite</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Resumen del Cupón -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">📋 Resumen del Cupón</h6>
+                                    <div id="couponSummary">
+                                        <p class="text-muted">Complete los campos para ver el resumen</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Botones de Acción -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between">
+                                <a href="{{ url_for('admin_coupons') }}" class="btn btn-cancel">
+                                    <i class="fas fa-times"></i> Cancelar
+                                </a>
+                                <button type="submit" class="btn btn-create" id="submitBtn">
+                                    <i class="fas fa-save"></i> Crear Cupón
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Validación en tiempo real del código
+    $('#code').on('input', function() {
+        var code = $(this).val().toUpperCase();
+        $(this).val(code);
+        
+        if (code.length >= 3) {
+            $('#codePreview').show();
+            $('#previewCode').text(code);
+            
+            // Validar si el código ya existe
+            validateCouponCode(code);
+        } else {
+            $('#codePreview').hide();
+            $('#codeValidation').text('');
+        }
+        
+        updateSummary();
+    });
+    
+    // Actualizar resumen cuando cambien los campos
+    $('#seller_id, #discount_percentage, #commission_percentage, #max_usage, #valid_until').on('change input', function() {
+        updateSummary();
+    });
+    
+    // Establecer fecha mínima como hoy
+    var today = new Date().toISOString().split('T')[0];
+    $('#valid_until').attr('min', today);
+    
+    // Validación del formulario
+    $('#couponForm').on('submit', function(e) {
+        if (!validateForm()) {
+            e.preventDefault();
+        }
+    });
+});
+
+function validateCouponCode(code) {
+    if (code.length < 3) return;
+    
+    $.get('/api/admin/validate-coupon-code', { code: code })
+        .done(function(response) {
+            if (response.valid) {
+                $('#codeValidation').removeClass('invalid').addClass('valid')
+                    .text('✓ Código disponible');
+            } else {
+                $('#codeValidation').removeClass('valid').addClass('invalid')
+                    .text('✗ Este código ya existe');
+            }
+        })
+        .fail(function() {
+            $('#codeValidation').removeClass('valid invalid')
+                .text('Error validando código');
+        });
+}
+
+function updateSummary() {
+    var code = $('#code').val();
+    var sellerName = $('#seller_id option:selected').text();
+    var discount = $('#discount_percentage').val();
+    var commission = $('#commission_percentage').val();
+    var maxUsage = $('#max_usage').val();
+    var validUntil = $('#valid_until').val();
+    
+    if (code && sellerName !== 'Seleccionar vendedor...' && discount && commission) {
+        var summary = `
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Código:</strong> <span class="coupon-code">${code}</span></p>
+                    <p><strong>Vendedor:</strong> ${sellerName}</p>
+                    <p><strong>Descuento:</strong> ${discount}%</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Comisión:</strong> ${commission}%</p>
+                    <p><strong>Usos máximos:</strong> ${maxUsage || 'Ilimitado'}</p>
+                    <p><strong>Válido hasta:</strong> ${validUntil || 'Sin límite'}</p>
+                </div>
+            </div>
+        `;
+        $('#couponSummary').html(summary);
+    } else {
+        $('#couponSummary').html('<p class="text-muted">Complete los campos requeridos para ver el resumen</p>');
+    }
+}
+
+function validateForm() {
+    var isValid = true;
+    var errors = [];
+    
+    // Validar código
+    var code = $('#code').val();
+    if (!code || code.length < 3) {
+        errors.push('El código debe tener al menos 3 caracteres');
+        isValid = false;
+    }
+    
+    // Validar vendedor
+    if (!$('#seller_id').val()) {
+        errors.push('Debe seleccionar un vendedor');
+        isValid = false;
+    }
+    
+    // Validar descuento
+    var discount = parseFloat($('#discount_percentage').val());
+    if (!discount || discount < 1 || discount > 100) {
+        errors.push('El descuento debe estar entre 1% y 100%');
+        isValid = false;
+    }
+    
+    // Validar comisión
+    var commission = parseFloat($('#commission_percentage').val());
+    if (commission < 0 || commission > 100) {
+        errors.push('La comisión debe estar entre 0% y 100%');
+        isValid = false;
+    }
+    
+    // Validar fecha
+    var validUntil = $('#valid_until').val();
+    if (validUntil) {
+        var selectedDate = new Date(validUntil);
+        var today = new Date();
+        if (selectedDate <= today) {
+            errors.push('La fecha de vencimiento debe ser futura');
+            isValid = false;
+        }
+    }
+    
+    if (!isValid) {
+        alert('Errores encontrados:\n' + errors.join('\n'));
+    }
+    
+    return isValid;
+}
+
+// Generar código automático
+function generateRandomCode() {
+    var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    var result = '';
+    for (var i = 0; i < 8; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    $('#code').val(result).trigger('input');
+}
+
+// Agregar botón para generar código automático
+$('#code').after('<button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="generateRandomCode()"><i class="fas fa-random"></i> Generar Código</button>');
+</script>
+{% endblock %}

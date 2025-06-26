@@ -1,0 +1,277 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Dashboard de Ventas - Panel de Administración{% endblock %}
+
+{% block extra_css %}
+<style>
+.stats-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 15px;
+    padding: 20px;
+    color: white;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.stats-card h3 {
+    font-size: 2.5rem;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.stats-card p {
+    margin: 0;
+    opacity: 0.9;
+}
+
+.quick-actions {
+    background: white;
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.action-btn {
+    display: inline-block;
+    padding: 12px 24px;
+    margin: 5px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+    transition: transform 0.2s;
+}
+
+.action-btn:hover {
+    transform: translateY(-2px);
+    color: white;
+    text-decoration: none;
+}
+
+.recent-sales {
+    background: white;
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.table-responsive {
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.table th {
+    background: #f8f9fa;
+    border: none;
+    font-weight: 600;
+}
+
+.badge-success {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+}
+
+.badge-warning {
+    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+}
+
+.badge-danger {
+    background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="h3 mb-4">📊 Dashboard de Ventas</h1>
+        </div>
+    </div>
+    
+    <!-- Estadísticas Principales -->
+    <div class="row">
+        <div class="col-md-3">
+            <div class="stats-card">
+                <h3>{{ coupon_stats.total_coupons or 0 }}</h3>
+                <p>Cupones Totales</p>
+                <small>{{ coupon_stats.active_coupons or 0 }} activos</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <h3>{{ offer_stats.total_offers or 0 }}</h3>
+                <p>Ofertas Totales</p>
+                <small>{{ offer_stats.active_offers or 0 }} activas</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <h3>${{ "%.2f"|format(sales_stats.total_revenue or 0) }}</h3>
+                <p>Ingresos del Mes</p>
+                <small>{{ sales_stats.total_transactions or 0 }} transacciones</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <h3>${{ "%.2f"|format(sales_stats.total_commissions or 0) }}</h3>
+                <p>Comisiones del Mes</p>
+                <small>Total pagado</small>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Acciones Rápidas -->
+    <div class="row">
+        <div class="col-12">
+            <div class="quick-actions">
+                <h5 class="mb-3">🚀 Acciones Rápidas</h5>
+                <a href="{{ url_for('admin_create_coupon') }}" class="action-btn">
+                    <i class="fas fa-plus"></i> Crear Cupón
+                </a>
+                <a href="{{ url_for('admin_create_offer') }}" class="action-btn">
+                    <i class="fas fa-tag"></i> Nueva Oferta
+                </a>
+                <a href="{{ url_for('admin_sales_reports') }}" class="action-btn">
+                    <i class="fas fa-chart-bar"></i> Ver Reportes
+                </a>
+                <a href="{{ url_for('admin_sellers') }}" class="action-btn">
+                    <i class="fas fa-users"></i> Gestionar Vendedores
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Ventas Recientes -->
+    <div class="row">
+        <div class="col-12">
+            <div class="recent-sales">
+                <h5 class="mb-3">💰 Ventas Recientes</h5>
+                
+                {% if recent_sales %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Usuario</th>
+                                <th>Vendedor</th>
+                                <th>Monto Original</th>
+                                <th>Descuento</th>
+                                <th>Monto Final</th>
+                                <th>Comisión</th>
+                                <th>Estado</th>
+                                <th>Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sale in recent_sales %}
+                            <tr>
+                                <td><strong>#{{ sale.id }}</strong></td>
+                                <td>{{ sale.username or 'N/A' }}</td>
+                                <td>{{ sale.seller_name or 'Directo' }}</td>
+                                <td>${{ "%.2f"|format(sale.original_amount) }}</td>
+                                <td>
+                                    {% if sale.discount_amount > 0 %}
+                                        <span class="text-success">-${{ "%.2f"|format(sale.discount_amount) }}</span>
+                                    {% else %}
+                                        <span class="text-muted">Sin descuento</span>
+                                    {% endif %}
+                                </td>
+                                <td><strong>${{ "%.2f"|format(sale.final_amount) }}</strong></td>
+                                <td>${{ "%.2f"|format(sale.commission_amount or 0) }}</td>
+                                <td>
+                                    {% if sale.status == 'completed' %}
+                                        <span class="badge badge-success">Completada</span>
+                                    {% elif sale.status == 'pending' %}
+                                        <span class="badge badge-warning">Pendiente</span>
+                                    {% else %}
+                                        <span class="badge badge-danger">{{ sale.status|title }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ sale.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">No hay ventas recientes para mostrar</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Enlaces de Navegación -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">🔗 Navegación Rápida</h5>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <a href="{{ url_for('admin_coupons') }}" class="btn btn-outline-primary btn-block">
+                                <i class="fas fa-ticket-alt"></i> Gestionar Cupones
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{{ url_for('admin_offers') }}" class="btn btn-outline-success btn-block">
+                                <i class="fas fa-tags"></i> Gestionar Ofertas
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{{ url_for('admin_sales_reports') }}" class="btn btn-outline-info btn-block">
+                                <i class="fas fa-chart-pie"></i> Reportes Detallados
+                            </a>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="{{ url_for('admin_export_sales') }}?format=csv" class="btn btn-outline-warning btn-block">
+                                <i class="fas fa-download"></i> Exportar Datos
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto-refresh cada 5 minutos
+setTimeout(function() {
+    location.reload();
+}, 300000);
+
+// Animación de números
+$(document).ready(function() {
+    $('.stats-card h3').each(function() {
+        var $this = $(this);
+        var countTo = $this.text().replace(/[^0-9.]/g, '');
+        
+        if (countTo) {
+            $({ countNum: 0 }).animate({
+                countNum: countTo
+            }, {
+                duration: 2000,
+                easing: 'linear',
+                step: function() {
+                    var prefix = $this.text().match(/^[^0-9]*/)[0];
+                    var suffix = $this.text().match(/[^0-9]*$/)[0];
+                    $this.text(prefix + Math.floor(this.countNum) + suffix);
+                },
+                complete: function() {
+                    var prefix = $this.text().match(/^[^0-9]*/)[0];
+                    var suffix = $this.text().match(/[^0-9]*$/)[0];
+                    $this.text(prefix + countTo + suffix);
+                }
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

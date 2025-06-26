@@ -1,0 +1,489 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Editar Cupón - Panel de Administración{% endblock %}
+
+{% block extra_css %}
+<style>
+.form-card {
+    background: white;
+    border-radius: 15px;
+    padding: 30px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+.form-control {
+    border-radius: 8px;
+    border: 2px solid #e9ecef;
+    padding: 12px 15px;
+    transition: border-color 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+.btn-update {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    border: none;
+    color: white;
+    padding: 12px 30px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.btn-update:hover {
+    transform: translateY(-2px);
+    color: white;
+    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4);
+}
+
+.btn-cancel {
+    background: #6c757d;
+    border: none;
+    color: white;
+    padding: 12px 30px;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.btn-cancel:hover {
+    background: #5a6268;
+    color: white;
+}
+
+.coupon-info {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.coupon-code {
+    font-family: 'Courier New', monospace;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #667eea;
+    letter-spacing: 2px;
+    background: white;
+    padding: 10px 15px;
+    border-radius: 8px;
+    display: inline-block;
+}
+
+.status-badge {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.status-active {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
+}
+
+.status-inactive {
+    background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+    color: white;
+}
+
+.usage-stats {
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    border: 2px solid #e9ecef;
+}
+
+.usage-bar {
+    background: #e9ecef;
+    border-radius: 10px;
+    height: 10px;
+    overflow: hidden;
+    margin-top: 5px;
+}
+
+.usage-fill {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.help-text {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-top: 5px;
+}
+
+.readonly-field {
+    background-color: #f8f9fa;
+    cursor: not-allowed;
+}
+
+.input-group-text {
+    background: #f8f9fa;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+}
+
+.required {
+    color: #dc3545;
+}
+
+.info-section {
+    border-left: 4px solid #667eea;
+    padding-left: 15px;
+    margin-bottom: 20px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3">✏️ Editar Cupón</h1>
+                <a href="{{ url_for('admin_coupons') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Volver a Cupones
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Información del Cupón -->
+            <div class="coupon-info">
+                <div class="row align-items-center">
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <div class="coupon-code">{{ coupon.code }}</div>
+                            <small class="text-muted">Código del cupón</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <div class="status-badge {% if coupon.is_active %}status-active{% else %}status-inactive{% endif %}">
+                                {% if coupon.is_active %}Activo{% else %}Inactivo{% endif %}
+                            </div>
+                            <div class="mt-2">
+                                <small class="text-muted">Estado actual</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="usage-stats">
+                            <div class="d-flex justify-content-between">
+                                <span><strong>Usos:</strong></span>
+                                <span>{{ coupon.usage_count or 0 }}{% if coupon.max_usage %} / {{ coupon.max_usage }}{% endif %}</span>
+                            </div>
+                            {% if coupon.max_usage %}
+                            <div class="usage-bar">
+                                <div class="usage-fill" style="width: {{ ((coupon.usage_count or 0) / coupon.max_usage * 100)|round(1) }}%"></div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Información Adicional -->
+            <div class="info-section">
+                <h6>📊 Información del Cupón</h6>
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Vendedor:</strong> {{ coupon.seller_name or 'Sin asignar' }}</p>
+                        <p><strong>Creado:</strong> {{ coupon.created_at.strftime('%d/%m/%Y %H:%M') }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Descuento:</strong> {{ coupon.discount_percentage }}%</p>
+                        <p><strong>Comisión:</strong> {{ coupon.commission_percentage }}%</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Formulario de Edición -->
+            <div class="form-card">
+                <h5 class="mb-4">Editar Configuración</h5>
+                
+                <form method="POST" id="editCouponForm">
+                    <div class="row">
+                        <!-- Código (Solo lectura) -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="code_display">Código del Cupón</label>
+                                <input type="text" class="form-control readonly-field" id="code_display" 
+                                       value="{{ coupon.code }}" readonly>
+                                <div class="help-text">El código no se puede modificar</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Estado -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="is_active">Estado del Cupón</label>
+                                <select class="form-control" id="is_active" name="is_active">
+                                    <option value="true" {% if coupon.is_active %}selected{% endif %}>Activo</option>
+                                    <option value="false" {% if not coupon.is_active %}selected{% endif %}>Inactivo</option>
+                                </select>
+                                <div class="help-text">Los cupones inactivos no se pueden usar</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <!-- Porcentaje de Descuento -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="discount_percentage">Porcentaje de Descuento</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="discount_percentage" 
+                                           name="discount_percentage" min="1" max="100" step="0.01" 
+                                           value="{{ coupon.discount_percentage }}">
+                                    <div class="input-group-append">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </div>
+                                <div class="help-text">Entre 1% y 100%</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Porcentaje de Comisión -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="commission_percentage">Porcentaje de Comisión</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control" id="commission_percentage" 
+                                           name="commission_percentage" min="0" max="100" step="0.01" 
+                                           value="{{ coupon.commission_percentage }}">
+                                    <div class="input-group-append">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </div>
+                                <div class="help-text">Comisión que recibirá el vendedor</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <!-- Máximo de Usos -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="max_usage">Máximo de Usos</label>
+                                <input type="number" class="form-control" id="max_usage" 
+                                       name="max_usage" min="1" 
+                                       value="{{ coupon.max_usage or '' }}" 
+                                       placeholder="Ilimitado">
+                                <div class="help-text">
+                                    Actual: {{ coupon.usage_count or 0 }} usos
+                                    {% if coupon.max_usage %}
+                                        ({{ coupon.max_usage - (coupon.usage_count or 0) }} restantes)
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Fecha de Vencimiento -->
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="valid_until">Válido Hasta</label>
+                                <input type="date" class="form-control" id="valid_until" 
+                                       name="valid_until" 
+                                       value="{% if coupon.valid_until %}{{ coupon.valid_until.strftime('%Y-%m-%d') }}{% endif %}">
+                                <div class="help-text">
+                                    {% if coupon.valid_until %}
+                                        {% if coupon.valid_until < today %}
+                                            <span class="text-danger">⚠️ Este cupón ha expirado</span>
+                                        {% else %}
+                                            Expira en {{ (coupon.valid_until - today).days }} días
+                                        {% endif %}
+                                    {% else %}
+                                        Sin fecha límite
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Información de Solo Lectura -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6 class="card-title">📋 Información No Modificable</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <p><strong>Vendedor:</strong> {{ coupon.seller_name or 'Sin asignar' }}</p>
+                                            <p><strong>Fecha de creación:</strong> {{ coupon.created_at.strftime('%d/%m/%Y %H:%M') }}</p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <p><strong>Total de usos:</strong> {{ coupon.usage_count or 0 }}</p>
+                                            <p><strong>ID del cupón:</strong> #{{ coupon.id }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Botones de Acción -->
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between">
+                                <a href="{{ url_for('admin_coupons') }}" class="btn btn-cancel">
+                                    <i class="fas fa-times"></i> Cancelar
+                                </a>
+                                <div>
+                                    {% if coupon.usage_count == 0 %}
+                                    <button type="button" class="btn btn-danger mr-2" onclick="deleteCoupon()">
+                                        <i class="fas fa-trash"></i> Eliminar
+                                    </button>
+                                    {% endif %}
+                                    <button type="submit" class="btn btn-update" id="submitBtn">
+                                        <i class="fas fa-save"></i> Actualizar Cupón
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmación de Eliminación -->
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Eliminación</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de que deseas eliminar el cupón <strong>{{ coupon.code }}</strong>?</p>
+                <p class="text-warning"><small>Esta acción no se puede deshacer.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <form action="{{ url_for('admin_delete_coupon', coupon_id=coupon.id) }}" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Establecer fecha mínima como hoy
+    var today = new Date().toISOString().split('T')[0];
+    $('#valid_until').attr('min', today);
+    
+    // Validación del formulario
+    $('#editCouponForm').on('submit', function(e) {
+        if (!validateForm()) {
+            e.preventDefault();
+        }
+    });
+    
+    // Validar que el máximo de usos no sea menor que los usos actuales
+    $('#max_usage').on('input', function() {
+        var currentUsage = {{ coupon.usage_count or 0 }};
+        var maxUsage = parseInt($(this).val());
+        
+        if (maxUsage && maxUsage < currentUsage) {
+            $(this).addClass('is-invalid');
+            $(this).siblings('.help-text').html(
+                '<span class="text-danger">El máximo no puede ser menor que los usos actuales (' + currentUsage + ')</span>'
+            );
+        } else {
+            $(this).removeClass('is-invalid');
+            var remaining = maxUsage ? maxUsage - currentUsage : 'ilimitado';
+            $(this).siblings('.help-text').html(
+                'Actual: ' + currentUsage + ' usos' + 
+                (maxUsage ? ' (' + (maxUsage - currentUsage) + ' restantes)' : '')
+            );
+        }
+    });
+});
+
+function validateForm() {
+    var isValid = true;
+    var errors = [];
+    
+    // Validar descuento
+    var discount = parseFloat($('#discount_percentage').val());
+    if (!discount || discount < 1 || discount > 100) {
+        errors.push('El descuento debe estar entre 1% y 100%');
+        isValid = false;
+    }
+    
+    // Validar comisión
+    var commission = parseFloat($('#commission_percentage').val());
+    if (commission < 0 || commission > 100) {
+        errors.push('La comisión debe estar entre 0% y 100%');
+        isValid = false;
+    }
+    
+    // Validar máximo de usos
+    var maxUsage = $('#max_usage').val();
+    var currentUsage = {{ coupon.usage_count or 0 }};
+    if (maxUsage && parseInt(maxUsage) < currentUsage) {
+        errors.push('El máximo de usos no puede ser menor que los usos actuales');
+        isValid = false;
+    }
+    
+    // Validar fecha
+    var validUntil = $('#valid_until').val();
+    if (validUntil) {
+        var selectedDate = new Date(validUntil);
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (selectedDate < today) {
+            errors.push('La fecha de vencimiento no puede ser en el pasado');
+            isValid = false;
+        }
+    }
+    
+    if (!isValid) {
+        alert('Errores encontrados:\n' + errors.join('\n'));
+    }
+    
+    return isValid;
+}
+
+function deleteCoupon() {
+    $('#deleteModal').modal('show');
+}
+
+// Mostrar confirmación antes de salir si hay cambios
+var formChanged = false;
+$('#editCouponForm input, #editCouponForm select').on('change', function() {
+    formChanged = true;
+});
+
+$(window).on('beforeunload', function() {
+    if (formChanged) {
+        return 'Tienes cambios sin guardar. ¿Estás seguro de que quieres salir?';
+    }
+});
+
+$('#editCouponForm').on('submit', function() {
+    formChanged = false;
+});
+</script>
+{% endblock %}

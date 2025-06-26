@@ -1,5 +1,6 @@
 # Framework web
 Flask==2.3.3
+Flask-Login==0.6.3
 Werkzeug==2.3.7
 
 # Base de datos PostgreSQL

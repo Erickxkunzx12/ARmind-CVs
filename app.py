@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_file, make_response
+from subscription_system import check_user_limits, increment_usage
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 import psycopg2
@@ -58,6 +59,7 @@ except ImportError:
 from bs4 import BeautifulSoup  # Uncommented for HTML processing
 import re
 import tempfile  # Added for temporary file handling
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 
 app = Flask(__name__)
 
@@ -66,12 +68,23 @@ app.secret_key = os.getenv('SECRET_KEY', 'dev-key-change-in-production')
 app.config['UPLOAD_FOLDER'] = os.getenv('UPLOAD_FOLDER', 'uploads')
 app.config['MAX_CONTENT_LENGTH'] = int(os.getenv('MAX_CONTENT_LENGTH', 16 * 1024 * 1024))  # 16MB
 
+# Configurar Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+login_manager.login_message = 'Por favor inicia sesión para acceder a esta página.'
+login_manager.login_message_category = 'info'
+
 # Hacer datetime disponible en todas las plantillas
 app.jinja_env.globals['datetime'] = datetime
 
 # Importar y registrar blueprint de suscripción
 from subscription_routes import subscription_bp
 app.register_blueprint(subscription_bp, url_prefix='/subscription')
+
+# Importar y registrar blueprint de sistema de ventas admin
+from admin_sales_routes import register_admin_sales_routes
+register_admin_sales_routes(app)
 
 # Verificar configuración de OpenAI
 if openai.api_key:
@@ -91,6 +104,41 @@ DB_CONFIG = {
 # Crear directorio de uploads si no existe
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
+
+# Clase User para Flask-Login
+class User(UserMixin):
+    def __init__(self, user_id, email, name, role='user'):
+        self.id = str(user_id)
+        self.email = email
+        self.name = name
+        self.role = role
+    
+    def is_admin(self):
+        return self.role == 'admin'
+    
+    def get_id(self):
+        return self.id
+
+@login_manager.user_loader
+def load_user(user_id):
+    """Cargar usuario para Flask-Login"""
+    try:
+        connection = get_db_connection()
+        if not connection:
+            return None
+        
+        cursor = connection.cursor()
+        cursor.execute("SELECT id, email, username, role FROM users WHERE id = %s", (user_id,))
+        user_data = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        
+        if user_data:
+            return User(user_data['id'], user_data['email'], user_data['username'], user_data.get('role', 'user'))
+        return None
+    except Exception as e:
+        print(f"Error cargando usuario: {e}")
+        return None
 
 def generate_pdf_with_reportlab(html_content, title):
     """Generar PDF usando ReportLab desde contenido HTML"""
@@ -948,6 +996,11 @@ def login():
                 )
                 connection.commit()
                 
+                # Crear objeto User y hacer login con Flask-Login
+                user_obj = User(user['id'], user['email'], user.get('username', ''), user.get('role', 'user'))
+                login_user(user_obj)
+                
+                # Mantener sesión para compatibilidad con código existente
                 session['user_id'] = user['id']
                 session['username'] = user['username']
                 session['user_role'] = user.get('role', 'user')
@@ -977,6 +1030,7 @@ def logout():
     """Cerrar sesión"""
     username = session.get('username', 'unknown')
     add_console_log('INFO', f'Usuario cerró sesión: {username}', 'AUTH')
+    logout_user()  # Flask-Login logout
     session.clear()
     flash('Sesión cerrada', 'info')
     return redirect(url_for('index'))
@@ -1312,6 +1366,14 @@ def analyze_cv():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
+    # Verificar restricciones de suscripción
+    user_id = session.get('user_id')
+    can_analyze, message = check_user_limits(user_id, 'cv_analysis')
+    
+    if not can_analyze:
+        flash(f'Restricción de plan: {message}', 'error')
+        return redirect(url_for('dashboard'))
+    
     username = session.get('username', 'unknown')
     
     if request.method == 'POST':
@@ -1356,6 +1418,9 @@ def analyze_cv():
                     # Guardar el contenido del CV en la sesión para el siguiente paso
                     session['cv_content'] = text_content
                     session['cv_filename'] = filename
+                    
+                    # Incrementar contador de uso
+                    increment_usage(session.get('user_id'), 'cv_analysis')
                     
                     # Redirigir a la selección de IA
                     return redirect(url_for('select_ai_provider'))
@@ -2662,6 +2727,15 @@ def create_cv():
     """Constructor de CV estilo Harvard"""
     if 'user_id' not in session:
         return redirect(url_for('login'))
+    
+    # Verificar restricciones de suscripción
+    user_id = session.get('user_id')
+    can_create, message = check_user_limits(user_id, 'cv_creation')
+    
+    if not can_create:
+        flash(f'Restricción de plan: {message}', 'error')
+        return redirect(url_for('dashboard'))
+    
     return render_template('create_cv.html')
 
 @app.route('/get_user_cv_data', methods=['GET'])
@@ -3435,6 +3509,9 @@ def save_cv():
         connection.commit()
         cursor.close()
         connection.close()
+        
+        # Incrementar contador de uso para creación de CV
+        increment_usage(session.get('user_id'), 'cv_creation')
         
         return jsonify({
             'success': True, 
@@ -4964,23 +5041,39 @@ def change_password():
     if not connection:
         return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
     
+    cursor = None
     try:
         cursor = connection.cursor()
         
         # Verificar contraseña actual
         cursor.execute(
-            "SELECT password FROM users WHERE id = %s",
+            "SELECT password_hash FROM users WHERE id = %s",
             (session['user_id'],)
         )
         
         user_data = cursor.fetchone()
-        if not user_data or not check_password_hash(user_data[0], current_password):
+        print(f"Debug - user_data: {user_data}")
+        print(f"Debug - session user_id: {session.get('user_id')}")
+        
+        if not user_data:
+            cursor.close()
+            connection.close()
+            return jsonify({'success': False, 'message': 'Usuario no encontrado'}), 400
+            
+        if not user_data[0]:
+            cursor.close()
+            connection.close()
+            return jsonify({'success': False, 'message': 'Password hash no encontrado'}), 400
+            
+        if not check_password_hash(user_data[0], current_password):
+            cursor.close()
+            connection.close()
             return jsonify({'success': False, 'message': 'Contraseña actual incorrecta'}), 400
         
         # Actualizar contraseña
         hashed_password = generate_password_hash(new_password)
         cursor.execute(
-            "UPDATE users SET password = %s WHERE id = %s",
+            "UPDATE users SET password_hash = %s WHERE id = %s",
             (hashed_password, session['user_id'])
         )
         
@@ -4992,6 +5085,10 @@ def change_password():
         
     except Exception as e:
         print(f"Error cambiando contraseña: {e}")
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
         return jsonify({'success': False, 'message': 'Error interno del servidor'}), 500
 
 # ==================== RUTAS DE ADMINISTRACIÓN ====================
@@ -5011,6 +5108,7 @@ def admin_required(f):
     return decorated_function
 
 @app.route('/admin')
+@app.route('/admin/dashboard')
 @admin_required
 def admin_dashboard():
     """Panel principal de administración"""

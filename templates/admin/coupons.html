@@ -1,0 +1,381 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Gestión de Cupones - Panel de Administración{% endblock %}
+
+{% block extra_css %}
+<style>
+.filter-card {
+    background: white;
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.coupons-table {
+    background: white;
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.table th {
+    background: #f8f9fa;
+    border: none;
+    font-weight: 600;
+}
+
+.coupon-code {
+    font-family: 'Courier New', monospace;
+    background: #e9ecef;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+}
+
+.status-active {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+}
+
+.status-inactive {
+    background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+}
+
+.usage-bar {
+    background: #e9ecef;
+    border-radius: 10px;
+    height: 8px;
+    overflow: hidden;
+}
+
+.usage-fill {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.btn-create {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.btn-create:hover {
+    transform: translateY(-2px);
+    color: white;
+}
+
+.action-buttons .btn {
+    margin: 2px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+}
+
+.filter-form .form-control {
+    border-radius: 8px;
+    border: 1px solid #ddd;
+}
+
+.filter-form .btn {
+    border-radius: 8px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3">🎫 Gestión de Cupones</h1>
+                <div>
+                    <a href="{{ url_for('admin_export_coupons') }}" class="btn btn-outline-success mr-2">
+                        <i class="fas fa-download"></i> Exportar CSV
+                    </a>
+                    <a href="{{ url_for('admin_create_coupon') }}" class="btn btn-create">
+                        <i class="fas fa-plus"></i> Crear Cupón
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filtros -->
+    <div class="row">
+        <div class="col-12">
+            <div class="filter-card">
+                <h5 class="mb-3">🔍 Filtros de Búsqueda</h5>
+                <form method="GET" class="filter-form">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <label for="seller_id" class="form-label">Vendedor</label>
+                            <select name="seller_id" id="seller_id" class="form-control">
+                                <option value="">Todos los vendedores</option>
+                                {% for seller in sellers %}
+                                <option value="{{ seller.id }}" 
+                                    {% if current_filters.seller_id == seller.id %}selected{% endif %}>
+                                    {{ seller.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="is_active" class="form-label">Estado</label>
+                            <select name="is_active" id="is_active" class="form-control">
+                                <option value="">Todos</option>
+                                <option value="true" {% if current_filters.is_active == 'true' %}selected{% endif %}>Activos</option>
+                                <option value="false" {% if current_filters.is_active == 'false' %}selected{% endif %}>Inactivos</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="search" class="form-label">Buscar Código</label>
+                            <input type="text" name="search" id="search" class="form-control" 
+                                   placeholder="Código del cupón..." value="{{ current_filters.search }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-search"></i> Buscar
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <div>
+                                <a href="{{ url_for('admin_coupons') }}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times"></i> Limpiar
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tabla de Cupones -->
+    <div class="row">
+        <div class="col-12">
+            <div class="coupons-table">
+                {% if coupons %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Vendedor</th>
+                                <th>Descuento</th>
+                                <th>Comisión</th>
+                                <th>Uso</th>
+                                <th>Estado</th>
+                                <th>Válido Hasta</th>
+                                <th>Creado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for coupon in coupons %}
+                            <tr>
+                                <td>
+                                    <span class="coupon-code">{{ coupon.code }}</span>
+                                </td>
+                                <td>
+                                    {% if coupon.seller_name %}
+                                        <strong>{{ coupon.seller_name }}</strong>
+                                    {% else %}
+                                        <span class="text-muted">Sin asignar</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge badge-info">{{ coupon.discount_percentage }}%</span>
+                                </td>
+                                <td>
+                                    <span class="badge badge-secondary">{{ coupon.commission_percentage }}%</span>
+                                </td>
+                                <td>
+                                    <div class="usage-info">
+                                        <small class="text-muted">
+                                            {{ coupon.total_usage or 0 }}
+                                            {% if coupon.max_usage %}
+                                                / {{ coupon.max_usage }}
+                                            {% else %}
+                                                / ∞
+                                            {% endif %}
+                                        </small>
+                                        {% if coupon.max_usage %}
+                                        <div class="usage-bar mt-1">
+                                            <div class="usage-fill" style="width: {{ ((coupon.total_usage or 0) / coupon.max_usage * 100)|round(1) }}%"></div>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if coupon.is_active %}
+                                        <span class="status-active">Activo</span>
+                                    {% else %}
+                                        <span class="status-inactive">Inactivo</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if coupon.valid_until %}
+                                        {{ coupon.valid_until.strftime('%d/%m/%Y') }}
+                                        {% if coupon.valid_until < today %}
+                                            <br><small class="text-danger">Expirado</small>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">Sin límite</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small class="text-muted">{{ coupon.created_at.strftime('%d/%m/%Y') }}</small>
+                                </td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <a href="{{ url_for('admin_edit_coupon', coupon_id=coupon.id) }}" 
+                                           class="btn btn-sm btn-outline-primary" title="Editar">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                onclick="deleteCoupon({{ coupon.id }}, '{{ coupon.code }}')" title="Eliminar">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-info" 
+                                                onclick="viewCouponDetails({{ coupon.id }})" title="Ver detalles">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Paginación (si es necesaria) -->
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <div>
+                        <small class="text-muted">Mostrando {{ coupons|length }} cupones</small>
+                    </div>
+                    <div>
+                        <!-- Aquí se puede agregar paginación si es necesario -->
+                    </div>
+                </div>
+                
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-ticket-alt fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No hay cupones para mostrar</h5>
+                    <p class="text-muted">Crea tu primer cupón de descuento para comenzar</p>
+                    <a href="{{ url_for('admin_create_coupon') }}" class="btn btn-create">
+                        <i class="fas fa-plus"></i> Crear Primer Cupón
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmación de Eliminación -->
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Eliminación</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de que deseas eliminar el cupón <strong id="couponCodeToDelete"></strong>?</p>
+                <p class="text-warning"><small>Esta acción no se puede deshacer.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Detalles del Cupón -->
+<div class="modal fade" id="detailsModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalles del Cupón</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="couponDetails">
+                <!-- Los detalles se cargarán aquí -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function deleteCoupon(couponId, couponCode) {
+    $('#couponCodeToDelete').text(couponCode);
+    $('#deleteForm').attr('action', '/admin/coupons/delete/' + couponId);
+    $('#deleteModal').modal('show');
+}
+
+function viewCouponDetails(couponId) {
+    // Aquí se puede implementar una llamada AJAX para obtener detalles del cupón
+    $('#couponDetails').html('<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando...</div>');
+    $('#detailsModal').modal('show');
+    
+    // Simulación de carga de detalles
+    setTimeout(function() {
+        $('#couponDetails').html(`
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Información General</h6>
+                    <p><strong>ID:</strong> ${couponId}</p>
+                    <p><strong>Uso Total:</strong> Información no disponible</p>
+                </div>
+                <div class="col-md-6">
+                    <h6>Estadísticas</h6>
+                    <p><strong>Última Uso:</strong> Información no disponible</p>
+                    <p><strong>Ingresos Generados:</strong> Información no disponible</p>
+                </div>
+            </div>
+        `);
+    }, 1000);
+}
+
+// Auto-completar búsqueda
+$('#search').on('input', function() {
+    var searchTerm = $(this).val();
+    if (searchTerm.length >= 2) {
+        // Aquí se puede implementar búsqueda en tiempo real
+    }
+});
+
+// Filtros automáticos
+$('#seller_id, #is_active').on('change', function() {
+    $(this).closest('form').submit();
+});
+</script>
+{% endblock %}

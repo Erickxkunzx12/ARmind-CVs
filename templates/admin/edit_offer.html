@@ -1,0 +1,738 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Editar Oferta - Panel de Administración{% endblock %}
+
+{% block extra_css %}
+<style>
+.form-card {
+    background: white;
+    border-radius: 15px;
+    padding: 30px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.preview-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 15px;
+    padding: 25px;
+    color: white;
+    margin-bottom: 20px;
+    position: sticky;
+    top: 20px;
+}
+
+.info-card {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-left: 4px solid #667eea;
+}
+
+.form-group label {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+.form-control {
+    border-radius: 8px;
+    border: 2px solid #e9ecef;
+    padding: 12px 15px;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+.form-control:disabled {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+    color: #6c757d;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    padding: 12px 30px;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.btn-secondary {
+    background: #6c757d;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    border: none;
+    padding: 12px 30px;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+    border: none;
+    color: #212529;
+    padding: 12px 30px;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.preview-discount {
+    font-size: 3rem;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 15px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+.preview-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.preview-description {
+    text-align: center;
+    margin-bottom: 20px;
+    opacity: 0.9;
+}
+
+.preview-dates {
+    background: rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 15px;
+    text-align: center;
+}
+
+.status-badge {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    display: inline-block;
+    margin-bottom: 15px;
+}
+
+.status-active {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
+}
+
+.status-expired {
+    background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+    color: white;
+}
+
+.status-upcoming {
+    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+    color: white;
+}
+
+.status-inactive {
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    color: white;
+}
+
+.validation-message {
+    font-size: 0.875rem;
+    margin-top: 5px;
+}
+
+.validation-message.valid {
+    color: #28a745;
+}
+
+.validation-message.invalid {
+    color: #dc3545;
+}
+
+.form-section {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.form-section:last-child {
+    border-bottom: none;
+}
+
+.form-section h5 {
+    color: #667eea;
+    font-weight: 600;
+    margin-bottom: 20px;
+}
+
+.date-input-group {
+    position: relative;
+}
+
+.date-input-group .form-control {
+    padding-right: 40px;
+}
+
+.date-input-group .input-group-text {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #667eea;
+    z-index: 10;
+    pointer-events: none;
+}
+
+.character-count {
+    font-size: 0.8rem;
+    color: #6c757d;
+    text-align: right;
+    margin-top: 5px;
+}
+
+.character-count.warning {
+    color: #ffc107;
+}
+
+.character-count.danger {
+    color: #dc3545;
+}
+
+.duration-info {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 10px 15px;
+    margin-top: 10px;
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.overlap-warning {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 15px;
+    color: #856404;
+}
+
+.overlap-warning .fas {
+    color: #ffc107;
+    margin-right: 8px;
+}
+
+.expired-notice {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    color: #721c24;
+}
+
+.expired-notice .fas {
+    color: #dc3545;
+    margin-right: 8px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+    .preview-card {
+        position: static;
+        margin-bottom: 30px;
+    }
+    
+    .form-card {
+        padding: 20px;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+    }
+    
+    .action-buttons .btn {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3">🏷️ Editar Oferta Promocional</h1>
+                <a href="{{ url_for('admin_offers') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Volver a Ofertas
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Información de la Oferta -->
+    <div class="row">
+        <div class="col-12">
+            <div class="info-card">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h5 class="mb-2">{{ offer.title }}</h5>
+                        <p class="mb-1"><strong>ID:</strong> {{ offer.id }}</p>
+                        <p class="mb-1"><strong>Creada:</strong> {{ offer.created_at.strftime('%d/%m/%Y %H:%M') }}</p>
+                        <p class="mb-0"><strong>Última actualización:</strong> {{ offer.updated_at.strftime('%d/%m/%Y %H:%M') if offer.updated_at else 'N/A' }}</p>
+                    </div>
+                    <div class="col-md-4 text-md-right">
+                        <div class="status-badge status-{{ offer.status }}">
+                            {% if offer.status == 'active' %}Activa
+                            {% elif offer.status == 'expired' %}Expirada
+                            {% elif offer.status == 'upcoming' %}Próxima
+                            {% else %}{{ offer.status|title }}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Aviso para ofertas expiradas -->
+    {% if offer.status == 'expired' %}
+    <div class="row">
+        <div class="col-12">
+            <div class="expired-notice">
+                <i class="fas fa-exclamation-triangle"></i>
+                <strong>Oferta Expirada:</strong> Esta oferta ha finalizado y no puede ser reactivada. 
+                Solo puedes modificar la información descriptiva.
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <form method="POST" id="offerForm">
+        <div class="row">
+            <!-- Formulario -->
+            <div class="col-lg-8">
+                <div class="form-card">
+                    <!-- Información Básica -->
+                    <div class="form-section">
+                        <h5><i class="fas fa-info-circle"></i> Información Básica</h5>
+                        
+                        <div class="form-group">
+                            <label for="title">Título de la Oferta *</label>
+                            <input type="text" class="form-control" id="title" name="title" 
+                                   value="{{ offer.title }}" maxlength="100" required>
+                            <div class="character-count" id="titleCount">{{ offer.title|length }}/100 caracteres</div>
+                            <div class="validation-message" id="titleValidation"></div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="description">Descripción</label>
+                            <textarea class="form-control" id="description" name="description" 
+                                      rows="3" maxlength="500">{{ offer.description or '' }}</textarea>
+                            <div class="character-count" id="descriptionCount">{{ (offer.description or '')|length }}/500 caracteres</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Configuración de Descuento -->
+                    <div class="form-section">
+                        <h5><i class="fas fa-percentage"></i> Configuración de Descuento</h5>
+                        
+                        <div class="form-group">
+                            <label for="discount_percentage">Porcentaje de Descuento *</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="discount_percentage" 
+                                       name="discount_percentage" min="1" max="99" 
+                                       value="{{ offer.discount_percentage }}" required
+                                       {% if offer.status == 'expired' %}disabled{% endif %}>
+                                <div class="input-group-append">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                            <div class="validation-message" id="discountValidation"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Período de Vigencia -->
+                    <div class="form-section">
+                        <h5><i class="fas fa-calendar-alt"></i> Período de Vigencia</h5>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="start_date">Fecha de Inicio *</label>
+                                    <div class="date-input-group">
+                                        <input type="datetime-local" class="form-control" 
+                                               id="start_date" name="start_date" 
+                                               value="{{ offer.start_date.strftime('%Y-%m-%dT%H:%M') }}" required
+                                               {% if offer.status in ['active', 'expired'] %}disabled{% endif %}>
+                                        <div class="input-group-text">
+                                            <i class="fas fa-calendar"></i>
+                                        </div>
+                                    </div>
+                                    <div class="validation-message" id="startDateValidation"></div>
+                                    {% if offer.status in ['active', 'expired'] %}
+                                    <small class="text-muted">No se puede modificar la fecha de inicio de una oferta {{ 'activa' if offer.status == 'active' else 'expirada' }}</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="end_date">Fecha de Finalización *</label>
+                                    <div class="date-input-group">
+                                        <input type="datetime-local" class="form-control" 
+                                               id="end_date" name="end_date" 
+                                               value="{{ offer.end_date.strftime('%Y-%m-%dT%H:%M') }}" required
+                                               {% if offer.status == 'expired' %}disabled{% endif %}>
+                                        <div class="input-group-text">
+                                            <i class="fas fa-calendar"></i>
+                                        </div>
+                                    </div>
+                                    <div class="validation-message" id="endDateValidation"></div>
+                                    {% if offer.status == 'expired' %}
+                                    <small class="text-muted">No se puede modificar la fecha de fin de una oferta expirada</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="duration-info" id="durationInfo">
+                            <i class="fas fa-clock"></i> <span id="durationText"></span>
+                        </div>
+                        
+                        <div class="overlap-warning" id="overlapWarning" style="display: none;">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Advertencia:</strong> Esta oferta se superpone con otras ofertas activas.
+                            <div id="overlapDetails"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Estado -->
+                    {% if offer.status != 'expired' %}
+                    <div class="form-section">
+                        <h5><i class="fas fa-toggle-on"></i> Estado de la Oferta</h5>
+                        
+                        <div class="form-group">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" 
+                                       id="is_active" name="is_active" 
+                                       {% if offer.is_active %}checked{% endif %}>
+                                <label class="form-check-label" for="is_active">
+                                    Oferta activa
+                                </label>
+                            </div>
+                            <small class="form-text text-muted">
+                                {% if offer.status == 'upcoming' %}
+                                Activar esta oferta la hará disponible inmediatamente (si la fecha de inicio lo permite).
+                                {% elif offer.status == 'active' %}
+                                Desactivar esta oferta la pausará temporalmente.
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Botones de Acción -->
+                    <div class="form-section">
+                        <div class="action-buttons">
+                            <a href="{{ url_for('admin_offers') }}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancelar
+                            </a>
+                            
+                            {% if offer.status != 'expired' %}
+                            <button type="submit" class="btn btn-primary" id="submitBtn">
+                                <i class="fas fa-save"></i> Guardar Cambios
+                            </button>
+                            {% endif %}
+                            
+                            {% if offer.status == 'active' %}
+                            <button type="button" class="btn btn-warning" onclick="pauseOffer()">
+                                <i class="fas fa-pause"></i> Pausar Oferta
+                            </button>
+                            {% elif offer.status == 'upcoming' and not offer.is_active %}
+                            <button type="button" class="btn btn-warning" onclick="activateOffer()">
+                                <i class="fas fa-play"></i> Activar Ahora
+                            </button>
+                            {% endif %}
+                            
+                            <button type="button" class="btn btn-danger" onclick="confirmDelete()">
+                                <i class="fas fa-trash"></i> Eliminar Oferta
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Vista Previa -->
+            <div class="col-lg-4">
+                <div class="preview-card">
+                    <h5 class="text-center mb-4">
+                        <i class="fas fa-eye"></i> Vista Previa
+                    </h5>
+                    
+                    <div class="preview-discount" id="previewDiscount">
+                        {{ offer.discount_percentage }}% OFF
+                    </div>
+                    
+                    <div class="preview-title" id="previewTitle">
+                        {{ offer.title }}
+                    </div>
+                    
+                    <div class="preview-description" id="previewDescription">
+                        {{ offer.description or 'Sin descripción' }}
+                    </div>
+                    
+                    <div class="preview-dates">
+                        <div class="mb-2">
+                            <i class="fas fa-play"></i>
+                            <strong>Inicio:</strong>
+                            <div id="previewStartDate">{{ offer.start_date.strftime('%d/%m/%Y %H:%M') }}</div>
+                        </div>
+                        <div>
+                            <i class="fas fa-stop"></i>
+                            <strong>Fin:</strong>
+                            <div id="previewEndDate">{{ offer.end_date.strftime('%d/%m/%Y %H:%M') }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center mt-3">
+                        <small>
+                            <i class="fas fa-info-circle"></i>
+                            Estado actual: <strong>{{ offer.status|title }}</strong>
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Modal de Confirmación de Eliminación -->
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Eliminación</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de que deseas eliminar la oferta <strong>{{ offer.title }}</strong>?</p>
+                <p class="text-warning"><small>Esta acción no se puede deshacer.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <form action="{{ url_for('admin_delete_offer', offer_id=offer.id) }}" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Actualizar vista previa en tiempo real
+    function updatePreview() {
+        var title = $('#title').val() || 'Título de la Oferta';
+        var description = $('#description').val() || 'Sin descripción';
+        var discount = $('#discount_percentage').val() || '0';
+        var startDate = $('#start_date').val();
+        var endDate = $('#end_date').val();
+        
+        $('#previewTitle').text(title);
+        $('#previewDescription').text(description);
+        $('#previewDiscount').text(discount + '% OFF');
+        
+        if (startDate) {
+            var start = new Date(startDate);
+            $('#previewStartDate').text(start.toLocaleDateString('es-ES', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            }));
+        }
+        
+        if (endDate) {
+            var end = new Date(endDate);
+            $('#previewEndDate').text(end.toLocaleDateString('es-ES', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            }));
+        }
+    }
+    
+    // Contador de caracteres
+    function updateCharacterCount(inputId, countId, maxLength) {
+        var input = $('#' + inputId);
+        var count = $('#' + countId);
+        var currentLength = input.val().length;
+        
+        count.text(currentLength + '/' + maxLength + ' caracteres');
+        
+        if (currentLength > maxLength * 0.9) {
+            count.removeClass('warning').addClass('danger');
+        } else if (currentLength > maxLength * 0.7) {
+            count.removeClass('danger').addClass('warning');
+        } else {
+            count.removeClass('warning danger');
+        }
+    }
+    
+    // Validación de fechas
+    function validateDates() {
+        var startDate = new Date($('#start_date').val());
+        var endDate = new Date($('#end_date').val());
+        var now = new Date();
+        
+        var startValid = true;
+        var endValid = true;
+        
+        // Validar fecha de fin
+        if ($('#end_date').val() && !$('#end_date').prop('disabled')) {
+            if (endDate <= startDate) {
+                $('#endDateValidation').removeClass('valid').addClass('invalid')
+                    .text('La fecha de fin debe ser posterior a la fecha de inicio');
+                endValid = false;
+            } else {
+                $('#endDateValidation').removeClass('invalid').addClass('valid')
+                    .text('✓ Fecha válida');
+            }
+        }
+        
+        // Mostrar duración
+        if (startValid && endValid && $('#start_date').val() && $('#end_date').val()) {
+            var duration = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+            $('#durationText').text('Duración: ' + duration + ' día(s)');
+            $('#durationInfo').show();
+        }
+        
+        return startValid && endValid;
+    }
+    
+    // Validación de descuento
+    function validateDiscount() {
+        var discount = parseInt($('#discount_percentage').val());
+        
+        if (discount && (discount < 1 || discount > 99)) {
+            $('#discountValidation').removeClass('valid').addClass('invalid')
+                .text('El descuento debe estar entre 1% y 99%');
+            return false;
+        } else if (discount) {
+            $('#discountValidation').removeClass('invalid').addClass('valid')
+                .text('✓ Descuento válido');
+            return true;
+        } else {
+            $('#discountValidation').text('');
+            return false;
+        }
+    }
+    
+    // Validación de título
+    function validateTitle() {
+        var title = $('#title').val().trim();
+        
+        if (title.length < 3) {
+            $('#titleValidation').removeClass('valid').addClass('invalid')
+                .text('El título debe tener al menos 3 caracteres');
+            return false;
+        } else {
+            $('#titleValidation').removeClass('invalid').addClass('valid')
+                .text('✓ Título válido');
+            return true;
+        }
+    }
+    
+    // Event listeners
+    $('#title, #description, #discount_percentage, #start_date, #end_date').on('input change', function() {
+        updatePreview();
+    });
+    
+    $('#title').on('input', function() {
+        updateCharacterCount('title', 'titleCount', 100);
+        validateTitle();
+    });
+    
+    $('#description').on('input', function() {
+        updateCharacterCount('description', 'descriptionCount', 500);
+    });
+    
+    $('#discount_percentage').on('input', function() {
+        validateDiscount();
+    });
+    
+    $('#end_date').on('change', function() {
+        validateDates();
+    });
+    
+    // Validación del formulario antes del envío
+    $('#offerForm').on('submit', function(e) {
+        var titleValid = validateTitle();
+        var discountValid = validateDiscount();
+        var datesValid = validateDates();
+        
+        if (!titleValid || !discountValid || !datesValid) {
+            e.preventDefault();
+            alert('Por favor, corrige los errores en el formulario antes de continuar.');
+            return false;
+        }
+        
+        // Deshabilitar botón para evitar doble envío
+        $('#submitBtn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Guardando...');
+    });
+    
+    // Inicializar
+    updatePreview();
+    validateDates();
+    validateDiscount();
+    validateTitle();
+});
+
+function confirmDelete() {
+    $('#deleteModal').modal('show');
+}
+
+function pauseOffer() {
+    if (confirm('¿Estás seguro de que deseas pausar esta oferta?')) {
+        $('#is_active').prop('checked', false);
+        $('#offerForm').submit();
+    }
+}
+
+function activateOffer() {
+    if (confirm('¿Estás seguro de que deseas activar esta oferta ahora?')) {
+        $('#is_active').prop('checked', true);
+        $('#offerForm').submit();
+    }
+}
+</script>
+{% endblock %}

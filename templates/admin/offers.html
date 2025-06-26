@@ -1,0 +1,468 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Gestión de Ofertas - Panel de Administración{% endblock %}
+
+{% block extra_css %}
+<style>
+.filter-card {
+    background: white;
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.offers-table {
+    background: white;
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.table th {
+    background: #f8f9fa;
+    border: none;
+    font-weight: 600;
+}
+
+.offer-card {
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.offer-card:hover {
+    border-color: #667eea;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.1);
+}
+
+.offer-card.active {
+    border-color: #28a745;
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+}
+
+.offer-card.expired {
+    border-color: #dc3545;
+    background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+    opacity: 0.8;
+}
+
+.offer-card.upcoming {
+    border-color: #ffc107;
+    background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+}
+
+.status-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+}
+
+.status-active {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
+}
+
+.status-expired {
+    background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+    color: white;
+}
+
+.status-upcoming {
+    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+    color: white;
+}
+
+.status-inactive {
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    color: white;
+}
+
+.btn-create {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.btn-create:hover {
+    transform: translateY(-2px);
+    color: white;
+}
+
+.discount-badge {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 25px;
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+.date-range {
+    background: #f8f9fa;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.offer-title {
+    color: #333;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.offer-description {
+    color: #6c757d;
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
+
+.action-buttons .btn {
+    margin: 2px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+}
+
+.filter-form .form-control {
+    border-radius: 8px;
+    border: 1px solid #ddd;
+}
+
+.filter-form .btn {
+    border-radius: 8px;
+}
+
+.countdown {
+    font-weight: bold;
+    color: #667eea;
+}
+
+.countdown.urgent {
+    color: #dc3545;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3">🏷️ Gestión de Ofertas Promocionales</h1>
+                <a href="{{ url_for('admin_create_offer') }}" class="btn btn-create">
+                    <i class="fas fa-plus"></i> Crear Nueva Oferta
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filtros -->
+    <div class="row">
+        <div class="col-12">
+            <div class="filter-card">
+                <h5 class="mb-3">🔍 Filtros de Búsqueda</h5>
+                <form method="GET" class="filter-form">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <label for="status" class="form-label">Estado</label>
+                            <select name="status" id="status" class="form-control">
+                                <option value="">Todos los estados</option>
+                                <option value="active" {% if current_filters.status == 'active' %}selected{% endif %}>Activas</option>
+                                <option value="upcoming" {% if current_filters.status == 'upcoming' %}selected{% endif %}>Próximas</option>
+                                <option value="expired" {% if current_filters.status == 'expired' %}selected{% endif %}>Expiradas</option>
+                                <option value="inactive" {% if current_filters.status == 'inactive' %}selected{% endif %}>Inactivas</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="start_date" class="form-label">Fecha Inicio</label>
+                            <input type="date" name="start_date" id="start_date" class="form-control" 
+                                   value="{{ current_filters.start_date }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="end_date" class="form-label">Fecha Fin</label>
+                            <input type="date" name="end_date" id="end_date" class="form-control" 
+                                   value="{{ current_filters.end_date }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">&nbsp;</label>
+                            <div>
+                                <button type="submit" class="btn btn-primary mr-2">
+                                    <i class="fas fa-search"></i> Buscar
+                                </button>
+                                <a href="{{ url_for('admin_offers') }}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times"></i> Limpiar
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Lista de Ofertas -->
+    <div class="row">
+        <div class="col-12">
+            <div class="offers-table">
+                {% if offers %}
+                <div class="row">
+                    {% for offer in offers %}
+                    <div class="col-lg-6 col-xl-4">
+                        <div class="offer-card 
+                            {% if offer.status == 'active' %}active
+                            {% elif offer.status == 'expired' %}expired
+                            {% elif offer.status == 'upcoming' %}upcoming
+                            {% endif %}">
+                            
+                            <!-- Encabezado de la Oferta -->
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div class="discount-badge">
+                                    {{ offer.discount_percentage }}% OFF
+                                </div>
+                                <div class="status-badge status-{{ offer.status }}">
+                                    {% if offer.status == 'active' %}Activa
+                                    {% elif offer.status == 'expired' %}Expirada
+                                    {% elif offer.status == 'upcoming' %}Próxima
+                                    {% else %}{{ offer.status|title }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- Título y Descripción -->
+                            <h5 class="offer-title">{{ offer.title }}</h5>
+                            {% if offer.description %}
+                            <p class="offer-description">{{ offer.description }}</p>
+                            {% endif %}
+                            
+                            <!-- Fechas -->
+                            <div class="date-range mb-3">
+                                <i class="fas fa-calendar-alt"></i>
+                                {{ offer.start_date.strftime('%d/%m/%Y') }} - {{ offer.end_date.strftime('%d/%m/%Y') }}
+                            </div>
+                            
+                            <!-- Información Adicional -->
+                            <div class="row text-center mb-3">
+                                <div class="col-6">
+                                    <small class="text-muted">Creada</small><br>
+                                    <strong>{{ offer.created_at.strftime('%d/%m/%Y') }}</strong>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">Duración</small><br>
+                                    <strong>{{ (offer.end_date - offer.start_date).days + 1 }} días</strong>
+                                </div>
+                            </div>
+                            
+                            <!-- Countdown para ofertas activas -->
+                            {% if offer.status == 'active' %}
+                            <div class="text-center mb-3">
+                                <div class="countdown" data-end-date="{{ offer.end_date.isoformat() }}">
+                                    <i class="fas fa-clock"></i> Calculando tiempo restante...
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            <!-- Acciones -->
+                            <div class="action-buttons text-center">
+                                <button type="button" class="btn btn-sm btn-outline-info" 
+                                        onclick="viewOfferDetails({{ offer.id }})" title="Ver detalles">
+                                    <i class="fas fa-eye"></i> Detalles
+                                </button>
+                                
+                                {% if offer.status != 'expired' %}
+                                <button type="button" class="btn btn-sm btn-outline-primary" 
+                                        onclick="editOffer({{ offer.id }})" title="Editar">
+                                    <i class="fas fa-edit"></i> Editar
+                                </button>
+                                {% endif %}
+                                
+                                <button type="button" class="btn btn-sm btn-outline-danger" 
+                                        onclick="deleteOffer({{ offer.id }}, '{{ offer.title }}')" title="Eliminar">
+                                    <i class="fas fa-trash"></i> Eliminar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Paginación -->
+                <div class="d-flex justify-content-between align-items-center mt-4">
+                    <div>
+                        <small class="text-muted">Mostrando {{ offers|length }} ofertas</small>
+                    </div>
+                    <div>
+                        <!-- Aquí se puede agregar paginación si es necesario -->
+                    </div>
+                </div>
+                
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-tags fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No hay ofertas para mostrar</h5>
+                    <p class="text-muted">Crea tu primera oferta promocional para comenzar</p>
+                    <a href="{{ url_for('admin_create_offer') }}" class="btn btn-create">
+                        <i class="fas fa-plus"></i> Crear Primera Oferta
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Detalles de la Oferta -->
+<div class="modal fade" id="detailsModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalles de la Oferta</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="offerDetails">
+                <!-- Los detalles se cargarán aquí -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmación de Eliminación -->
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Eliminación</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de que deseas eliminar la oferta <strong id="offerTitleToDelete"></strong>?</p>
+                <p class="text-warning"><small>Esta acción no se puede deshacer.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Función para calcular y mostrar countdown
+function updateCountdowns() {
+    $('.countdown').each(function() {
+        var endDate = new Date($(this).data('end-date'));
+        var now = new Date();
+        var timeLeft = endDate - now;
+        
+        if (timeLeft > 0) {
+            var days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+            var hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            var minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+            
+            var countdownText = '';
+            if (days > 0) {
+                countdownText = days + 'd ' + hours + 'h ' + minutes + 'm restantes';
+            } else if (hours > 0) {
+                countdownText = hours + 'h ' + minutes + 'm restantes';
+                $(this).addClass('urgent');
+            } else {
+                countdownText = minutes + 'm restantes';
+                $(this).addClass('urgent');
+            }
+            
+            $(this).html('<i class="fas fa-clock"></i> ' + countdownText);
+        } else {
+            $(this).html('<i class="fas fa-clock"></i> Oferta expirada');
+            $(this).addClass('urgent');
+        }
+    });
+}
+
+// Actualizar countdowns cada minuto
+$(document).ready(function() {
+    updateCountdowns();
+    setInterval(updateCountdowns, 60000);
+});
+
+function viewOfferDetails(offerId) {
+    $('#offerDetails').html('<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando...</div>');
+    $('#detailsModal').modal('show');
+    
+    // Aquí se puede implementar una llamada AJAX para obtener detalles
+    setTimeout(function() {
+        $('#offerDetails').html(`
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Información General</h6>
+                    <p><strong>ID:</strong> ${offerId}</p>
+                    <p><strong>Uso Total:</strong> Información no disponible</p>
+                </div>
+                <div class="col-md-6">
+                    <h6>Estadísticas</h6>
+                    <p><strong>Ventas Generadas:</strong> Información no disponible</p>
+                    <p><strong>Ingresos:</strong> Información no disponible</p>
+                </div>
+            </div>
+        `);
+    }, 1000);
+}
+
+function editOffer(offerId) {
+    // Redirigir a la página de edición
+    window.location.href = '/admin/offers/edit/' + offerId;
+}
+
+function deleteOffer(offerId, offerTitle) {
+    $('#offerTitleToDelete').text(offerTitle);
+    $('#deleteForm').attr('action', '/admin/offers/delete/' + offerId);
+    $('#deleteModal').modal('show');
+}
+
+// Filtros automáticos
+$('#status').on('change', function() {
+    $(this).closest('form').submit();
+});
+
+// Validación de rango de fechas
+$('#start_date, #end_date').on('change', function() {
+    var startDate = $('#start_date').val();
+    var endDate = $('#end_date').val();
+    
+    if (startDate && endDate && startDate > endDate) {
+        alert('La fecha de inicio no puede ser posterior a la fecha de fin');
+        $(this).val('');
+    }
+});
+
+// Auto-refresh cada 5 minutos para actualizar estados
+setTimeout(function() {
+    location.reload();
+}, 300000);
+</script>
+{% endblock %}

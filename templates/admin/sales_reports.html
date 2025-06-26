@@ -1,0 +1,699 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Reportes de Ventas - Panel de Administración{% endblock %}
+
+{% block extra_css %}
+<style>
+.filter-card {
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    margin-bottom: 25px;
+}
+
+.stats-card {
+    background: white;
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    text-align: center;
+    transition: transform 0.3s ease;
+}
+
+.stats-card:hover {
+    transform: translateY(-5px);
+}
+
+.stats-card.primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.stats-card.success {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
+}
+
+.stats-card.warning {
+    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+    color: white;
+}
+
+.stats-card.info {
+    background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+    color: white;
+}
+
+.stats-number {
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.stats-label {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.reports-table {
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.table th {
+    background: #f8f9fa;
+    border: none;
+    font-weight: 600;
+    color: #333;
+    padding: 15px 10px;
+}
+
+.table td {
+    padding: 12px 10px;
+    vertical-align: middle;
+    border-top: 1px solid #e9ecef;
+}
+
+.table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.btn-export {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    margin: 0 5px;
+}
+
+.btn-export:hover {
+    color: white;
+    transform: translateY(-2px);
+}
+
+.btn-filter {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.btn-filter:hover {
+    color: white;
+    transform: translateY(-2px);
+}
+
+.form-control {
+    border-radius: 8px;
+    border: 2px solid #e9ecef;
+    padding: 10px 15px;
+}
+
+.form-control:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+.seller-badge {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.amount-cell {
+    font-weight: 600;
+    color: #28a745;
+}
+
+.date-cell {
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.period-tabs {
+    margin-bottom: 20px;
+}
+
+.period-tabs .nav-link {
+    border-radius: 8px;
+    margin-right: 5px;
+    font-weight: 600;
+    color: #667eea;
+    border: 2px solid #e9ecef;
+}
+
+.period-tabs .nav-link.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-color: #667eea;
+    color: white;
+}
+
+.chart-container {
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    margin-bottom: 25px;
+    height: 400px;
+}
+
+.no-data {
+    text-align: center;
+    padding: 50px 20px;
+    color: #6c757d;
+}
+
+.no-data i {
+    font-size: 4rem;
+    margin-bottom: 20px;
+    opacity: 0.5;
+}
+
+.pagination-wrapper {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #e9ecef;
+}
+
+.loading {
+    text-align: center;
+    padding: 40px;
+    color: #6c757d;
+}
+
+.loading i {
+    font-size: 2rem;
+    margin-bottom: 10px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.export-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+    .stats-card {
+        margin-bottom: 15px;
+    }
+    
+    .filter-card {
+        padding: 15px;
+    }
+    
+    .reports-table {
+        padding: 15px;
+    }
+    
+    .table-responsive {
+        font-size: 0.9rem;
+    }
+    
+    .export-buttons {
+        justify-content: center;
+    }
+    
+    .export-buttons .btn {
+        flex: 1;
+        min-width: 120px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3">📊 Reportes de Ventas</h1>
+                <div class="export-buttons">
+                    <button class="btn btn-export" onclick="exportReport('csv')">
+                        <i class="fas fa-file-csv"></i> Exportar CSV
+                    </button>
+                    <button class="btn btn-export" onclick="exportReport('excel')">
+                        <i class="fas fa-file-excel"></i> Exportar Excel
+                    </button>
+                    <button class="btn btn-export" onclick="exportReport('pdf')">
+                        <i class="fas fa-file-pdf"></i> Exportar PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filtros -->
+    <div class="row">
+        <div class="col-12">
+            <div class="filter-card">
+                <h5 class="mb-3">🔍 Filtros de Búsqueda</h5>
+                <form method="GET" id="filterForm">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <label for="start_date" class="form-label">Fecha Inicio</label>
+                            <input type="date" name="start_date" id="start_date" class="form-control" 
+                                   value="{{ current_filters.start_date }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="end_date" class="form-label">Fecha Fin</label>
+                            <input type="date" name="end_date" id="end_date" class="form-control" 
+                                   value="{{ current_filters.end_date }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="seller_id" class="form-label">Vendedor</label>
+                            <select name="seller_id" id="seller_id" class="form-control">
+                                <option value="">Todos los vendedores</option>
+                                <option value="casa_matriz" {% if current_filters.seller_id == 'casa_matriz' %}selected{% endif %}>Casa Matriz</option>
+                                {% for seller in sellers %}
+                                <option value="{{ seller.id }}" {% if current_filters.seller_id == seller.id|string %}selected{% endif %}>
+                                    {{ seller.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">&nbsp;</label>
+                            <div>
+                                <button type="submit" class="btn btn-filter mr-2">
+                                    <i class="fas fa-search"></i> Buscar
+                                </button>
+                                <a href="{{ url_for('admin_sales_reports') }}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times"></i> Limpiar
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Pestañas de Período -->
+    <div class="row">
+        <div class="col-12">
+            <ul class="nav nav-pills period-tabs">
+                <li class="nav-item">
+                    <a class="nav-link {{ 'active' if current_period == 'daily' else '' }}" 
+                       href="?period=daily{{ '&' + request.query_string.decode() if request.query_string else '' }}">
+                        📅 Diario
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ 'active' if current_period == 'weekly' else '' }}" 
+                       href="?period=weekly{{ '&' + request.query_string.decode() if request.query_string else '' }}">
+                        📊 Semanal
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ 'active' if current_period == 'monthly' else '' }}" 
+                       href="?period=monthly{{ '&' + request.query_string.decode() if request.query_string else '' }}">
+                        📈 Mensual
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ 'active' if current_period == 'yearly' else '' }}" 
+                       href="?period=yearly{{ '&' + request.query_string.decode() if request.query_string else '' }}">
+                        📆 Anual
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- Estadísticas Resumidas -->
+    <div class="row">
+        <div class="col-lg-3 col-md-6">
+            <div class="stats-card primary">
+                <div class="stats-number" id="totalSales">{{ summary.total_sales|default(0) }}</div>
+                <div class="stats-label">Total Ventas</div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="stats-card success">
+                <div class="stats-number" id="totalAmount">${{ "{:,.2f}".format(summary.total_amount|default(0)) }}</div>
+                <div class="stats-label">Ingresos Totales</div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="stats-card warning">
+                <div class="stats-number" id="avgSale">${{ "{:,.2f}".format(summary.avg_sale|default(0)) }}</div>
+                <div class="stats-label">Venta Promedio</div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="stats-card info">
+                <div class="stats-number" id="activeSellers">{{ summary.active_sellers|default(0) }}</div>
+                <div class="stats-label">Vendedores Activos</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Gráfico de Ventas -->
+    <div class="row">
+        <div class="col-12">
+            <div class="chart-container">
+                <h5 class="mb-3">📈 Tendencia de Ventas - {{ current_period|title }}</h5>
+                <canvas id="salesChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tabla de Reportes -->
+    <div class="row">
+        <div class="col-12">
+            <div class="reports-table">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5>📋 Detalle de Ventas</h5>
+                    <div>
+                        <small class="text-muted">Mostrando {{ sales_data|length }} registros</small>
+                    </div>
+                </div>
+                
+                {% if sales_data %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Vendedor</th>
+                                <th>Transacciones</th>
+                                <th>Monto Total</th>
+                                <th>Promedio</th>
+                                <th>Comisión</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sale in sales_data %}
+                            <tr>
+                                <td class="date-cell">
+                                    {% if current_period == 'daily' %}
+                                        {{ sale.date.strftime('%d/%m/%Y') }}
+                                    {% elif current_period == 'weekly' %}
+                                        Semana {{ sale.week }} - {{ sale.year }}
+                                    {% elif current_period == 'monthly' %}
+                                        {{ sale.month_name }} {{ sale.year }}
+                                    {% else %}
+                                        {{ sale.year }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if sale.seller_name %}
+                                        <span class="seller-badge">{{ sale.seller_name }}</span>
+                                    {% else %}
+                                        <span class="seller-badge" style="background: #6c757d;">Casa Matriz</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <strong>{{ sale.transaction_count }}</strong>
+                                    <small class="text-muted">ventas</small>
+                                </td>
+                                <td class="amount-cell">
+                                    ${{ "{:,.2f}".format(sale.total_amount) }}
+                                </td>
+                                <td>
+                                    ${{ "{:,.2f}".format(sale.avg_amount) }}
+                                </td>
+                                <td>
+                                    {% if sale.commission %}
+                                        <span class="text-success">${{ "{:,.2f}".format(sale.commission) }}</span>
+                                    {% else %}
+                                        <span class="text-muted">N/A</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-info" 
+                                            onclick="viewDetails('{{ sale.date if current_period == 'daily' else sale.period_id }}', '{{ sale.seller_id or 'casa_matriz' }}')" 
+                                            title="Ver detalles">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Paginación -->
+                <div class="pagination-wrapper">
+                    <div>
+                        <small class="text-muted">
+                            Total: {{ total_records }} registros
+                        </small>
+                    </div>
+                    <div>
+                        <!-- Aquí se puede agregar paginación si es necesario -->
+                    </div>
+                </div>
+                
+                {% else %}
+                <div class="no-data">
+                    <i class="fas fa-chart-line"></i>
+                    <h5>No hay datos de ventas</h5>
+                    <p class="text-muted">No se encontraron ventas para los filtros seleccionados</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Detalles -->
+<div class="modal fade" id="detailsModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalles de Ventas</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="modalContent">
+                <div class="loading">
+                    <i class="fas fa-spinner"></i>
+                    <p>Cargando detalles...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Variables globales
+let salesChart;
+const chartData = {{ chart_data|tojson if chart_data else '{}' }};
+
+$(document).ready(function() {
+    // Inicializar gráfico
+    initSalesChart();
+    
+    // Validación de rango de fechas
+    $('#start_date, #end_date').on('change', function() {
+        validateDateRange();
+    });
+    
+    // Auto-submit en cambio de vendedor
+    $('#seller_id').on('change', function() {
+        $('#filterForm').submit();
+    });
+});
+
+function initSalesChart() {
+    const ctx = document.getElementById('salesChart').getContext('2d');
+    
+    if (Object.keys(chartData).length === 0) {
+        // Mostrar mensaje de no datos
+        ctx.canvas.parentElement.innerHTML = `
+            <div class="no-data">
+                <i class="fas fa-chart-line"></i>
+                <h5>No hay datos para mostrar</h5>
+                <p class="text-muted">Selecciona un rango de fechas para ver el gráfico</p>
+            </div>
+        `;
+        return;
+    }
+    
+    salesChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartData.labels || [],
+            datasets: [{
+                label: 'Ventas',
+                data: chartData.sales || [],
+                borderColor: '#667eea',
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4
+            }, {
+                label: 'Ingresos ($)',
+                data: chartData.revenue || [],
+                borderColor: '#28a745',
+                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                yAxisID: 'y1'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Número de Ventas'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Ingresos ($)'
+                    },
+                    grid: {
+                        drawOnChartArea: false,
+                    },
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.datasetIndex === 1) {
+                                label += '$' + context.parsed.y.toLocaleString('es-ES', {minimumFractionDigits: 2});
+                            } else {
+                                label += context.parsed.y.toLocaleString('es-ES');
+                            }
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function validateDateRange() {
+    const startDate = $('#start_date').val();
+    const endDate = $('#end_date').val();
+    
+    if (startDate && endDate && startDate > endDate) {
+        alert('La fecha de inicio no puede ser posterior a la fecha de fin');
+        $('#end_date').val('');
+    }
+}
+
+function exportReport(format) {
+    const params = new URLSearchParams(window.location.search);
+    params.set('export', format);
+    
+    // Mostrar indicador de carga
+    const originalText = event.target.innerHTML;
+    event.target.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exportando...';
+    event.target.disabled = true;
+    
+    // Crear enlace de descarga
+    const downloadUrl = `${window.location.pathname}?${params.toString()}`;
+    
+    // Simular descarga
+    fetch(downloadUrl)
+        .then(response => {
+            if (response.ok) {
+                return response.blob();
+            }
+            throw new Error('Error en la exportación');
+        })
+        .then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `reporte_ventas_${new Date().toISOString().split('T')[0]}.${format}`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+        })
+        .catch(error => {
+            alert('Error al exportar el reporte: ' + error.message);
+        })
+        .finally(() => {
+            // Restaurar botón
+            event.target.innerHTML = originalText;
+            event.target.disabled = false;
+        });
+}
+
+function viewDetails(period, sellerId) {
+    $('#detailsModal').modal('show');
+    
+    // Simular carga de detalles
+    setTimeout(() => {
+        $('#modalContent').html(`
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Información del Período</h6>
+                    <p><strong>Período:</strong> ${period}</p>
+                    <p><strong>Vendedor:</strong> ${sellerId === 'casa_matriz' ? 'Casa Matriz' : sellerId}</p>
+                </div>
+                <div class="col-md-6">
+                    <h6>Estadísticas Detalladas</h6>
+                    <p><strong>Transacciones:</strong> Información no disponible</p>
+                    <p><strong>Detalles:</strong> Funcionalidad en desarrollo</p>
+                </div>
+            </div>
+        `);
+    }, 1000);
+}
+
+// Auto-refresh cada 5 minutos
+setTimeout(function() {
+    location.reload();
+}, 300000);
+</script>
+{% endblock %}
