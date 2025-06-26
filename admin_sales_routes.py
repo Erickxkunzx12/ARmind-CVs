@@ -6,7 +6,7 @@ import json
 from admin_sales_system import (
     init_sales_tables, create_coupon, get_coupons, update_coupon, delete_coupon,
     create_offer, get_offers, get_sales_summary, export_sales_report,
-    get_db_connection
+    get_db_connection, update_seller, update_offer, get_seller_by_id, get_offer_by_id
 )
 from psycopg2.extras import RealDictCursor
 
@@ -641,5 +641,87 @@ def register_admin_sales_routes(app):
             
         except Exception as e:
             return jsonify({'error': str(e)}), 500
+
+    @app.route('/admin/sellers/edit/<int:seller_id>', methods=['GET', 'POST'])
+    @admin_required
+    def admin_edit_seller(seller_id):
+        """Editar un vendedor existente"""
+        if request.method == 'GET':
+            # Mostrar formulario de edición
+            seller = get_seller_by_id(seller_id)
+            if not seller:
+                flash('Vendedor no encontrado', 'error')
+                return redirect(url_for('admin_sellers'))
+            
+            return render_template('admin/edit_seller.html', seller=seller)
+        
+        elif request.method == 'POST':
+            # Procesar actualización
+            try:
+                data = {
+                    'name': request.form.get('name'),
+                    'email': request.form.get('email'),
+                    'phone': request.form.get('phone'),
+                    'commission_rate': float(request.form.get('commission_rate', 0)),
+                    'is_active': request.form.get('is_active') == 'on'
+                }
+                
+                # Filtrar campos vacíos
+                data = {k: v for k, v in data.items() if v is not None and v != ''}
+                
+                success, message = update_seller(seller_id, **data)
+                
+                if success:
+                    flash(message, 'success')
+                    return redirect(url_for('admin_sellers'))
+                else:
+                    flash(message, 'error')
+                    return redirect(url_for('admin_edit_seller', seller_id=seller_id))
+                    
+            except Exception as e:
+                flash(f'Error actualizando vendedor: {str(e)}', 'error')
+                return redirect(url_for('admin_edit_seller', seller_id=seller_id))
+
+    @app.route('/admin/offers/edit/<int:offer_id>', methods=['GET', 'POST'])
+    @admin_required
+    def admin_edit_offer(offer_id):
+        """Editar una oferta promocional existente"""
+        if request.method == 'GET':
+            # Mostrar formulario de edición
+            offer = get_offer_by_id(offer_id)
+            if not offer:
+                flash('Oferta no encontrada', 'error')
+                return redirect(url_for('admin_offers'))
+            
+            return render_template('admin/edit_offer.html', offer=offer)
+        
+        elif request.method == 'POST':
+            # Procesar actualización
+            try:
+                data = {
+                    'title': request.form.get('title'),
+                    'description': request.form.get('description'),
+                    'discount_percentage': float(request.form.get('discount_percentage', 0)),
+                    'start_date': request.form.get('start_date'),
+                    'end_date': request.form.get('end_date'),
+                    'is_active': request.form.get('is_active') == 'on',
+                    'status': request.form.get('status', 'active')
+                }
+                
+                # Filtrar campos vacíos
+                data = {k: v for k, v in data.items() if v is not None and v != ''}
+                
+                success, message = update_offer(offer_id, **data)
+                
+                if success:
+                    flash(message, 'success')
+                    return redirect(url_for('admin_offers'))
+                else:
+                    flash(message, 'error')
+                    return redirect(url_for('admin_edit_offer', offer_id=offer_id))
+                    
+            except Exception as e:
+                flash(f'Error actualizando oferta: {str(e)}', 'error')
+                return redirect(url_for('admin_edit_offer', offer_id=offer_id))
 
     return app

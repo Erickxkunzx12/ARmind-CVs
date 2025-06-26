@@ -86,6 +86,11 @@ app.register_blueprint(subscription_bp, url_prefix='/subscription')
 from admin_sales_routes import register_admin_sales_routes
 register_admin_sales_routes(app)
 
+# Importar y registrar sistema de registro con suscripción
+from registration_with_subscription import RegistrationWithSubscription
+registration_system = RegistrationWithSubscription(app)
+registration_system.register_routes()
+
 # Verificar configuración de OpenAI
 if openai.api_key:
     print("✅ OpenAI API configurada")
@@ -872,7 +877,12 @@ def index():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    """Registro de usuarios"""
+    """Redirige al nuevo sistema de registro con suscripción obligatoria"""
+    return redirect(url_for('register_with_subscription'))
+
+@app.route('/register-legacy', methods=['GET', 'POST'])
+def register_legacy():
+    """Registro de usuarios (sistema anterior - solo para referencia)"""
     if request.method == 'POST':
         username = request.form['username']
         email = request.form['email']
@@ -5490,7 +5500,7 @@ def admin_get_user_subscription(user_id):
     try:
         from subscription_system import get_user_subscription
         user_subscription = get_user_subscription(user_id)
-        current_plan = user_subscription.get('plan_type', 'free') if user_subscription else 'free'
+        current_plan = user_subscription.get('plan_type', 'Sin suscripción') if user_subscription else 'Sin suscripción'
         
         return jsonify({
             'success': True,
@@ -5512,7 +5522,8 @@ def admin_update_subscription():
     if not user_id or not new_plan:
         return jsonify({'success': False, 'message': 'Datos requeridos faltantes'})
     
-    if new_plan not in ['free', 'basic', 'pro']:
+    # Corregir nombres de planes válidos
+    if new_plan not in ['free_trial', 'standard', 'pro']:
         return jsonify({'success': False, 'message': 'Plan de suscripción inválido'})
     
     connection = get_db_connection()
@@ -5536,45 +5547,60 @@ def admin_update_subscription():
             # Desactivar suscripción existente
             cursor.execute("""
                 UPDATE subscriptions 
-                SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
+                SET status = 'cancelled'
                 WHERE user_id = %s AND status = 'active'
             """, (user_id,))
         
-        # Crear nueva suscripción si no es plan gratuito
-        if new_plan != 'free':
-            from datetime import datetime, timedelta
-            # Calcular fecha de vencimiento (30 días para basic, 365 días para pro)
-            if new_plan == 'basic':
-                end_date = datetime.now() + timedelta(days=30)
-            else:  # pro
-                end_date = datetime.now() + timedelta(days=365)
-                
-            cursor.execute("""
-                INSERT INTO subscriptions (user_id, plan_type, status, start_date, end_date, payment_method, amount, currency)
-                VALUES (%s, %s, 'active', CURRENT_TIMESTAMP, %s, 'admin_change', 0, 'CLP')
-            """, (user_id, new_plan, end_date))
+        # Crear nueva suscripción
+        from datetime import datetime, timedelta
+        start_date = datetime.now()
+        
+        # Calcular fecha de vencimiento y precio según el plan
+        if new_plan == 'free_trial':
+            end_date = start_date + timedelta(days=7)
+            amount = 0
+        elif new_plan == 'standard':
+            end_date = start_date + timedelta(days=30)
+            amount = 9990
+        elif new_plan == 'pro':
+            end_date = start_date + timedelta(days=30)
+            amount = 19990
             
-            # Actualizar el campo current_plan en la tabla users si existe
-            cursor.execute("""
-                UPDATE users 
-                SET current_plan = %s, subscription_status = 'active', subscription_end_date = %s
-                WHERE id = %s
-            """, (new_plan, end_date, user_id))
+        # Insertar nueva suscripción
+        cursor.execute("""
+            INSERT INTO subscriptions (user_id, plan_type, status, start_date, end_date, amount)
+            VALUES (%s, %s, 'active', %s, %s, %s)
+        """, (user_id, new_plan, start_date, end_date, amount))
+        
+        # Actualizar información del usuario
+        cursor.execute("""
+            UPDATE users 
+            SET current_plan = %s, subscription_status = 'active', subscription_end_date = %s
+            WHERE id = %s
+        """, (new_plan, end_date, user_id))
         
         # Registrar el cambio en logs de administrador
         admin_username = session.get('username', 'Admin')
-        log_message = f"Admin {admin_username} cambió suscripción del usuario {user['username']} a plan {new_plan}. Razón: {reason}"
+        log_message = f"Admin {admin_username} asignó suscripción {new_plan} al usuario {user['username']}. Razón: {reason}"
         add_console_log('INFO', log_message, 'ADMIN')
         
         connection.commit()
         cursor.close()
         connection.close()
         
-        return jsonify({'success': True, 'message': f'Suscripción actualizada a plan {new_plan}'})
+        return jsonify({
+            'success': True, 
+            'message': f'Suscripción {new_plan} asignada exitosamente',
+            'new_plan': new_plan,
+            'end_date': end_date.strftime('%Y-%m-%d')
+        })
         
     except Exception as e:
         print(f"Error actualizando suscripción: {e}")
-        return jsonify({'success': False, 'message': 'Error interno del servidor'})
+        add_console_log('ERROR', f'Error asignando suscripción: {str(e)}', 'ADMIN')
+        if connection:
+            connection.rollback()
+        return jsonify({'success': False, 'message': f'Error interno del servidor: {str(e)}'})
 
 # Sistema de logs global para la consola de administrador
 import logging

@@ -1,0 +1,570 @@
+{% extends "base.html" %}
+
+{% block title %}Registro con Suscripción - ARMind CVs{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card shadow-lg">
+                <div class="card-header bg-primary text-white text-center py-4">
+                    <h2 class="mb-0">
+                        <i class="fas fa-user-plus me-2"></i>Crear Cuenta
+                    </h2>
+                    <p class="mb-0 mt-2">Únete a ARMind CVs - Selecciona tu plan</p>
+                </div>
+                
+                <div class="card-body p-5">
+                    <form method="POST" id="registerForm">
+                        <!-- Paso 1: Información Personal -->
+                        <div id="step1" class="registration-step">
+                            <h4 class="mb-4"><i class="fas fa-user me-2"></i>Información Personal</h4>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-4">
+                                    <label for="username" class="form-label">
+                                        <i class="fas fa-user me-2"></i>Nombre de Usuario
+                                    </label>
+                                    <input type="text" 
+                                           class="form-control form-control-lg" 
+                                           id="username" 
+                                           name="username" 
+                                           required 
+                                           minlength="3"
+                                           maxlength="20"
+                                           pattern="[a-zA-Z0-9_]+"
+                                           placeholder="Ingresa tu nombre de usuario">
+                                    <div class="form-text">
+                                        Solo letras, números y guiones bajos. Mínimo 3 caracteres.
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-4">
+                                    <label for="email" class="form-label">
+                                        <i class="fas fa-envelope me-2"></i>Correo Electrónico
+                                    </label>
+                                    <input type="email" 
+                                           class="form-control form-control-lg" 
+                                           id="email" 
+                                           name="email" 
+                                           required 
+                                           placeholder="tu@email.com">
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-4">
+                                    <label for="password" class="form-label">
+                                        <i class="fas fa-lock me-2"></i>Contraseña
+                                    </label>
+                                    <div class="input-group">
+                                        <input type="password" 
+                                               class="form-control form-control-lg" 
+                                               id="password" 
+                                               name="password" 
+                                               required 
+                                               minlength="8"
+                                               placeholder="Mínimo 8 caracteres">
+                                        <button class="btn btn-outline-secondary" 
+                                                type="button" 
+                                                id="togglePassword">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
+                                    <div class="password-strength mt-2">
+                                        <div class="progress" style="height: 5px;">
+                                            <div class="progress-bar" 
+                                                 role="progressbar" 
+                                                 id="passwordStrength" 
+                                                 style="width: 0%"></div>
+                                        </div>
+                                        <small class="form-text" id="passwordHelp">Ingresa una contraseña</small>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-4">
+                                    <label for="confirmPassword" class="form-label">
+                                        <i class="fas fa-lock me-2"></i>Confirmar Contraseña
+                                    </label>
+                                    <input type="password" 
+                                           class="form-control form-control-lg" 
+                                           id="confirmPassword" 
+                                           name="confirmPassword" 
+                                           required 
+                                           placeholder="Repite tu contraseña">
+                                    <div class="invalid-feedback" id="passwordMismatch">
+                                        Las contraseñas no coinciden
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="d-grid">
+                                <button type="button" class="btn btn-primary btn-lg" onclick="nextStep(2)">
+                                    Continuar <i class="fas fa-arrow-right ms-2"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Paso 2: Selección de Plan -->
+                        <div id="step2" class="registration-step d-none">
+                            <h4 class="mb-4"><i class="fas fa-crown me-2"></i>Selecciona tu Plan</h4>
+                            
+                            <div class="row g-4">
+                                <!-- Plan Gratuito -->
+                                <div class="col-lg-4">
+                                    <div class="card h-100 border-2 plan-card" data-plan="free_trial">
+                                        <div class="card-header bg-light text-center">
+                                            <h5 class="mb-0">Plan Gratuito</h5>
+                                            <div class="h2 text-primary mt-2">$0</div>
+                                            <small class="text-muted">Por 7 días</small>
+                                        </div>
+                                        <div class="card-body">
+                                            <ul class="list-unstyled">
+                                                <li><i class="fas fa-check text-success me-2"></i>2 análisis de CV</li>
+                                                <li><i class="fas fa-check text-success me-2"></i>1 creación de CV</li>
+                                                <li><i class="fas fa-check text-success me-2"></i>Plantillas básicas</li>
+                                                <li><i class="fas fa-times text-muted me-2"></i>Soporte prioritario</li>
+                                            </ul>
+                                        </div>
+                                        <div class="card-footer">
+                                            <button type="button" class="btn btn-outline-primary w-100 select-plan" data-plan="free_trial">
+                                                Seleccionar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Plan Estándar -->
+                                <div class="col-lg-4">
+                                    <div class="card h-100 border-warning border-2 plan-card position-relative" data-plan="standard">
+                                        <div class="position-absolute top-0 start-50 translate-middle">
+                                            <span class="badge bg-warning text-dark px-3 py-2 rounded-pill">
+                                                <i class="fas fa-star me-1"></i>Más Popular
+                                            </span>
+                                        </div>
+                                        <div class="card-header bg-warning text-dark text-center">
+                                            <h5 class="mb-0">Plan Estándar</h5>
+                                            <div class="h2 mt-2">$9.990</div>
+                                            <small>Por mes</small>
+                                        </div>
+                                        <div class="card-body">
+                                            <ul class="list-unstyled">
+                                                <li><i class="fas fa-check text-success me-2"></i>10 análisis de CV</li>
+                                                <li><i class="fas fa-check text-success me-2"></i>5 creaciones de CV</li>
+                                                <li><i class="fas fa-check text-success me-2"></i>Todas las plantillas</li>
+                                                <li><i class="fas fa-check text-success me-2"></i>Soporte por email</li>
+                                            </ul>
+                                        </div>
+                                        <div class="card-footer">
+                                            <button type="button" class="btn btn-warning w-100 select-plan" data-plan="standard">
+                                                Seleccionar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Plan Pro -->
+                                <div class="col-lg-4">
+                                    <div class="card h-100 border-success border-2 plan-card" data-plan="pro">
+                                        <div class="card-header bg-success text-white text-center">
+                                            <h5 class="mb-0">Plan Pro</h5>
+                                            <div class="h2 mt-2">$19.990</div>
+                                            <small>Por mes</small>
+                                        </div>
+                                        <div class="card-body">
+                                            <ul class="list-unstyled">
+                                                <li><i class="fas fa-check text-success me-2"></i>Análisis ilimitados</li>
+                                                <li><i class="fas fa-check text-success me-2"></i>Creaciones ilimitadas</li>
+                                                <li><i class="fas fa-check text-success me-2"></i>Plantillas premium</li>
+                                                <li><i class="fas fa-check text-success me-2"></i>Soporte prioritario</li>
+                                                <li><i class="fas fa-check text-success me-2"></i>Análisis avanzado con IA</li>
+                                            </ul>
+                                        </div>
+                                        <div class="card-footer">
+                                            <button type="button" class="btn btn-success w-100 select-plan" data-plan="pro">
+                                                Seleccionar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <input type="hidden" id="selectedPlan" name="selected_plan" required>
+                            
+                            <div class="row mt-4">
+                                <div class="col-6">
+                                    <button type="button" class="btn btn-outline-secondary btn-lg w-100" onclick="previousStep(1)">
+                                        <i class="fas fa-arrow-left me-2"></i>Anterior
+                                    </button>
+                                </div>
+                                <div class="col-6">
+                                    <button type="button" class="btn btn-primary btn-lg w-100" onclick="nextStep(3)" id="continueToPayment" disabled>
+                                        Continuar <i class="fas fa-arrow-right ms-2"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Paso 3: Método de Pago -->
+                        <div id="step3" class="registration-step d-none">
+                            <h4 class="mb-4"><i class="fas fa-credit-card me-2"></i>Método de Pago</h4>
+                            
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Información importante:</strong> Debes proporcionar un método de pago válido para completar el registro, 
+                                incluso para el plan gratuito. Esto nos ayuda a verificar tu identidad y mejorar la seguridad de la plataforma.
+                                <span id="freeTrialNote" class="d-none"><br><strong>No se realizará ningún cargo durante el período de prueba gratuita.</strong></span>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h5>Información de Tarjeta</h5>
+                                    
+                                    <div class="mb-3">
+                                        <label for="cardNumber" class="form-label">Número de Tarjeta</label>
+                                        <input type="text" class="form-control" id="cardNumber" name="card_number" 
+                                               placeholder="1234 5678 9012 3456" maxlength="19" required>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <label for="expiryDate" class="form-label">Fecha de Vencimiento</label>
+                                            <input type="text" class="form-control" id="expiryDate" name="expiry_date" 
+                                                   placeholder="MM/AA" maxlength="5" required>
+                                        </div>
+                                        <div class="col-6">
+                                            <label for="cvv" class="form-label">CVV</label>
+                                            <input type="text" class="form-control" id="cvv" name="cvv" 
+                                                   placeholder="123" maxlength="4" required>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3 mt-3">
+                                        <label for="cardName" class="form-label">Nombre en la Tarjeta</label>
+                                        <input type="text" class="form-control" id="cardName" name="card_name" 
+                                               placeholder="Nombre completo" required>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <h5>Resumen del Pedido</h5>
+                                    
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between mb-2">
+                                                <span>Plan seleccionado:</span>
+                                                <strong id="selectedPlanName">-</strong>
+                                            </div>
+                                            <div class="d-flex justify-content-between mb-2">
+                                                <span>Precio:</span>
+                                                <strong id="selectedPlanPrice">-</strong>
+                                            </div>
+                                            <hr>
+                                            <div class="d-flex justify-content-between">
+                                                <span><strong>Total:</strong></span>
+                                                <strong id="totalPrice" class="text-primary">-</strong>
+                                            </div>
+                                            
+                                            <div class="mt-3">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-shield-alt me-1"></i>
+                                                    Tus datos están protegidos con encriptación SSL
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4 mt-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="terms" name="terms" required>
+                                    <label class="form-check-label" for="terms">
+                                        Acepto los <a href="#" class="text-primary">Términos y Condiciones</a> 
+                                        y la <a href="#" class="text-primary">Política de Privacidad</a>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-6">
+                                    <button type="button" class="btn btn-outline-secondary btn-lg w-100" onclick="previousStep(2)">
+                                        <i class="fas fa-arrow-left me-2"></i>Anterior
+                                    </button>
+                                </div>
+                                <div class="col-6">
+                                    <button type="submit" class="btn btn-success btn-lg w-100">
+                                        <span class="spinner-border spinner-border-sm me-2 d-none" id="loadingSpinner"></span>
+                                        <i class="fas fa-check me-2"></i>Completar Registro
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.plan-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+}
+
+.plan-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.plan-card.selected {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,123,255,0.3);
+    border-color: #007bff !important;
+}
+
+.registration-step {
+    min-height: 400px;
+}
+
+.progress-step {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+}
+
+.step {
+    flex: 1;
+    text-align: center;
+    position: relative;
+}
+
+.step::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #dee2e6;
+    z-index: 1;
+}
+
+.step.active::before {
+    background: #007bff;
+}
+
+.step-number {
+    display: inline-block;
+    width: 40px;
+    height: 40px;
+    line-height: 40px;
+    border-radius: 50%;
+    background: #dee2e6;
+    color: #6c757d;
+    position: relative;
+    z-index: 2;
+}
+
+.step.active .step-number {
+    background: #007bff;
+    color: white;
+}
+
+.step.completed .step-number {
+    background: #28a745;
+    color: white;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentStep = 1;
+
+const plans = {
+    'free_trial': { name: 'Plan Gratuito', price: '$0', total: '$0' },
+    'standard': { name: 'Plan Estándar', price: '$9.990/mes', total: '$9.990' },
+    'pro': { name: 'Plan Pro', price: '$19.990/mes', total: '$19.990' }
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('registerForm');
+    const password = document.getElementById('password');
+    const confirmPassword = document.getElementById('confirmPassword');
+    const togglePassword = document.getElementById('togglePassword');
+    const passwordStrength = document.getElementById('passwordStrength');
+    const passwordHelp = document.getElementById('passwordHelp');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    
+    // Toggle password visibility
+    togglePassword.addEventListener('click', function() {
+        const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+        password.setAttribute('type', type);
+        this.querySelector('i').classList.toggle('fa-eye');
+        this.querySelector('i').classList.toggle('fa-eye-slash');
+    });
+    
+    // Password strength checker
+    password.addEventListener('input', function() {
+        const value = this.value;
+        let strength = 0;
+        let feedback = '';
+        
+        if (value.length >= 8) strength += 25;
+        if (/[a-z]/.test(value)) strength += 25;
+        if (/[A-Z]/.test(value)) strength += 25;
+        if (/[0-9]/.test(value)) strength += 25;
+        
+        passwordStrength.style.width = strength + '%';
+        
+        if (strength < 50) {
+            passwordStrength.className = 'progress-bar bg-danger';
+            feedback = 'Contraseña débil';
+        } else if (strength < 75) {
+            passwordStrength.className = 'progress-bar bg-warning';
+            feedback = 'Contraseña moderada';
+        } else {
+            passwordStrength.className = 'progress-bar bg-success';
+            feedback = 'Contraseña fuerte';
+        }
+        
+        passwordHelp.textContent = feedback;
+    });
+    
+    // Confirm password validation
+    confirmPassword.addEventListener('input', function() {
+        if (this.value !== password.value) {
+            this.classList.add('is-invalid');
+        } else {
+            this.classList.remove('is-invalid');
+        }
+    });
+    
+    // Plan selection
+    document.querySelectorAll('.select-plan').forEach(button => {
+        button.addEventListener('click', function() {
+            const planType = this.dataset.plan;
+            selectPlan(planType);
+        });
+    });
+    
+    // Card number formatting
+    document.getElementById('cardNumber').addEventListener('input', function() {
+        let value = this.value.replace(/\s/g, '').replace(/[^0-9]/gi, '');
+        let formattedValue = value.match(/.{1,4}/g)?.join(' ') || value;
+        this.value = formattedValue;
+    });
+    
+    // Expiry date formatting
+    document.getElementById('expiryDate').addEventListener('input', function() {
+        let value = this.value.replace(/\D/g, '');
+        if (value.length >= 2) {
+            value = value.substring(0, 2) + '/' + value.substring(2, 4);
+        }
+        this.value = value;
+    });
+    
+    // CVV validation
+    document.getElementById('cvv').addEventListener('input', function() {
+        this.value = this.value.replace(/[^0-9]/g, '');
+    });
+    
+    // Form submission
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        if (validateCurrentStep()) {
+            loadingSpinner.classList.remove('d-none');
+            
+            // Simulate form submission
+            setTimeout(() => {
+                this.submit();
+            }, 1000);
+        }
+    });
+});
+
+function nextStep(step) {
+    if (validateCurrentStep()) {
+        document.getElementById('step' + currentStep).classList.add('d-none');
+        document.getElementById('step' + step).classList.remove('d-none');
+        currentStep = step;
+    }
+}
+
+function previousStep(step) {
+    document.getElementById('step' + currentStep).classList.add('d-none');
+    document.getElementById('step' + step).classList.remove('d-none');
+    currentStep = step;
+}
+
+function selectPlan(planType) {
+    // Remove selection from all cards
+    document.querySelectorAll('.plan-card').forEach(card => {
+        card.classList.remove('selected');
+    });
+    
+    // Add selection to clicked card
+    document.querySelector(`[data-plan="${planType}"]`).classList.add('selected');
+    
+    // Update hidden input
+    document.getElementById('selectedPlan').value = planType;
+    
+    // Update summary
+    document.getElementById('selectedPlanName').textContent = plans[planType].name;
+    document.getElementById('selectedPlanPrice').textContent = plans[planType].price;
+    document.getElementById('totalPrice').textContent = plans[planType].total;
+    
+    // Show/hide free trial note
+    const freeTrialNote = document.getElementById('freeTrialNote');
+    if (planType === 'free_trial') {
+        freeTrialNote.classList.remove('d-none');
+    } else {
+        freeTrialNote.classList.add('d-none');
+    }
+    
+    // Enable continue button
+    document.getElementById('continueToPayment').disabled = false;
+}
+
+function validateCurrentStep() {
+    const step = document.getElementById('step' + currentStep);
+    const inputs = step.querySelectorAll('input[required]');
+    let isValid = true;
+    
+    inputs.forEach(input => {
+        if (!input.value.trim()) {
+            input.classList.add('is-invalid');
+            isValid = false;
+        } else {
+            input.classList.remove('is-invalid');
+        }
+    });
+    
+    // Additional validations
+    if (currentStep === 1) {
+        const password = document.getElementById('password');
+        const confirmPassword = document.getElementById('confirmPassword');
+        
+        if (password.value !== confirmPassword.value) {
+            confirmPassword.classList.add('is-invalid');
+            isValid = false;
+        }
+    }
+    
+    if (currentStep === 2) {
+        const selectedPlan = document.getElementById('selectedPlan');
+        if (!selectedPlan.value) {
+            alert('Por favor selecciona un plan de suscripción');
+            isValid = false;
+        }
+    }
+    
+    return isValid;
+}
+</script>
+{% endblock %}

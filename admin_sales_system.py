@@ -582,6 +582,148 @@ def export_to_pdf(data, start_date=None, end_date=None):
     buffer.seek(0)
     return buffer.getvalue()
 
+def update_seller(seller_id, **kwargs):
+    """Actualizar un vendedor existente"""
+    connection = get_db_connection()
+    if not connection:
+        return False, "Error de conexión a la base de datos"
+    
+    try:
+        cursor = connection.cursor()
+        
+        # Construir consulta de actualización dinámicamente
+        set_clauses = []
+        params = []
+        
+        allowed_fields = ['name', 'email', 'phone', 'commission_rate', 'is_active']
+        
+        for field, value in kwargs.items():
+            if field in allowed_fields:
+                set_clauses.append(f"{field} = %s")
+                params.append(value)
+        
+        if not set_clauses:
+            return False, "No hay campos válidos para actualizar"
+        
+        set_clauses.append("updated_at = CURRENT_TIMESTAMP")
+        params.append(seller_id)
+        
+        query = f"""
+            UPDATE sellers 
+            SET {', '.join(set_clauses)}
+            WHERE id = %s
+        """
+        
+        cursor.execute(query, params)
+        
+        if cursor.rowcount == 0:
+            return False, "Vendedor no encontrado"
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        return True, "Vendedor actualizado correctamente"
+        
+    except Exception as e:
+        if connection:
+            connection.rollback()
+            connection.close()
+        return False, f"Error actualizando vendedor: {e}"
+
+def update_offer(offer_id, **kwargs):
+    """Actualizar una oferta promocional existente"""
+    connection = get_db_connection()
+    if not connection:
+        return False, "Error de conexión a la base de datos"
+    
+    try:
+        cursor = connection.cursor()
+        
+        # Construir consulta de actualización dinámicamente
+        set_clauses = []
+        params = []
+        
+        allowed_fields = ['title', 'description', 'discount_percentage', 'start_date', 'end_date', 'is_active', 'status']
+        
+        for field, value in kwargs.items():
+            if field in allowed_fields:
+                set_clauses.append(f"{field} = %s")
+                params.append(value)
+        
+        if not set_clauses:
+            return False, "No hay campos válidos para actualizar"
+        
+        set_clauses.append("updated_at = CURRENT_TIMESTAMP")
+        params.append(offer_id)
+        
+        query = f"""
+            UPDATE promotional_offers 
+            SET {', '.join(set_clauses)}
+            WHERE id = %s
+        """
+        
+        cursor.execute(query, params)
+        
+        if cursor.rowcount == 0:
+            return False, "Oferta no encontrada"
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        return True, "Oferta actualizada correctamente"
+        
+    except Exception as e:
+        if connection:
+            connection.rollback()
+            connection.close()
+        return False, f"Error actualizando oferta: {e}"
+
+def get_seller_by_id(seller_id):
+    """Obtener un vendedor por ID"""
+    connection = get_db_connection()
+    if not connection:
+        return None
+    
+    try:
+        cursor = connection.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("SELECT * FROM sellers WHERE id = %s", (seller_id,))
+        seller = cursor.fetchone()
+        
+        cursor.close()
+        connection.close()
+        
+        return seller
+        
+    except Exception as e:
+        print(f"Error obteniendo vendedor: {e}")
+        if connection:
+            connection.close()
+        return None
+
+def get_offer_by_id(offer_id):
+    """Obtener una oferta por ID"""
+    connection = get_db_connection()
+    if not connection:
+        return None
+    
+    try:
+        cursor = connection.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("SELECT * FROM promotional_offers WHERE id = %s", (offer_id,))
+        offer = cursor.fetchone()
+        
+        cursor.close()
+        connection.close()
+        
+        return offer
+        
+    except Exception as e:
+        print(f"Error obteniendo oferta: {e}")
+        if connection:
+            connection.close()
+        return None
+
 if __name__ == "__main__":
     # Inicializar tablas al importar el módulo
     init_sales_tables()

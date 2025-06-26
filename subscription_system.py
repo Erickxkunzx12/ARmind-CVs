@@ -215,22 +215,22 @@ def get_user_subscription(user_id):
         if subscription:
             # Convertir a diccionario para compatibilidad con templates
             return {
-                'id': subscription[0],
-                'user_id': subscription[1],
-                'plan_type': subscription[2],
-                'status': subscription[3],
-                'start_date': subscription[4],
-                'end_date': subscription[5],
-                'payment_method': subscription[6],
-                'transaction_id': subscription[7],
-                'amount': subscription[8],
-                'currency': subscription[9],
-                'created_at': subscription[10],
-                'updated_at': subscription[11],
-                'expires_at': subscription[5],  # Alias para compatibilidad con templates
-                'current_plan': subscription[12],
-                'subscription_status': subscription[13],
-                'subscription_end_date': subscription[14]
+                'id': subscription['id'],
+                'user_id': subscription['user_id'],
+                'plan_type': subscription['plan_type'],
+                'status': subscription['status'],
+                'start_date': subscription['start_date'],
+                'end_date': subscription['end_date'],
+                'payment_method': subscription['payment_method'],
+                'transaction_id': subscription['transaction_id'],
+                'amount': subscription['amount'],
+                'currency': subscription['currency'],
+                'created_at': subscription['created_at'],
+                'updated_at': subscription['updated_at'],
+                'expires_at': subscription['end_date'],  # Alias para compatibilidad con templates
+                'current_plan': subscription['current_plan'],
+                'subscription_status': subscription['subscription_status'],
+                'subscription_end_date': subscription['subscription_end_date']
             }
         
         return None

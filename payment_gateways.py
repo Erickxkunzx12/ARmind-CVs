@@ -7,6 +7,11 @@ import hmac
 import base64
 from dotenv import load_dotenv
 from subscription_system import create_subscription, get_db_connection
+import logging
+
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Cargar variables de entorno
 load_dotenv()
@@ -19,16 +24,30 @@ class WebpayGateway:
         self.commerce_code = os.getenv('WEBPAY_COMMERCE_CODE')
         self.environment = os.getenv('WEBPAY_ENVIRONMENT', 'integration')  # 'integration' o 'production'
         
+        # Validar credenciales
+        if not self.api_key or not self.commerce_code:
+            logger.warning("Credenciales de Webpay no configuradas. Configurar WEBPAY_API_KEY y WEBPAY_COMMERCE_CODE en .env")
+            self.is_configured = False
+        else:
+            self.is_configured = True
+            logger.info(f"Webpay configurado en modo: {self.environment}")
+        
         if self.environment == 'production':
             self.base_url = 'https://webpay3g.transbank.cl'
         else:
             self.base_url = 'https://webpay3gint.transbank.cl'
     
+    def is_available(self):
+        """Verificar si el gateway está disponible"""
+        return self.is_configured
+    
     def create_transaction(self, amount, order_id, return_url):
         """Crear una transacción en Webpay"""
-        try:
-            url = f"{self.base_url}/rswebpaytransaction/api/webpay/v1.2/transactions"
+        if not self.is_available():
+            logger.error("Webpay no está configurado")
+            return {'error': 'Webpay no está configurado correctamente'}
             
+        try:
             headers = {
                 'Tbk-Api-Key-Id': self.commerce_code,
                 'Tbk-Api-Key-Secret': self.api_key,
@@ -42,40 +61,79 @@ class WebpayGateway:
                 'return_url': return_url
             }
             
-            response = requests.post(url, headers=headers, json=data)
+            logger.info(f"Creando transacción Webpay para orden {order_id} por ${amount}")
+            
+            response = requests.post(
+                f'{self.base_url}/rswebpaytransaction/api/webpay/v1.2/transactions',
+                headers=headers,
+                json=data,
+                timeout=30
+            )
             
             if response.status_code == 200:
-                return response.json()
+                result = response.json()
+                logger.info(f"Transacción Webpay creada exitosamente: {result.get('token', 'N/A')}")
+                return result
             else:
-                print(f"Error en Webpay: {response.status_code} - {response.text}")
-                return None
+                error_msg = f'Error en Webpay: {response.status_code} - {response.text}'
+                logger.error(error_msg)
+                return {'error': error_msg}
                 
+        except requests.exceptions.Timeout:
+            error_msg = 'Timeout al conectar con Webpay'
+            logger.error(error_msg)
+            return {'error': error_msg}
+        except requests.exceptions.ConnectionError:
+            error_msg = 'Error de conexión con Webpay'
+            logger.error(error_msg)
+            return {'error': error_msg}
         except Exception as e:
-            print(f"Error al crear transacción Webpay: {e}")
-            return None
+            error_msg = f'Error inesperado en Webpay: {str(e)}'
+            logger.error(error_msg)
+            return {'error': error_msg}
     
     def confirm_transaction(self, token):
         """Confirmar una transacción en Webpay"""
-        try:
-            url = f"{self.base_url}/rswebpaytransaction/api/webpay/v1.2/transactions/{token}"
+        if not self.is_available():
+            logger.error("Webpay no está configurado")
+            return {'error': 'Webpay no está configurado correctamente'}
             
+        try:
             headers = {
                 'Tbk-Api-Key-Id': self.commerce_code,
                 'Tbk-Api-Key-Secret': self.api_key,
                 'Content-Type': 'application/json'
             }
             
-            response = requests.put(url, headers=headers)
+            logger.info(f"Confirmando transacción Webpay con token: {token}")
+            
+            response = requests.put(
+                f'{self.base_url}/rswebpaytransaction/api/webpay/v1.2/transactions/{token}',
+                headers=headers,
+                timeout=30
+            )
             
             if response.status_code == 200:
-                return response.json()
+                result = response.json()
+                logger.info(f"Transacción Webpay confirmada: {result.get('response_code', 'N/A')}")
+                return result
             else:
-                print(f"Error al confirmar transacción Webpay: {response.status_code} - {response.text}")
-                return None
+                error_msg = f'Error al confirmar transacción: {response.status_code} - {response.text}'
+                logger.error(error_msg)
+                return {'error': error_msg}
                 
+        except requests.exceptions.Timeout:
+            error_msg = 'Timeout al confirmar transacción Webpay'
+            logger.error(error_msg)
+            return {'error': error_msg}
+        except requests.exceptions.ConnectionError:
+            error_msg = 'Error de conexión al confirmar Webpay'
+            logger.error(error_msg)
+            return {'error': error_msg}
         except Exception as e:
-            print(f"Error al confirmar transacción Webpay: {e}")
-            return None
+            error_msg = f'Error inesperado al confirmar Webpay: {str(e)}'
+            logger.error(error_msg)
+            return {'error': error_msg}
 
 class PayPalGateway:
     """Integración con PayPal"""
@@ -85,66 +143,99 @@ class PayPalGateway:
         self.client_secret = os.getenv('PAYPAL_CLIENT_SECRET')
         self.environment = os.getenv('PAYPAL_ENVIRONMENT', 'sandbox')  # 'sandbox' o 'live'
         
+        # Validar credenciales
+        if not self.client_id or not self.client_secret:
+            logger.warning("Credenciales de PayPal no configuradas. Configurar PAYPAL_CLIENT_ID y PAYPAL_CLIENT_SECRET en .env")
+            self.is_configured = False
+        else:
+            self.is_configured = True
+            logger.info(f"PayPal configurado en modo: {self.environment}")
+        
         if self.environment == 'live':
             self.base_url = 'https://api.paypal.com'
         else:
             self.base_url = 'https://api.sandbox.paypal.com'
     
+    def is_available(self):
+        """Verificar si el gateway está disponible"""
+        return self.is_configured
+    
     def get_access_token(self):
         """Obtener token de acceso de PayPal"""
+        if not self.is_available():
+            logger.error("PayPal no está configurado")
+            return None
+            
         try:
-            url = f"{self.base_url}/v1/oauth2/token"
+            auth = base64.b64encode(f"{self.client_id}:{self.client_secret}".encode()).decode()
             
             headers = {
-                'Accept': 'application/json',
-                'Accept-Language': 'en_US',
+                'Authorization': f'Basic {auth}',
+                'Content-Type': 'application/x-www-form-urlencoded'
             }
             
-            auth = (self.client_id, self.client_secret)
             data = 'grant_type=client_credentials'
             
-            response = requests.post(url, headers=headers, data=data, auth=auth)
+            logger.info("Obteniendo token de acceso de PayPal")
+            
+            response = requests.post(
+                f'{self.base_url}/v1/oauth2/token',
+                headers=headers,
+                data=data,
+                timeout=30
+            )
             
             if response.status_code == 200:
-                return response.json()['access_token']
+                token = response.json()['access_token']
+                logger.info("Token de PayPal obtenido exitosamente")
+                return token
             else:
-                print(f"Error al obtener token PayPal: {response.status_code} - {response.text}")
+                error_msg = f'Error al obtener token PayPal: {response.status_code} - {response.text}'
+                logger.error(error_msg)
                 return None
                 
+        except requests.exceptions.Timeout:
+            logger.error('Timeout al obtener token de PayPal')
+            return None
+        except requests.exceptions.ConnectionError:
+            logger.error('Error de conexión al obtener token de PayPal')
+            return None
         except Exception as e:
-            print(f"Error al obtener token PayPal: {e}")
+            logger.error(f"Error inesperado al obtener token de PayPal: {e}")
             return None
     
-    def create_payment(self, amount, currency, description, return_url, cancel_url):
-        """Crear un pago en PayPal"""
-        try:
-            access_token = self.get_access_token()
-            if not access_token:
-                return None
+    def create_payment(self, amount_clp, description, return_url, cancel_url):
+        """Crear un pago en PayPal (convierte CLP a USD)"""
+        if not self.is_available():
+            logger.error("PayPal no está configurado")
+            return None
             
-            url = f"{self.base_url}/v1/payments/payment"
+        access_token = self.get_access_token()
+        if not access_token:
+            logger.error("No se pudo obtener token de acceso de PayPal")
+            return None
+            
+        try:
+            # Convertir CLP a USD (tasa aproximada - en producción usar API de cambio)
+            exchange_rate = float(os.getenv('CLP_TO_USD_RATE', '0.00125'))  # Tasa configurable
+            amount_usd = round(amount_clp * exchange_rate, 2)
+            
+            logger.info(f"Creando pago PayPal: ${amount_clp} CLP = ${amount_usd} USD")
             
             headers = {
                 'Content-Type': 'application/json',
                 'Authorization': f'Bearer {access_token}'
             }
             
-            # Convertir CLP a USD para PayPal (aproximación)
-            if currency == 'CLP':
-                usd_amount = round(float(amount) / 800, 2)  # Tasa aproximada
-                currency = 'USD'
-            else:
-                usd_amount = amount
-            
-            data = {
+            payment_data = {
                 'intent': 'sale',
                 'payer': {
                     'payment_method': 'paypal'
                 },
                 'transactions': [{
                     'amount': {
-                        'total': str(usd_amount),
-                        'currency': currency
+                        'total': str(amount_usd),
+                        'currency': 'USD'
                     },
                     'description': description
                 }],
@@ -154,27 +245,46 @@ class PayPalGateway:
                 }
             }
             
-            response = requests.post(url, headers=headers, json=data)
+            response = requests.post(
+                f'{self.base_url}/v1/payments/payment',
+                headers=headers,
+                json=payment_data,
+                timeout=30
+            )
             
             if response.status_code == 201:
-                return response.json()
+                result = response.json()
+                logger.info(f"Pago PayPal creado exitosamente: {result.get('id', 'N/A')}")
+                return result
             else:
-                print(f"Error al crear pago PayPal: {response.status_code} - {response.text}")
+                error_msg = f'Error al crear pago PayPal: {response.status_code} - {response.text}'
+                logger.error(error_msg)
                 return None
                 
+        except requests.exceptions.Timeout:
+            logger.error('Timeout al crear pago PayPal')
+            return None
+        except requests.exceptions.ConnectionError:
+            logger.error('Error de conexión al crear pago PayPal')
+            return None
         except Exception as e:
-            print(f"Error al crear pago PayPal: {e}")
+            logger.error(f"Error inesperado al crear pago PayPal: {e}")
             return None
     
     def execute_payment(self, payment_id, payer_id):
         """Ejecutar un pago en PayPal"""
+        if not self.is_available():
+            logger.error("PayPal no está configurado")
+            return None
+            
         try:
             access_token = self.get_access_token()
             if not access_token:
+                logger.error("No se pudo obtener token de acceso para ejecutar pago")
                 return None
-            
-            url = f"{self.base_url}/v1/payments/payment/{payment_id}/execute"
-            
+                
+            logger.info(f"Ejecutando pago PayPal: {payment_id}")
+                
             headers = {
                 'Content-Type': 'application/json',
                 'Authorization': f'Bearer {access_token}'
@@ -184,16 +294,30 @@ class PayPalGateway:
                 'payer_id': payer_id
             }
             
-            response = requests.post(url, headers=headers, json=data)
+            response = requests.post(
+                f'{self.base_url}/v1/payments/payment/{payment_id}/execute',
+                headers=headers,
+                json=data,
+                timeout=30
+            )
             
             if response.status_code == 200:
-                return response.json()
+                result = response.json()
+                logger.info(f"Pago PayPal ejecutado exitosamente: {payment_id}")
+                return result
             else:
-                print(f"Error al ejecutar pago PayPal: {response.status_code} - {response.text}")
+                error_msg = f'Error al ejecutar pago PayPal: {response.status_code} - {response.text}'
+                logger.error(error_msg)
                 return None
                 
+        except requests.exceptions.Timeout:
+            logger.error('Timeout al ejecutar pago PayPal')
+            return None
+        except requests.exceptions.ConnectionError:
+            logger.error('Error de conexión al ejecutar pago PayPal')
+            return None
         except Exception as e:
-            print(f"Error al ejecutar pago PayPal: {e}")
+            logger.error(f"Error inesperado al ejecutar pago PayPal: {e}")
             return None
 
 def save_payment_transaction(user_id, subscription_id, gateway, transaction_id, amount, currency, status, gateway_response=None):
@@ -254,13 +378,26 @@ def process_payment_success(user_id, plan_type, gateway, transaction_id, gateway
         return False
 
 def get_payment_gateway(gateway_type):
-    """Factory para obtener la pasarela de pago correspondiente"""
-    if gateway_type == 'webpay':
-        return WebpayGateway()
-    elif gateway_type == 'paypal':
-        return PayPalGateway()
-    else:
-        raise ValueError(f"Pasarela de pago no soportada: {gateway_type}")
+    """Factory function para obtener el gateway de pago apropiado"""
+    try:
+        if gateway_type == 'webpay':
+            gateway = WebpayGateway()
+            if not gateway.is_available():
+                logger.error("Webpay no está configurado correctamente")
+                return None
+            return gateway
+        elif gateway_type == 'paypal':
+            gateway = PayPalGateway()
+            if not gateway.is_available():
+                logger.error("PayPal no está configurado correctamente")
+                return None
+            return gateway
+        else:
+            logger.error(f"Gateway de pago no soportado: {gateway_type}")
+            raise ValueError(f"Gateway de pago no soportado: {gateway_type}")
+    except Exception as e:
+        logger.error(f"Error al inicializar gateway {gateway_type}: {str(e)}")
+        return None
 
 # Configuración de ejemplo para variables de entorno
 if __name__ == "__main__":

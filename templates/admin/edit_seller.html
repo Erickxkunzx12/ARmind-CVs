@@ -1,0 +1,222 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Editar Vendedor - Panel de Administración{% endblock %}
+
+{% block extra_css %}
+<style>
+.form-card {
+    background: white;
+    border-radius: 15px;
+    padding: 30px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+.form-control {
+    border-radius: 8px;
+    border: 2px solid #e9ecef;
+    padding: 12px 15px;
+    transition: border-color 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+.btn-update {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    border: none;
+    color: white;
+    padding: 12px 30px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.btn-update:hover {
+    transform: translateY(-2px);
+    color: white;
+    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4);
+}
+
+.btn-cancel {
+    background: #6c757d;
+    border: none;
+    color: white;
+    padding: 12px 30px;
+    border-radius: 8px;
+    font-weight: 600;
+    margin-right: 10px;
+}
+
+.btn-cancel:hover {
+    background: #5a6268;
+    color: white;
+}
+
+.page-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 30px 0;
+    margin-bottom: 30px;
+    border-radius: 15px;
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 34px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: #28a745;
+}
+
+input:checked + .slider:before {
+    transform: translateX(26px);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header text-center">
+        <h1><i class="fas fa-user-edit"></i> Editar Vendedor</h1>
+        <p class="mb-0">Modifica la información del vendedor</p>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="form-card">
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="name">Nombre del Vendedor *</label>
+                                <input type="text" class="form-control" id="name" name="name" 
+                                       value="{{ seller.name }}" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="email">Email *</label>
+                                <input type="email" class="form-control" id="email" name="email" 
+                                       value="{{ seller.email }}" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="phone">Teléfono</label>
+                                <input type="text" class="form-control" id="phone" name="phone" 
+                                       value="{{ seller.phone or '' }}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="commission_rate">Tasa de Comisión (%) *</label>
+                                <input type="number" class="form-control" id="commission_rate" name="commission_rate" 
+                                       value="{{ seller.commission_rate }}" step="0.01" min="0" max="100" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="is_active">Estado</label>
+                                <div class="mt-2">
+                                    <label class="switch">
+                                        <input type="checkbox" id="is_active" name="is_active" 
+                                               {% if seller.is_active %}checked{% endif %}>
+                                        <span class="slider"></span>
+                                    </label>
+                                    <span class="ml-3">Vendedor activo</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group mt-4">
+                        <div class="text-center">
+                            <a href="{{ url_for('admin_sellers') }}" class="btn btn-cancel">
+                                <i class="fas fa-times"></i> Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-update">
+                                <i class="fas fa-save"></i> Actualizar Vendedor
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Validación del formulario
+document.querySelector('form').addEventListener('submit', function(e) {
+    const name = document.getElementById('name').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const commissionRate = parseFloat(document.getElementById('commission_rate').value);
+    
+    if (!name) {
+        e.preventDefault();
+        alert('El nombre del vendedor es requerido');
+        return;
+    }
+    
+    if (!email) {
+        e.preventDefault();
+        alert('El email es requerido');
+        return;
+    }
+    
+    if (isNaN(commissionRate) || commissionRate < 0 || commissionRate > 100) {
+        e.preventDefault();
+        alert('La tasa de comisión debe ser un número entre 0 y 100');
+        return;
+    }
+});
+</script>
+{% endblock %}
