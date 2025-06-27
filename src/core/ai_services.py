@@ -1,10 +1,10 @@
 # Servicios de IA para análisis de CV
 import os
 import json
-from openai import OpenAI
+import openai
 
 # Configurar cliente OpenAI
-OPENAI_CLIENT = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+openai.api_key = os.getenv('OPENAI_API_KEY')
 
 def get_analysis_prompt(analysis_type, cv_text):
     """Obtener prompt específico según el tipo de análisis"""
@@ -103,11 +103,11 @@ def analyze_cv_with_openai(cv_text, analysis_type):
     }"""
     
     try:
-        # Usar el nuevo cliente OpenAI
-        if not OPENAI_CLIENT:
-            raise ValueError("OpenAI client not configured")
+        # Usar el cliente OpenAI configurado
+        if not openai.api_key:
+            raise ValueError("OpenAI API key not configured")
         
-        response = OPENAI_CLIENT.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",  # Usar gpt-3.5-turbo que es más estable
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -117,7 +117,7 @@ def analyze_cv_with_openai(cv_text, analysis_type):
             temperature=0.7
         )
         
-        analysis_text = response.choices[0].message.content
+        analysis_text = response['choices'][0]['message']['content']
         analysis = json.loads(analysis_text)
         
         # Asegurar campos requeridos

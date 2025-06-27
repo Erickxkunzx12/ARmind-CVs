@@ -5,7 +5,7 @@ from werkzeug.utils import secure_filename
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import os
-from openai import OpenAI
+import openai
 import PyPDF2
 from docx import Document
 from datetime import datetime
@@ -21,7 +21,7 @@ load_dotenv()  # Carga las variables de entorno desde .env
 
 # Configuración de OpenAI
 # Configurar cliente OpenAI
-OPENAI_CLIENT = OpenAI(api_key=os.getenv('OPENAI_API_KEY')) if os.getenv('OPENAI_API_KEY') else None
+openai.api_key = os.getenv('OPENAI_API_KEY')
 
 # Configuración de email
 EMAIL_USER = os.getenv('EMAIL_USER')
@@ -95,7 +95,7 @@ registration_system = RegistrationWithSubscription(app)
 registration_system.register_routes()
 
 # Verificar configuración de OpenAI
-if OPENAI_CLIENT:
+if openai.api_key:
     print("✅ OpenAI API configurada")
 else:
     print("⚠️ OpenAI API Key no configurada")
@@ -2218,7 +2218,7 @@ def analyze_cv_with_openai(cv_text, analysis_type):
     }"""
     
     try:
-        response = OPENAI_CLIENT.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",  # Usar gpt-3.5-turbo que es más estable
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -2228,7 +2228,7 @@ def analyze_cv_with_openai(cv_text, analysis_type):
             temperature=0.7
         )
         
-        analysis_text = response.choices[0].message.content
+        analysis_text = response['choices'][0]['message']['content']
         analysis = json.loads(analysis_text)
         
         # Asegurar campos requeridos
@@ -2874,7 +2874,7 @@ def improve_cv_with_ai(cv_data):
             """
             
             try:
-                response = OPENAI_CLIENT.chat.completions.create(
+                response = openai.ChatCompletion.create(
                     model="gpt-3.5-turbo",
                     messages=[
                         {"role": "system", "content": "Eres un experto en recursos humanos especializado en optimización de CVs."},
@@ -2883,7 +2883,7 @@ def improve_cv_with_ai(cv_data):
                     max_tokens=300,
                     temperature=0.7
                 )
-                improved_summary = response.choices[0].message.content.strip()
+                improved_summary = response['choices'][0]['message']['content'].strip()
                 cv_data['professional_summary'] = improved_summary
             except Exception as openai_error:
                 print(f"Error con OpenAI API en resumen: {str(openai_error)}")
@@ -2917,7 +2917,7 @@ def improve_cv_with_ai(cv_data):
                     """
                     
                     try:
-                        response = OPENAI_CLIENT.chat.completions.create(
+                        response = openai.ChatCompletion.create(
                             model="gpt-3.5-turbo",
                             messages=[
                                 {"role": "system", "content": "Eres un experto en recursos humanos especializado en optimización de CVs."},
@@ -2927,7 +2927,7 @@ def improve_cv_with_ai(cv_data):
                             temperature=0.7
                         )
                         
-                        improved_description = response.choices[0].message.content.strip()
+                        improved_description = response['choices'][0]['message']['content'].strip()
                         exp['description'] = improved_description
                     except Exception as openai_error:
                         print(f"Error con OpenAI API en experiencia: {str(openai_error)}")
