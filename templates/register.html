@@ -16,21 +16,62 @@
                 
                 <div class="card-body p-5">
                     <form method="POST" id="registerForm">
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="first_name" class="form-label">
+                                    <i class="fas fa-user me-2"></i>Nombre
+                                </label>
+                                <input type="text" 
+                                       class="form-control form-control-lg" 
+                                       id="first_name" 
+                                       name="first_name" 
+                                       required 
+                                       minlength="2"
+                                       maxlength="50"
+                                       pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+"
+                                       placeholder="Tu nombre">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="last_name" class="form-label">
+                                    <i class="fas fa-user me-2"></i>Apellido
+                                </label>
+                                <input type="text" 
+                                       class="form-control form-control-lg" 
+                                       id="last_name" 
+                                       name="last_name" 
+                                       required 
+                                       minlength="2"
+                                       maxlength="50"
+                                       pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+"
+                                       placeholder="Tu apellido">
+                            </div>
+                        </div>
+                        
                         <div class="mb-4">
-                            <label for="username" class="form-label">
-                                <i class="fas fa-user me-2"></i>Nombre de Usuario
+                            <label for="phone" class="form-label">
+                                <i class="fas fa-phone me-2"></i>Teléfono
                             </label>
-                            <input type="text" 
-                                   class="form-control form-control-lg" 
-                                   id="username" 
-                                   name="username" 
-                                   required 
-                                   minlength="3"
-                                   maxlength="20"
-                                   pattern="[a-zA-Z0-9_]+"
-                                   placeholder="Ingresa tu nombre de usuario">
+                            <div class="input-group">
+                                <select class="form-select" id="country_code" name="country_code" style="max-width: 120px;">
+                                    <option value="+56" selected>🇨🇱 +56</option>
+                                    <option value="+54">🇦🇷 +54</option>
+                                    <option value="+55">🇧🇷 +55</option>
+                                    <option value="+57">🇨🇴 +57</option>
+                                    <option value="+51">🇵🇪 +51</option>
+                                    <option value="+52">🇲🇽 +52</option>
+                                    <option value="+34">🇪🇸 +34</option>
+                                    <option value="+1">🇺🇸 +1</option>
+                                </select>
+                                <input type="tel" 
+                                       class="form-control form-control-lg" 
+                                       id="phone" 
+                                       name="phone" 
+                                       required 
+                                       pattern="[0-9]{8,15}"
+                                       placeholder="912345678">
+                            </div>
                             <div class="form-text">
-                                Solo letras, números y guiones bajos. Mínimo 3 caracteres.
+                                Ingresa tu número de teléfono sin el código de país.
                             </div>
                         </div>
                         
@@ -290,11 +331,14 @@
             this.querySelector('button[type="submit"]').disabled = true;
         });
         
-        // Username validation
-        const username = document.getElementById('username');
-        username.addEventListener('input', function() {
+        // Name validation
+        const firstName = document.getElementById('first_name');
+        const lastName = document.getElementById('last_name');
+        const phone = document.getElementById('phone');
+        
+        firstName.addEventListener('input', function() {
             const value = this.value;
-            const isValid = /^[a-zA-Z0-9_]{3,20}$/.test(value);
+            const isValid = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]{2,50}$/.test(value);
             
             if (value && !isValid) {
                 this.classList.add('is-invalid');
@@ -302,6 +346,28 @@
                 this.classList.remove('is-invalid');
             }
         });
+        
+        lastName.addEventListener('input', function() {
+            const value = this.value;
+            const isValid = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]{2,50}$/.test(value);
+            
+            if (value && !isValid) {
+                this.classList.add('is-invalid');
+            } else {
+                this.classList.remove('is-invalid');
+            }
+        });
+        
+        phone.addEventListener('input', function() {
+             const value = this.value;
+             const isValid = /^[0-9]{8,15}$/.test(value);
+             
+             if (value && !isValid) {
+                 this.classList.add('is-invalid');
+             } else {
+                 this.classList.remove('is-invalid');
+             }
+         });
         
         // Email validation
         const email = document.getElementById('email');

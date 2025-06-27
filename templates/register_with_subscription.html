@@ -22,23 +22,31 @@
                             
                             <div class="row">
                                 <div class="col-md-6 mb-4">
-                                    <label for="username" class="form-label">
-                                        <i class="fas fa-user me-2"></i>Nombre de Usuario
+                                    <label for="first_name" class="form-label">
+                                        <i class="fas fa-user me-2"></i>Nombre
                                     </label>
                                     <input type="text" 
                                            class="form-control form-control-lg" 
-                                           id="username" 
-                                           name="username" 
+                                           id="first_name" 
+                                           name="first_name" 
                                            required 
-                                           minlength="3"
-                                           maxlength="20"
-                                           pattern="[a-zA-Z0-9_]+"
-                                           placeholder="Ingresa tu nombre de usuario">
-                                    <div class="form-text">
-                                        Solo letras, números y guiones bajos. Mínimo 3 caracteres.
-                                    </div>
+                                           placeholder="Ingresa tu nombre">
                                 </div>
                                 
+                                <div class="col-md-6 mb-4">
+                                    <label for="last_name" class="form-label">
+                                        <i class="fas fa-user me-2"></i>Apellido
+                                    </label>
+                                    <input type="text" 
+                                           class="form-control form-control-lg" 
+                                           id="last_name" 
+                                           name="last_name" 
+                                           required 
+                                           placeholder="Ingresa tu apellido">
+                                </div>
+                            </div>
+                            
+                            <div class="row">
                                 <div class="col-md-6 mb-4">
                                     <label for="email" class="form-label">
                                         <i class="fas fa-envelope me-2"></i>Correo Electrónico
@@ -49,6 +57,29 @@
                                            name="email" 
                                            required 
                                            placeholder="tu@email.com">
+                                </div>
+                                
+                                <div class="col-md-6 mb-4">
+                                    <label for="phone" class="form-label">
+                                        <i class="fas fa-phone me-2"></i>Teléfono
+                                    </label>
+                                    <div class="input-group">
+                                        <select class="form-select" id="country_code" name="country_code" style="max-width: 120px;">
+                                            <option value="+56" selected>🇨🇱 +56</option>
+                                            <option value="+1">🇺🇸 +1</option>
+                                            <option value="+34">🇪🇸 +34</option>
+                                            <option value="+52">🇲🇽 +52</option>
+                                            <option value="+54">🇦🇷 +54</option>
+                                            <option value="+57">🇨🇴 +57</option>
+                                            <option value="+51">🇵🇪 +51</option>
+                                        </select>
+                                        <input type="tel" 
+                                               class="form-control form-control-lg" 
+                                               id="phone" 
+                                               name="phone" 
+                                               required 
+                                               placeholder="987654321">
+                                    </div>
                                 </div>
                             </div>
                             
@@ -218,31 +249,43 @@
                             
                             <div class="row">
                                 <div class="col-md-6">
-                                    <h5>Información de Tarjeta</h5>
+                                    <h5>Método de Pago</h5>
                                     
-                                    <div class="mb-3">
-                                        <label for="cardNumber" class="form-label">Número de Tarjeta</label>
-                                        <input type="text" class="form-control" id="cardNumber" name="card_number" 
-                                               placeholder="1234 5678 9012 3456" maxlength="19" required>
+                                    <div class="mb-4">
+                                        <label class="form-label">Selecciona tu método de pago preferido:</label>
+                                        
+                                        <div class="payment-methods">
+                                            <div class="payment-option" data-payment="webpay">
+                                                <input type="radio" id="webpay" name="payment_method" value="webpay" required>
+                                                <label for="webpay" class="payment-label">
+                                                    <div class="payment-card">
+                                                        <img src="https://www.webpay.cl/wp-content/uploads/2019/06/logo-webpay-plus.png" alt="WebPay" class="payment-logo">
+                                                        <div class="payment-info">
+                                                            <h6>WebPay Plus</h6>
+                                                            <small class="text-muted">Tarjetas de crédito y débito chilenas</small>
+                                                        </div>
+                                                    </div>
+                                                </label>
+                                            </div>
+                                            
+                                            <div class="payment-option" data-payment="paypal">
+                                                <input type="radio" id="paypal" name="payment_method" value="paypal" required>
+                                                <label for="paypal" class="payment-label">
+                                                    <div class="payment-card">
+                                                        <img src="https://www.paypalobjects.com/webstatic/mktg/Logo/pp-logo-200px.png" alt="PayPal" class="payment-logo">
+                                                        <div class="payment-info">
+                                                            <h6>PayPal</h6>
+                                                            <small class="text-muted">Pago seguro internacional</small>
+                                                        </div>
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        </div>
                                     </div>
                                     
-                                    <div class="row">
-                                        <div class="col-6">
-                                            <label for="expiryDate" class="form-label">Fecha de Vencimiento</label>
-                                            <input type="text" class="form-control" id="expiryDate" name="expiry_date" 
-                                                   placeholder="MM/AA" maxlength="5" required>
-                                        </div>
-                                        <div class="col-6">
-                                            <label for="cvv" class="form-label">CVV</label>
-                                            <input type="text" class="form-control" id="cvv" name="cvv" 
-                                                   placeholder="123" maxlength="4" required>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="mb-3 mt-3">
-                                        <label for="cardName" class="form-label">Nombre en la Tarjeta</label>
-                                        <input type="text" class="form-control" id="cardName" name="card_name" 
-                                               placeholder="Nombre completo" required>
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        <strong>Pago seguro:</strong> Serás redirigido a la plataforma de pago seleccionada para completar tu transacción de forma segura.
                                     </div>
                                 </div>
                                 
@@ -293,11 +336,18 @@
                                     </button>
                                 </div>
                                 <div class="col-6">
-                                    <button type="submit" class="btn btn-success btn-lg w-100">
+                                    <button type="submit" class="btn btn-success btn-lg w-100" id="finalSubmitBtn">
                                         <span class="spinner-border spinner-border-sm me-2 d-none" id="loadingSpinner"></span>
-                                        <i class="fas fa-check me-2"></i>Completar Registro
+                                        <i class="fas fa-user-plus me-2"></i><span id="submitBtnText">Completar Registro</span>
                                     </button>
                                 </div>
+                            </div>
+                            
+                            <div class="mt-3 text-center">
+                                <small class="text-muted">
+                                    <i class="fas fa-shield-alt me-1"></i>
+                                    Al continuar, serás redirigido a la plataforma de pago seleccionada
+                                </small>
                             </div>
                         </div>
                     </form>
@@ -378,6 +428,85 @@
     background: #28a745;
     color: white;
 }
+
+.plan-card.selected {
+    border-color: #007bff !important;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    transform: scale(1.02);
+    transition: all 0.3s ease;
+}
+
+.plan-card {
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.plan-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* Estilos para métodos de pago */
+.payment-methods {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.payment-option {
+    position: relative;
+}
+
+.payment-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.payment-label {
+    display: block;
+    cursor: pointer;
+    margin: 0;
+}
+
+.payment-card {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    background: white;
+    transition: all 0.3s ease;
+}
+
+.payment-card:hover {
+    border-color: #007bff;
+    box-shadow: 0 4px 15px rgba(0,123,255,0.1);
+}
+
+.payment-option input[type="radio"]:checked + .payment-label .payment-card {
+    border-color: #007bff;
+    background-color: #f8f9fa;
+    box-shadow: 0 4px 15px rgba(0,123,255,0.15);
+}
+
+.payment-logo {
+    width: 60px;
+    height: 40px;
+    object-fit: contain;
+    margin-right: 15px;
+}
+
+.payment-info h6 {
+    margin: 0;
+    font-weight: 600;
+    color: #333;
+}
+
+.payment-info small {
+    display: block;
+    margin-top: 2px;
+}
 </style>
 {% endblock %}
 
@@ -444,9 +573,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Plan selection
+    // Plan selection - both button and card click
     document.querySelectorAll('.select-plan').forEach(button => {
-        button.addEventListener('click', function() {
+        button.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const planType = this.dataset.plan;
+            selectPlan(planType);
+        });
+    });
+    
+    // Make entire plan card clickable
+    document.querySelectorAll('.plan-card').forEach(card => {
+        card.addEventListener('click', function() {
             const planType = this.dataset.plan;
             selectPlan(planType);
         });
@@ -503,63 +641,148 @@ function previousStep(step) {
 }
 
 function selectPlan(planType) {
+    console.log('Plan seleccionado:', planType);
+    
     // Remove selection from all cards
     document.querySelectorAll('.plan-card').forEach(card => {
         card.classList.remove('selected');
     });
     
     // Add selection to clicked card
-    document.querySelector(`[data-plan="${planType}"]`).classList.add('selected');
+    const selectedCard = document.querySelector(`[data-plan="${planType}"]`);
+    if (selectedCard) {
+        selectedCard.classList.add('selected');
+    }
     
     // Update hidden input
-    document.getElementById('selectedPlan').value = planType;
+    const selectedPlanInput = document.getElementById('selectedPlan');
+    if (selectedPlanInput) {
+        selectedPlanInput.value = planType;
+        console.log('Plan guardado en input:', selectedPlanInput.value);
+    }
     
-    // Update summary
-    document.getElementById('selectedPlanName').textContent = plans[planType].name;
-    document.getElementById('selectedPlanPrice').textContent = plans[planType].price;
-    document.getElementById('totalPrice').textContent = plans[planType].total;
+    // Actualizar variable global
+    window.planType = planType;
+    
+    // Update summary if elements exist
+    const selectedPlanName = document.getElementById('selectedPlanName');
+    const selectedPlanPrice = document.getElementById('selectedPlanPrice');
+    const totalPrice = document.getElementById('totalPrice');
+    
+    if (selectedPlanName) selectedPlanName.textContent = plans[planType].name;
+    if (selectedPlanPrice) selectedPlanPrice.textContent = plans[planType].price;
+    if (totalPrice) totalPrice.textContent = plans[planType].total;
     
     // Show/hide free trial note
     const freeTrialNote = document.getElementById('freeTrialNote');
-    if (planType === 'free_trial') {
-        freeTrialNote.classList.remove('d-none');
-    } else {
-        freeTrialNote.classList.add('d-none');
+    if (freeTrialNote) {
+        if (planType === 'free_trial') {
+            freeTrialNote.classList.remove('d-none');
+        } else {
+            freeTrialNote.classList.add('d-none');
+        }
     }
     
     // Enable continue button
-    document.getElementById('continueToPayment').disabled = false;
+    const continueButton = document.getElementById('continueToPayment');
+    if (continueButton) {
+        continueButton.disabled = false;
+        console.log('Botón continuar habilitado');
+    } else {
+        console.error('No se encontró el botón continuar');
+    }
+    
+    // Actualizar texto del botón según el plan
+    updateSubmitButtonText(planType);
+}
+
+function updateSubmitButtonText(planType) {
+    const submitBtnText = document.getElementById('submitBtnText');
+    const submitBtn = document.getElementById('finalSubmitBtn');
+    
+    if (planType === 'free_trial') {
+        submitBtnText.textContent = 'Completar Registro';
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2 d-none" id="loadingSpinner"></span><i class="fas fa-user-plus me-2"></i><span id="submitBtnText">Completar Registro</span>';
+    } else {
+        submitBtnText.textContent = 'Proceder al Pago';
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2 d-none" id="loadingSpinner"></span><i class="fas fa-credit-card me-2"></i><span id="submitBtnText">Proceder al Pago</span>';
+    }
 }
 
 function validateCurrentStep() {
     const step = document.getElementById('step' + currentStep);
-    const inputs = step.querySelectorAll('input[required]');
     let isValid = true;
     
-    inputs.forEach(input => {
-        if (!input.value.trim()) {
-            input.classList.add('is-invalid');
-            isValid = false;
-        } else {
-            input.classList.remove('is-invalid');
-        }
+    // Limpiar errores previos
+    document.querySelectorAll('.is-invalid').forEach(field => {
+        field.classList.remove('is-invalid');
     });
     
-    // Additional validations
     if (currentStep === 1) {
+        // Validar campos requeridos del paso 1
+        const requiredFields = [
+            { id: 'first_name', name: 'Nombre' },
+            { id: 'last_name', name: 'Apellido' },
+            { id: 'email', name: 'Email' },
+            { id: 'phone', name: 'Teléfono' },
+            { id: 'password', name: 'Contraseña' },
+            { id: 'confirmPassword', name: 'Confirmar Contraseña' }
+        ];
+        
+        requiredFields.forEach(fieldInfo => {
+            const field = document.getElementById(fieldInfo.id);
+            if (field && !field.value.trim()) {
+                field.classList.add('is-invalid');
+                isValid = false;
+            }
+        });
+        
+        // Validar que las contraseñas coincidan
         const password = document.getElementById('password');
         const confirmPassword = document.getElementById('confirmPassword');
         
-        if (password.value !== confirmPassword.value) {
+        if (password && confirmPassword && password.value !== confirmPassword.value) {
             confirmPassword.classList.add('is-invalid');
+            isValid = false;
+        }
+        
+        // Validar formato de email
+        const email = document.getElementById('email');
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (email && email.value && !emailRegex.test(email.value)) {
+            email.classList.add('is-invalid');
+            isValid = false;
+        }
+        
+        // Validar longitud mínima de contraseña
+        if (password && password.value && password.value.length < 8) {
+            password.classList.add('is-invalid');
             isValid = false;
         }
     }
     
     if (currentStep === 2) {
         const selectedPlan = document.getElementById('selectedPlan');
-        if (!selectedPlan.value) {
-            alert('Por favor selecciona un plan de suscripción');
+        if (!selectedPlan || !selectedPlan.value) {
+            isValid = false;
+        }
+    }
+    
+    if (currentStep === 3) {
+        const selectedPlan = document.getElementById('selectedPlan');
+        const planValue = selectedPlan ? selectedPlan.value : '';
+        
+        // Solo validar método de pago si no es plan gratuito
+        if (planValue && planValue !== 'free_trial') {
+            const paymentMethod = document.querySelector('input[name="payment_method"]:checked');
+            if (!paymentMethod) {
+                isValid = false;
+            }
+        }
+        
+        // Validar términos y condiciones
+        const terms = document.getElementById('terms');
+        if (!terms || !terms.checked) {
             isValid = false;
         }
     }

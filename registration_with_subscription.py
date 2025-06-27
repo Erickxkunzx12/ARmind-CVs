@@ -1,4 +1,4 @@
-from flask import request, render_template, redirect, url_for, flash, session, jsonify
+from flask import Flask, request, render_template, redirect, url_for, flash, jsonify
 from werkzeug.security import generate_password_hash
 import sqlite3
 import secrets
@@ -35,23 +35,45 @@ class RegistrationWithSubscription:
             
             try:
                 # Obtener datos del formulario
-                username = request.form.get('username', '').strip()
+                first_name = request.form.get('first_name', '').strip()
+                last_name = request.form.get('last_name', '').strip()
+                country_code = request.form.get('country_code', '+56').strip()
+                phone = request.form.get('phone', '').strip()
                 email = request.form.get('email', '').strip().lower()
                 password = request.form.get('password', '')
                 confirm_password = request.form.get('confirmPassword', '')
                 selected_plan = request.form.get('selected_plan', '')
                 
-                # Datos de tarjeta
-                card_number = request.form.get('card_number', '').replace(' ', '')
-                expiry_date = request.form.get('expiry_date', '')
-                cvv = request.form.get('cvv', '')
-                card_name = request.form.get('card_name', '').strip()
+                # Generar username a partir del nombre y apellido
+                # Limpiar caracteres especiales y espacios, solo permitir letras, números y guiones bajos
+                clean_first = re.sub(r'[^a-zA-Z0-9]', '', first_name.lower())
+                clean_last = re.sub(r'[^a-zA-Z0-9]', '', last_name.lower())
+                
+                # Generar username sin puntos, solo con guión bajo
+                if clean_first and clean_last:
+                    username = f"{clean_first}_{clean_last}"
+                elif clean_first:
+                    username = clean_first
+                elif clean_last:
+                    username = clean_last
+                else:
+                    username = f"user{secrets.token_hex(3)}"
+                
+                # Asegurar que el username tenga al menos 3 caracteres
+                if len(username) < 3:
+                    username = f"user{secrets.token_hex(3)}"
+                
+                # Combinar código de país con número de teléfono
+                full_phone = f"{country_code}{phone}" if phone else ''
+                
+                # Método de pago seleccionado
+                payment_method = request.form.get('payment_method', '')
                 terms = request.form.get('terms')
                 
                 # Validaciones básicas
                 validation_errors = self._validate_registration_data(
                     username, email, password, confirm_password, 
-                    selected_plan, card_number, expiry_date, cvv, card_name, terms
+                    selected_plan, payment_method, terms
                 )
                 
                 if validation_errors:
@@ -67,14 +89,26 @@ class RegistrationWithSubscription:
                 # Procesar pago si es necesario
                 payment_result = None
                 if selected_plan != 'free_trial':
-                    payment_result = self._process_payment(selected_plan, card_number, expiry_date, cvv, card_name)
-                    if not payment_result['success']:
-                        flash(f'Error en el pago: {payment_result["error"]}', 'error')
+                    # Crear usuario primero para obtener el ID
+                    temp_user_result = self._create_temp_user(
+                        username, first_name, last_name, full_phone, email, password
+                    )
+                    
+                    if not temp_user_result:
+                        flash('Error al crear la cuenta. Inténtalo nuevamente.', 'error')
+                        return render_template('register_with_subscription.html')
+                    
+                    # Redirigir a la pasarela de pago
+                    payment_url = self._initiate_payment(selected_plan, payment_method, temp_user_result['user_id'])
+                    if payment_url:
+                        return redirect(payment_url)
+                    else:
+                        flash('Error al inicializar el pago. Inténtalo nuevamente.', 'error')
                         return render_template('register_with_subscription.html')
                 
                 # Crear usuario y suscripción
                 user_result = self._create_user_with_subscription(
-                    username, email, password, selected_plan, payment_result
+                    username, first_name, last_name, full_phone, email, password, selected_plan, payment_result
                 )
                 
                 if user_result:
@@ -107,9 +141,58 @@ class RegistrationWithSubscription:
             except Exception as e:
                 logger.error(f"Error validando tarjeta: {str(e)}")
                 return jsonify({'valid': False, 'error': 'Error de validación'})
+        
+        @self.app.route('/payment/success/<int:user_id>', methods=['GET', 'POST'])
+        def payment_success(user_id):
+            """Maneja el retorno exitoso de la pasarela de pago"""
+            try:
+                # Verificar y confirmar el pago
+                payment_confirmed = self._confirm_payment(request)
+                
+                if payment_confirmed:
+                    # Activar la suscripción del usuario
+                    success = self._activate_user_subscription(user_id, payment_confirmed)
+                    
+                    if success:
+                        # Enviar email de verificación
+                        user_data = self._get_user_data(user_id)
+                        if user_data:
+                            self._send_verification_email(
+                                user_data['email'], 
+                                user_data['username'], 
+                                user_data['verification_token']
+                            )
+                        
+                        flash('¡Pago exitoso! Se ha enviado un email de verificación a tu correo.', 'success')
+                        return redirect(url_for('login'))
+                    else:
+                        flash('Error al activar la suscripción. Contacta soporte.', 'error')
+                        return redirect(url_for('register_with_subscription'))
+                else:
+                    flash('Error en la verificación del pago. Inténtalo nuevamente.', 'error')
+                    return redirect(url_for('register_with_subscription'))
+                    
+            except Exception as e:
+                logger.error(f"Error procesando pago exitoso: {str(e)}")
+                flash('Error procesando el pago. Contacta soporte.', 'error')
+                return redirect(url_for('register_with_subscription'))
+        
+        @self.app.route('/payment/cancel/<int:user_id>', methods=['GET'])
+        def payment_cancel(user_id):
+            """Maneja la cancelación del pago"""
+            try:
+                # Eliminar usuario temporal
+                self._delete_temp_user(user_id)
+                flash('Pago cancelado. Puedes intentar nuevamente.', 'warning')
+                return redirect(url_for('register_with_subscription'))
+                
+            except Exception as e:
+                logger.error(f"Error manejando cancelación: {str(e)}")
+                flash('Error procesando la cancelación.', 'error')
+                return redirect(url_for('register_with_subscription'))
     
     def _validate_registration_data(self, username, email, password, confirm_password, 
-                                  selected_plan, card_number, expiry_date, cvv, card_name, terms):
+                                  selected_plan, payment_method, terms):
         """Valida todos los datos del formulario de registro"""
         errors = []
         
@@ -121,14 +204,13 @@ class RegistrationWithSubscription:
             errors.append('El nombre de usuario solo puede contener letras, números y guiones bajos')
         
         # Validar email
-        email_validation = self.security_manager.validate_email(email)
-        if email_validation != 0:
+        if not self.security_manager.validate_email(email):
             errors.append('El formato del email no es válido')
         
         # Validar contraseña
-        password_validation = self.security_manager.validate_password_strength(password)
-        if password_validation != 0:
-            errors.append('La contraseña no cumple con los requisitos de seguridad')
+        password_errors = self.security_manager.validate_password_strength(password)
+        if password_errors:
+            errors.extend(password_errors)
         
         if password != confirm_password:
             errors.append('Las contraseñas no coinciden')
@@ -138,13 +220,11 @@ class RegistrationWithSubscription:
         if selected_plan not in valid_plans:
             errors.append('Debes seleccionar un plan válido')
         
-        # Validar datos de tarjeta
-        card_validation = self._validate_card_data(card_number, expiry_date, cvv)
-        if not card_validation['valid']:
-            errors.append(f'Datos de tarjeta inválidos: {card_validation.get("error", "Error desconocido")}')
-        
-        if not card_name or len(card_name.strip()) < 2:
-            errors.append('El nombre en la tarjeta es requerido')
+        # Validar método de pago (solo para planes pagos)
+        if selected_plan != 'free_trial':
+            valid_payment_methods = ['webpay', 'paypal']
+            if payment_method not in valid_payment_methods:
+                errors.append('Debes seleccionar un método de pago válido')
         
         # Validar términos y condiciones
         if not terms:
@@ -152,6 +232,188 @@ class RegistrationWithSubscription:
         
         return errors
     
+    def _create_temp_user(self, username, first_name, last_name, phone, email, password):
+        """Crea un usuario temporal para el proceso de pago"""
+        try:
+            from app import get_db_connection
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            password_hash = generate_password_hash(password)
+            verification_token = secrets.token_urlsafe(32)
+            
+            cursor.execute("""
+                INSERT INTO users (
+                    username, first_name, last_name, phone, email, password_hash, verification_token, 
+                    created_at, current_plan, subscription_status, is_verified
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+            """, (
+                username, first_name, last_name, phone, email, password_hash, verification_token,
+                datetime.now().isoformat(), 'pending', 'pending', False
+            ))
+            
+            user_id = cursor.fetchone()['id']
+            conn.commit()
+            conn.close()
+            
+            return {
+                'user_id': user_id,
+                'verification_token': verification_token
+            }
+            
+        except Exception as e:
+            logger.error(f"Error creando usuario temporal: {str(e)}")
+            return None
+    
+    def _initiate_payment(self, plan_type, payment_method, user_id):
+        """Inicia el proceso de pago con la pasarela seleccionada"""
+        try:
+            # Definir precios
+            prices = {
+                'standard': 9990,  # CLP
+                'pro': 19990      # CLP
+            }
+            
+            if plan_type not in prices:
+                return None
+            
+            amount = prices[plan_type]
+            
+            # URLs de retorno
+            return_url = f"{request.url_root}payment/success/{user_id}"
+            cancel_url = f"{request.url_root}payment/cancel/{user_id}"
+            
+            if payment_method == 'webpay':
+                # Inicializar transacción con WebPay
+                payment_url = self.webpay_gateway.create_transaction(
+                    amount=amount,
+                    order_id=f"ORDER_{user_id}_{secrets.token_hex(4).upper()}",
+                    return_url=return_url
+                )
+                return payment_url
+                
+            elif payment_method == 'paypal':
+                # Inicializar transacción con PayPal
+                payment_url = self.paypal_gateway.create_payment(
+                    amount=amount,
+                    currency='USD',  # PayPal usa USD
+                    description=f"Suscripción {plan_type.title()} - ARMIND",
+                    return_url=return_url,
+                    cancel_url=cancel_url
+                )
+                return payment_url
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error iniciando pago: {str(e)}")
+            return None
+    
+    def _confirm_payment(self, request_obj):
+        """Confirma el pago con la pasarela correspondiente"""
+        try:
+            # Determinar qué pasarela procesó el pago basado en los parámetros
+            if 'token_ws' in request_obj.args:  # WebPay
+                token = request_obj.args.get('token_ws')
+                return self.webpay_gateway.confirm_transaction(token)
+            elif 'paymentId' in request_obj.args:  # PayPal
+                payment_id = request_obj.args.get('paymentId')
+                payer_id = request_obj.args.get('PayerID')
+                return self.paypal_gateway.execute_payment(payment_id, payer_id)
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error confirmando pago: {str(e)}")
+            return None
+    
+    def _activate_user_subscription(self, user_id, payment_data):
+        """Activa la suscripción del usuario después del pago exitoso"""
+        try:
+            from app import get_db_connection
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            # Obtener datos del usuario
+            cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+            user = cursor.fetchone()
+            
+            if not user:
+                return False
+            
+            # Determinar el plan basado en el monto pagado
+            amount = payment_data.get('amount', 0)
+            if amount >= 19990:
+                plan_type = 'pro'
+            elif amount >= 9990:
+                plan_type = 'standard'
+            else:
+                plan_type = 'free_trial'
+            
+            # Actualizar usuario
+            cursor.execute("""
+                UPDATE users 
+                SET current_plan = %s, subscription_status = 'active'
+                WHERE id = %s
+            """, (plan_type, user_id))
+            
+            # Crear suscripción
+            start_date = datetime.now()
+            end_date = start_date + timedelta(days=30)
+            
+            cursor.execute("""
+                INSERT INTO subscriptions (
+                    user_id, plan_type, start_date, end_date, status, 
+                    payment_method, transaction_id, amount
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                user_id, plan_type, start_date.isoformat(), end_date.isoformat(),
+                'active', payment_data.get('payment_method', 'unknown'),
+                payment_data.get('transaction_id', ''), amount
+            ))
+            
+            conn.commit()
+            conn.close()
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error activando suscripción: {str(e)}")
+            return False
+    
+    def _get_user_data(self, user_id):
+        """Obtiene los datos del usuario"""
+        try:
+            from app import get_db_connection
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT username, email, verification_token 
+                FROM users WHERE id = %s
+            """, (user_id,))
+            
+            result = cursor.fetchone()
+            conn.close()
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error obteniendo datos de usuario: {str(e)}")
+            return None
+    
+    def _delete_temp_user(self, user_id):
+        """Elimina un usuario temporal"""
+        try:
+            from app import get_db_connection
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute("DELETE FROM users WHERE id = %s AND subscription_status = 'pending'", (user_id,))
+            conn.commit()
+            conn.close()
+            
+        except Exception as e:
+            logger.error(f"Error eliminando usuario temporal: {str(e)}")
+     
     def _validate_card_data(self, card_number, expiry_date, cvv):
         """Valida los datos de la tarjeta de crédito"""
         try:
@@ -219,11 +481,16 @@ class RegistrationWithSubscription:
     def _user_exists(self, username, email):
         """Verifica si el usuario ya existe"""
         try:
-            conn = sqlite3.connect('database.db')
+            from app import get_db_connection
+            conn = get_db_connection()
+            if not conn:
+                logger.error("No se pudo conectar a la base de datos")
+                return True  # En caso de error, asumir que existe para evitar duplicados
+            
             cursor = conn.cursor()
             
             cursor.execute(
-                "SELECT id FROM users WHERE username = ? OR email = ?",
+                "SELECT id FROM users WHERE username = %s OR email = %s",
                 (username, email)
             )
             
@@ -268,7 +535,7 @@ class RegistrationWithSubscription:
             logger.error(f"Error procesando pago: {str(e)}")
             return {'success': False, 'error': 'Error procesando el pago'}
     
-    def _create_user_with_subscription(self, username, email, password, plan_type, payment_result):
+    def _create_user_with_subscription(self, username, first_name, last_name, phone, email, password, plan_type, payment_result):
         """Crea el usuario y su suscripción en la base de datos"""
         try:
             # Usar la conexión de PostgreSQL del sistema principal
@@ -285,11 +552,11 @@ class RegistrationWithSubscription:
             # Crear usuario
             cursor.execute("""
                 INSERT INTO users (
-                    username, email, password_hash, verification_token, 
+                    username, first_name, last_name, phone, email, password_hash, verification_token, 
                     created_at, current_plan, subscription_status
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
             """, (
-                username, email, password_hash, verification_token,
+                username, first_name, last_name, phone, email, password_hash, verification_token,
                 datetime.now().isoformat(), plan_type, 'active'
             ))
             

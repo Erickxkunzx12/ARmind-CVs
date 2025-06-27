@@ -539,6 +539,9 @@ def init_database():
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
                 username VARCHAR(255) UNIQUE NOT NULL,
+                first_name VARCHAR(255),
+                last_name VARCHAR(255),
+                phone VARCHAR(20),
                 email VARCHAR(255) UNIQUE NOT NULL,
                 password_hash VARCHAR(255) NOT NULL,
                 email_verified BOOLEAN DEFAULT FALSE,
@@ -553,6 +556,33 @@ def init_database():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        
+        # Agregar columnas nuevas si no existen
+        # Agregar nuevas columnas individualmente con transacciones separadas
+        new_columns = [
+            ('first_name', 'VARCHAR(255)'),
+            ('last_name', 'VARCHAR(255)'),
+            ('phone', 'VARCHAR(20)')
+        ]
+        
+        for column_name, column_def in new_columns:
+            try:
+                # Verificar si la columna ya existe
+                cursor.execute("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name='users' AND column_name=%s
+                """, (column_name,))
+                
+                if cursor.fetchone():
+                    print(f"ℹ️  Columna {column_name} ya existe en la tabla users")
+                else:
+                    cursor.execute(f"ALTER TABLE users ADD COLUMN {column_name} {column_def}")
+                    connection.commit()  # Commit individual para cada columna
+                    print(f"✅ Columna {column_name} agregada a la tabla users")
+            except Exception as e:
+                connection.rollback()  # Rollback solo para esta operación
+                print(f"⚠️  Error agregando columna {column_name}: {e}")
         
         # Crear tabla de curriculums
         cursor.execute("""
@@ -887,14 +917,23 @@ def register():
 def register_legacy():
     """Registro de usuarios (sistema anterior - solo para referencia)"""
     if request.method == 'POST':
-        username = request.form['username']
+        first_name = request.form.get('first_name', '').strip()
+        last_name = request.form.get('last_name', '').strip()
+        country_code = request.form.get('country_code', '+56').strip()
+        phone = request.form.get('phone', '').strip()
         email = request.form['email']
         password = request.form['password']
+        
+        # Generar username a partir del nombre y apellido
+        username = f"{first_name.lower()}.{last_name.lower()}".replace(' ', '')
+        
+        # Combinar código de país con número de teléfono
+        full_phone = f"{country_code}{phone}" if phone else ''
         
         add_console_log('INFO', f'Intento de registro para usuario: {username} ({email})', 'AUTH')
         
         # Validaciones básicas
-        if not username or not email or not password:
+        if not first_name or not last_name or not email or not password or not phone:
             add_console_log('WARNING', f'Registro fallido - campos incompletos para: {username}', 'AUTH')
             flash('Todos los campos son obligatorios', 'error')
             return render_template('register.html')
@@ -918,8 +957,8 @@ def register_legacy():
             cursor = connection.cursor()
             try:
                 cursor.execute(
-                    "INSERT INTO users (username, email, password_hash, email_verified, verification_token) VALUES (%s, %s, %s, %s, %s) RETURNING id",
-                    (username, email, password_hash, False, verification_token)
+                    "INSERT INTO users (username, first_name, last_name, phone, email, password_hash, email_verified, verification_token) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+                    (username, first_name, last_name, full_phone, email, password_hash, False, verification_token)
                 )
                 user_id = cursor.fetchone()['id']
                 connection.commit()
@@ -4494,7 +4533,7 @@ def profile():
     if connection:
         cursor = connection.cursor()
         cursor.execute(
-            "SELECT id, username, email, created_at FROM users WHERE id = %s",
+            "SELECT id, username, first_name, last_name, phone, email, created_at, email_verified FROM users WHERE id = %s",
             (session['user_id'],)
         )
         user = cursor.fetchone()
