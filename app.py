@@ -5,7 +5,7 @@ from werkzeug.utils import secure_filename
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import os
-import openai
+from openai import OpenAI
 import PyPDF2
 from docx import Document
 from datetime import datetime
@@ -20,7 +20,8 @@ from dotenv import load_dotenv
 load_dotenv()  # Carga las variables de entorno desde .env
 
 # Configuración de OpenAI
-openai.api_key = os.getenv('OPENAI_API_KEY')
+# Configurar cliente OpenAI
+OPENAI_CLIENT = OpenAI(api_key=os.getenv('OPENAI_API_KEY')) if os.getenv('OPENAI_API_KEY') else None
 
 # Configuración de email
 EMAIL_USER = os.getenv('EMAIL_USER')
@@ -31,9 +32,11 @@ EMAIL_PORT = int(os.getenv('EMAIL_PORT', 587))
 # Validar configuración de email
 if EMAIL_USER and EMAIL_PASSWORD:
     print(f"✅ Email configurado: {EMAIL_USER}")
+    EMAIL_CONFIG_COMPLETE = True
 else:
     print("❌ ADVERTENCIA: Configuración de email incompleta")
     print("   Configura las variables de entorno EMAIL_USER, EMAIL_PASSWORD, etc.")
+    EMAIL_CONFIG_COMPLETE = False
 
 # Intentar usar pdfkit como alternativa a WeasyPrint
 try:
@@ -92,7 +95,7 @@ registration_system = RegistrationWithSubscription(app)
 registration_system.register_routes()
 
 # Verificar configuración de OpenAI
-if openai.api_key:
+if OPENAI_CLIENT:
     print("✅ OpenAI API configurada")
 else:
     print("⚠️ OpenAI API Key no configurada")
@@ -2215,10 +2218,7 @@ def analyze_cv_with_openai(cv_text, analysis_type):
     }"""
     
     try:
-        # Configurar API key para la versión antigua de OpenAI
-        openai.api_key = os.getenv('OPENAI_API_KEY')
-        
-        response = openai.ChatCompletion.create(
+        response = OPENAI_CLIENT.chat.completions.create(
             model="gpt-3.5-turbo",  # Usar gpt-3.5-turbo que es más estable
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -2556,7 +2556,7 @@ def generate_smart_search_terms(cv_analysis):
         Ejemplo: "Desarrollador Python, Analista de datos, Machine Learning, Django, SQL"
         """
         
-        response = openai.ChatCompletion.create(
+        response = OPENAI_CLIENT.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "Eres un experto en reclutamiento que ayuda a generar términos de búsqueda efectivos para encontrar empleos relevantes."},
@@ -2646,7 +2646,7 @@ def calculate_ai_job_compatibility(job, cv_analysis):
         Responde SOLO con el número del porcentaje (ejemplo: 65)
         """
         
-        response = openai.ChatCompletion.create(
+        response = OPENAI_CLIENT.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "Eres un experto en recursos humanos que evalúa la compatibilidad entre candidatos y ofertas de trabajo. Eres crítico y realista con las puntuaciones, no das puntuaciones altas a menos que haya una excelente coincidencia."},
@@ -2840,7 +2840,7 @@ def get_user_cv_data():
 
 def improve_cv_with_ai(cv_data):
     """Mejorar el CV usando OpenAI basándose en las metodologías seleccionadas"""
-    if not OPENAI_API_KEY:
+    if not OPENAI_CLIENT:
         return cv_data
     
     try:
@@ -2874,7 +2874,7 @@ def improve_cv_with_ai(cv_data):
             """
             
             try:
-                response = openai.ChatCompletion.create(
+                response = OPENAI_CLIENT.chat.completions.create(
                     model="gpt-3.5-turbo",
                     messages=[
                         {"role": "system", "content": "Eres un experto en recursos humanos especializado en optimización de CVs."},
@@ -2917,7 +2917,7 @@ def improve_cv_with_ai(cv_data):
                     """
                     
                     try:
-                        response = openai.ChatCompletion.create(
+                        response = OPENAI_CLIENT.chat.completions.create(
                             model="gpt-3.5-turbo",
                             messages=[
                                 {"role": "system", "content": "Eres un experto en recursos humanos especializado en optimización de CVs."},
@@ -3154,6 +3154,10 @@ def get_user_cvs():
         
         return jsonify({'cvs': cv_list})
     except Exception as e:
+        print(f"[ERROR] Error en save_cv: {str(e)}")
+        print(f"[ERROR] Tipo de error: {type(e).__name__}")
+        import traceback
+        print(f"[ERROR] Traceback: {traceback.format_exc()}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/delete_cv/<int:cv_id>', methods=['DELETE'])
@@ -3187,6 +3191,10 @@ def delete_cv(cv_id):
         
         return jsonify({'success': True, 'message': 'CV eliminado exitosamente'})
     except Exception as e:
+        print(f"[ERROR] Error en save_cv: {str(e)}")
+        print(f"[ERROR] Tipo de error: {type(e).__name__}")
+        import traceback
+        print(f"[ERROR] Traceback: {traceback.format_exc()}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/duplicate_cv/<int:cv_id>', methods=['POST'])
@@ -4246,7 +4254,7 @@ def generate_cv_html(cv_data):
         html += f"""
             <div class="item">
                 <div class="item-date">{edu.get('end_date', '')}</div>
-                <div class="item-title">{edu.get('degree', '')}</div>
+                <div class="item-title">{edu.get('career', '')}</div>
                 <div class="item-subtitle">{edu.get('institution', '')}</div>
                 {f'<div class="item-description">{edu.get("description", "")}</div>' if edu.get('description', '').strip() else ''}
             </div>
@@ -4599,6 +4607,7 @@ def generate_cv_html(cv_data):
     experience = cv_data.get('experience', [])
     skills = cv_data.get('skills', [])
     languages = cv_data.get('languages', [])
+    certificates = cv_data.get('certificates', [])
     format_options = cv_data.get('format_options', {'format': 'hardware', 'summary_tech_xyz': False, 'summary_tech_start': False, 'experience_tech_xyz': False, 'experience_tech_start': False})
     
     # Determinar el formato seleccionado
@@ -4751,7 +4760,7 @@ def generate_cv_html(cv_data):
         html += f"""
             <div class="item">
                 <div class="item-date">{edu.get('end_date', '')}</div>
-                <div class="item-title">{edu.get('degree', '')}</div>
+                <div class="item-title">{edu.get('career', '')}</div>
                 <div class="item-subtitle">{edu.get('institution', '')}</div>
                 {f'<div class="item-description">{edu.get("description", "")}</div>' if edu.get('description', '').strip() else ''}
             </div>
@@ -4822,6 +4831,23 @@ def generate_cv_html(cv_data):
         
         for lang in languages:
             html += f'<div class="language-item">{lang.get("language", "")} - {lang.get("level", "")}</div>'
+    
+    if certificates:
+        html += """
+        </div>
+        
+        <div class="section">
+            <div class="section-title">CERTIFICACIONES</div>
+        """
+        
+        for cert in certificates:
+            html += f"""
+            <div class="item">
+                <div class="item-date">{cert.get('date', '')}</div>
+                <div class="item-title">{cert.get('title', '')}</div>
+                <div class="item-subtitle">{cert.get('institution', '')}</div>
+            </div>
+        """
     
     html += """
         </div>
@@ -5086,6 +5112,12 @@ def change_password():
             "UPDATE users SET password_hash = %s WHERE id = %s",
             (hashed_password, session['user_id'])
         )
+        
+        # Verificar si se actualizó alguna fila
+        if cursor.rowcount == 0:
+            cursor.close()
+            connection.close()
+            return jsonify({'success': False, 'message': 'No se pudo actualizar la contraseña. Usuario no encontrado.'}), 400
         
         connection.commit()
         cursor.close()

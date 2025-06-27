@@ -295,7 +295,7 @@ def my_subscription():
         return redirect(url_for('login'))
     
     # Verificar si es administrador
-    from database import get_db_connection
+    from app import get_db_connection
     connection = get_db_connection()
     cursor = connection.cursor()
     cursor.execute("SELECT role FROM users WHERE id = %s", (session['user_id'],))
@@ -307,7 +307,8 @@ def my_subscription():
     user_usage = get_complete_user_usage(session['user_id'])
     
     # Si es administrador y no tiene suscripción, crear una virtual para la vista
-    if user_role and user_role[0] == 'admin' and not user_subscription:
+    is_admin = user_role and len(user_role) > 0 and user_role[0] == 'admin'
+    if is_admin and not user_subscription:
         from datetime import datetime
         user_subscription = {
             'created_at': datetime.now(),

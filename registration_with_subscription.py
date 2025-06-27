@@ -8,6 +8,7 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
 import re
 import logging
+import os
 from security_improvements import SecurityManager
 from subscription_system import create_subscription, get_db_connection, SUBSCRIPTION_PLANS
 from payment_gateways import WebpayGateway, PayPalGateway
@@ -72,13 +73,13 @@ class RegistrationWithSubscription:
                         return render_template('register_with_subscription.html')
                 
                 # Crear usuario y suscripción
-                user_id = self._create_user_with_subscription(
+                user_result = self._create_user_with_subscription(
                     username, email, password, selected_plan, payment_result
                 )
                 
-                if user_id:
+                if user_result:
                     # Enviar email de verificación
-                    self._send_verification_email(email, username)
+                    self._send_verification_email(email, username, user_result['verification_token'])
                     
                     flash('¡Registro exitoso! Se ha enviado un email de verificación a tu correo.', 'success')
                     return redirect(url_for('login'))
@@ -270,7 +271,9 @@ class RegistrationWithSubscription:
     def _create_user_with_subscription(self, username, email, password, plan_type, payment_result):
         """Crea el usuario y su suscripción en la base de datos"""
         try:
-            conn = sqlite3.connect('database.db')
+            # Usar la conexión de PostgreSQL del sistema principal
+            from app import get_db_connection
+            conn = get_db_connection()
             cursor = conn.cursor()
             
             # Hash de la contraseña
@@ -284,13 +287,13 @@ class RegistrationWithSubscription:
                 INSERT INTO users (
                     username, email, password_hash, verification_token, 
                     created_at, current_plan, subscription_status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id
             """, (
                 username, email, password_hash, verification_token,
                 datetime.now().isoformat(), plan_type, 'active'
             ))
             
-            user_id = cursor.lastrowid
+            user_id = cursor.fetchone()['id']
             
             # Crear suscripción
             start_date = datetime.now()
@@ -309,13 +312,15 @@ class RegistrationWithSubscription:
             cursor.execute("""
                 INSERT INTO subscriptions (
                     user_id, plan_type, start_date, end_date, 
-                    status, price, payment_method, transaction_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    status, amount, payment_method, transaction_id
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
             """, (
                 user_id, plan_type, start_date.isoformat(), end_date.isoformat(),
                 'active', price, 'credit_card' if payment_result else 'free',
                 payment_result['transaction_id'] if payment_result else None
             ))
+            
+            subscription_id = cursor.fetchone()['id']
             
             # Registrar el pago si existe
             if payment_result:
@@ -323,9 +328,9 @@ class RegistrationWithSubscription:
                     INSERT INTO payments (
                         user_id, subscription_id, amount, currency, 
                         payment_method, transaction_id, status, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
-                    user_id, cursor.lastrowid, payment_result['amount'], 
+                    user_id, subscription_id, payment_result['amount'], 
                     payment_result['currency'], payment_result['payment_method'],
                     payment_result['transaction_id'], 'completed', 
                     datetime.now().isoformat()
@@ -335,7 +340,7 @@ class RegistrationWithSubscription:
             conn.close()
             
             logger.info(f"Usuario creado exitosamente: {username} con plan {plan_type}")
-            return user_id
+            return {'user_id': user_id, 'verification_token': verification_token}
             
         except Exception as e:
             logger.error(f"Error creando usuario con suscripción: {str(e)}")
@@ -344,14 +349,20 @@ class RegistrationWithSubscription:
                 conn.close()
             return None
     
-    def _send_verification_email(self, email, username):
+    def _send_verification_email(self, email, username, verification_token=None):
         """Envía email de verificación al usuario"""
         try:
-            # Configuración del email (usar variables de entorno en producción)
-            smtp_server = "smtp.gmail.com"
-            smtp_port = 587
-            sender_email = "noreply@armindcvs.com"
-            sender_password = "your_app_password"  # Usar variable de entorno
+            # Configuración del email desde variables de entorno
+            import os
+            smtp_server = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+            smtp_port = int(os.getenv('EMAIL_PORT', 587))
+            sender_email = os.getenv('EMAIL_USER')
+            sender_password = os.getenv('EMAIL_PASSWORD')
+            
+            # Verificar que las credenciales estén configuradas
+            if not sender_email or not sender_password:
+                logger.error("Credenciales de email no configuradas")
+                return False
             
             # Crear mensaje
             message = MIMEMultipart("alternative")
@@ -378,10 +389,15 @@ class RegistrationWithSubscription:
                         </div>
                         
                         <div style="text-align: center; margin: 30px 0;">
-                            <a href="#" style="background: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                            <a href="http://localhost:5000/verify_email/{verification_token}" style="background: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
                                 Verificar Email
                             </a>
                         </div>
+                        
+                        <p style="color: #666; font-size: 14px;">
+                            Si el botón no funciona, copia y pega este enlace en tu navegador:<br>
+                            <a href="http://localhost:5000/verify_email/{verification_token}">http://localhost:5000/verify_email/{verification_token}</a>
+                        </p>
                         
                         <p style="color: #666; font-size: 14px;">
                             Si no solicitaste esta cuenta, puedes ignorar este email.
@@ -400,12 +416,12 @@ class RegistrationWithSubscription:
             part = MIMEText(html_content, "html")
             message.attach(part)
             
-            # Enviar email (comentado para evitar errores sin configuración)
-            # server = smtplib.SMTP(smtp_server, smtp_port)
-            # server.starttls()
-            # server.login(sender_email, sender_password)
-            # server.sendmail(sender_email, email, message.as_string())
-            # server.quit()
+            # Enviar email
+            server = smtplib.SMTP(smtp_server, smtp_port)
+            server.starttls()
+            server.login(sender_email, sender_password)
+            server.sendmail(sender_email, email, message.as_string())
+            server.quit()
             
             logger.info(f"Email de verificación enviado a {email}")
             

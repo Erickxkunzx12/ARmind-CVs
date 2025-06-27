@@ -891,7 +891,12 @@ function generateCV() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            cvId = data.cv_id;
+            // Actualizar variable global y URL
+            window.cvId = data.cv_id;
+            const newUrl = new URL(window.location);
+            newUrl.searchParams.set('cv_id', data.cv_id);
+            window.history.replaceState({}, '', newUrl);
+            
             document.getElementById('exportPdf').disabled = false;
             alert(data.message || 'CV guardado exitosamente!');
             
@@ -932,7 +937,19 @@ function autoSave() {
     
     const currentData = JSON.stringify(formData);
     
-    if (currentData !== lastSaveData) {
+    // Verificar si hay contenido significativo antes de guardar
+    const hasSignificantContent = (
+        (formData.personal_info && formData.personal_info.name && formData.personal_info.name.trim()) ||
+        (formData.professional_summary && formData.professional_summary.trim()) ||
+        (formData.education && formData.education.length > 0 && formData.education[0].degree) ||
+        (formData.experience && formData.experience.length > 0 && formData.experience[0].position) ||
+        (formData.skills && formData.skills.length > 0) ||
+        (formData.languages && formData.languages.length > 0) ||
+        (formData.certificates && formData.certificates.length > 0)
+    );
+    
+    // Solo guardar si hay contenido significativo y hay cambios
+    if (currentData !== lastSaveData && (cvId || hasSignificantContent)) {
         lastSaveData = currentData;
         
         fetch('/save_cv_draft', {
@@ -1288,7 +1305,7 @@ function loadSectionData(sectionName, sectionData) {
 function exportPdf() {
     // Obtener cv_id de la URL si estamos editando, o usar la variable global cvId
     const urlParams = new URLSearchParams(window.location.search);
-    const currentCvId = urlParams.get('cv_id') || cvId;
+    const currentCvId = urlParams.get('cv_id') || window.cvId;
     
     if (currentCvId) {
         window.open(`/export_cv/${currentCvId}`, '_blank');
