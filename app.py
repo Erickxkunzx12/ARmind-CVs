@@ -2905,6 +2905,16 @@ def improve_cv_with_ai(cv_data, target_language='es'):
     
     target_language_name = language_names.get(target_language, 'español')
     
+    # Títulos de secciones por defecto en español
+    section_titles = {
+        'professional_summary': 'RESUMEN PROFESIONAL',
+        'education': 'EDUCACIÓN',
+        'experience': 'EXPERIENCIA PROFESIONAL',
+        'skills': 'HABILIDADES',
+        'languages': 'IDIOMAS',
+        'certificates': 'CERTIFICACIONES'
+    }
+    
     try:
         # ETAPA 1: APLICAR METODOLOGÍAS (en español)
         print(f"[DEBUG] === ETAPA 1: APLICANDO METODOLOGÍAS ===")
@@ -3144,8 +3154,42 @@ def improve_cv_with_ai(cv_data, target_language='es'):
             # Traducir otros campos usando la función existente
             improved_data = translate_cv_fields(improved_data, target_language_name)
             
+            # Traducir títulos de secciones
+            print(f"[DEBUG] Traduciendo títulos de secciones al {target_language_name}")
+            for section_key, spanish_title in section_titles.items():
+                translate_prompt = f"""
+                Traduce este título de sección de CV al {target_language_name}: {spanish_title}
+                
+                Instrucciones:
+                1. Traduce el título manteniendo el formato profesional
+                2. Usa mayúsculas como en el original
+                3. Responde SOLO con la traducción del título, sin explicaciones adicionales
+                """
+                
+                try:
+                    response = OPENAI_CLIENT.chat.completions.create(
+                        model="gpt-3.5-turbo",
+                        messages=[
+                            {"role": "system", "content": f"Eres un traductor profesional especializado en CVs. Traduce siempre al {target_language_name}."},
+                            {"role": "user", "content": translate_prompt}
+                        ],
+                        max_tokens=50,
+                        temperature=0.3
+                    )
+                    
+                    translated_title = response.choices[0].message.content.strip()
+                    section_titles[section_key] = translated_title
+                    print(f"[DEBUG] Título traducido: {spanish_title} -> {translated_title}")
+                except Exception as openai_error:
+                    print(f"[DEBUG] Error traduciendo título {section_key}: {str(openai_error)}")
+            
+            # Agregar títulos traducidos a los datos mejorados
+            improved_data['section_titles'] = section_titles
+            
         else:
             print(f"[DEBUG] No se requiere traducción (idioma español)")
+            # Agregar títulos en español por defecto
+            improved_data['section_titles'] = section_titles
         
         print(f"[DEBUG] === PROCESO COMPLETO FINALIZADO ===")
         return improved_data
@@ -3216,6 +3260,39 @@ def translate_cv_fields(cv_data, target_language_name):
                         cert['name'] = response.choices[0].message.content.strip()
                     except Exception:
                         pass  # Mantener original si hay error
+        
+        # Traducir fechas 'Presente' en experiencia laboral
+        experience = cv_data.get('experience', [])
+        if experience:
+            # Obtener traducción de 'Presente'
+            present_translation = 'Presente'  # Por defecto
+            try:
+                translate_prompt = f"""
+                Traduce la palabra 'Presente' (como se usa en fechas de trabajo actual) al {target_language_name}.
+                
+                Instrucciones:
+                1. Traduce solo la palabra que indica trabajo actual
+                2. Responde SOLO con la traducción, sin explicaciones
+                """
+                response = OPENAI_CLIENT.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": f"Eres un traductor profesional. Traduce al {target_language_name}."},
+                        {"role": "user", "content": translate_prompt}
+                    ],
+                    max_tokens=20,
+                    temperature=0.3
+                )
+                present_translation = response.choices[0].message.content.strip()
+                print(f"[DEBUG] 'Presente' traducido a: {present_translation}")
+            except Exception as e:
+                print(f"[DEBUG] Error traduciendo 'Presente': {str(e)}")
+            
+            # Aplicar traducción a las fechas de experiencia
+            for exp in experience:
+                if exp.get('end_date') == 'Presente':
+                    exp['end_date'] = present_translation
+                    print(f"[DEBUG] Fecha actualizada: Presente -> {present_translation}")
         
         return cv_data
         
@@ -4319,7 +4396,7 @@ def my_analyses():
                          s3_analyses_count=s3_analyses_count,
                          avg_score=avg_score)
 
-def generate_professional_summary_section(professional_summary, use_xyz, use_start):
+def generate_professional_summary_section(professional_summary, use_xyz, use_start, section_title='RESUMEN PROFESIONAL'):
     """Generar sección de resumen profesional con metodologías aplicadas"""
     enhanced_summary = professional_summary
     
@@ -4356,7 +4433,7 @@ def generate_professional_summary_section(professional_summary, use_xyz, use_sta
             if start_enhancements:
                 enhanced_summary += f" {start_enhancements[0]}."
     
-    return f'<div class="section"><div class="section-title">RESUMEN PROFESIONAL</div><div style="text-align: justify; line-height: 1.4;">{enhanced_summary}</div></div>'
+    return f'<div class="section"><div class="section-title">{section_title}</div><div style="text-align: justify; line-height: 1.4;">{enhanced_summary}</div></div>'
 
 def enhance_experience_description(description, use_xyz, use_start):
     """Mejorar descripción de experiencia con metodologías aplicadas"""
@@ -4410,6 +4487,16 @@ def generate_cv_html(cv_data):
     languages = cv_data.get('languages', [])
     certificates = cv_data.get('certificates', [])
     format_options = cv_data.get('format_options', {'format': 'hardware', 'summary_tech_xyz': False, 'summary_tech_start': False, 'experience_tech_xyz': False, 'experience_tech_start': False})
+    
+    # Obtener títulos de secciones (traducidos o por defecto en español)
+    section_titles = cv_data.get('section_titles', {
+        'professional_summary': 'RESUMEN PROFESIONAL',
+        'education': 'EDUCACIÓN',
+        'experience': 'EXPERIENCIA PROFESIONAL',
+        'skills': 'HABILIDADES',
+        'languages': 'IDIOMAS',
+        'certificates': 'CERTIFICACIONES'
+    })
     
     # Determinar el formato seleccionado
     is_ats_format = format_options.get('format') == 'ats'
@@ -4552,10 +4639,10 @@ def generate_cv_html(cv_data):
             {f'<div class="contact" style="font-size: 11px; margin-top: 5px;">{social_line}</div>' if social_line else ''}
         </div>
         
-        {generate_professional_summary_section(professional_summary, summary_tech_xyz, summary_tech_start) if professional_summary and professional_summary.strip() else ''}
+        {generate_professional_summary_section(professional_summary, summary_tech_xyz, summary_tech_start, section_titles['professional_summary']) if professional_summary and professional_summary.strip() else ''}
         
         <div class="section">
-            <div class="section-title">EDUCACIÓN</div>
+            <div class="section-title">{section_titles['education']}</div>
     """
     
     for edu in education:
@@ -4568,11 +4655,11 @@ def generate_cv_html(cv_data):
             </div>
         """
     
-    html += """
+    html += f"""
         </div>
         
         <div class="section">
-            <div class="section-title">EXPERIENCIA PROFESIONAL</div>
+            <div class="section-title">{section_titles['experience']}</div>
     """
     
     for exp in experience:
@@ -4587,11 +4674,11 @@ def generate_cv_html(cv_data):
         """
     
     if skills:
-        html += """
+        html += f"""
         </div>
         
         <div class="section">
-            <div class="section-title">HABILIDADES</div>
+            <div class="section-title">{section_titles['skills']}</div>
         """
         
         # Palabras clave para tecnologías XYZ (emergentes)
@@ -4624,22 +4711,22 @@ def generate_cv_html(cv_data):
             html += '</div>'
     
     if languages:
-        html += """
+        html += f"""
         </div>
         
         <div class="section">
-            <div class="section-title">IDIOMAS</div>
+            <div class="section-title">{section_titles['languages']}</div>
         """
         
         for lang in languages:
             html += f'<div class="language-item">{lang.get("language", "")} - {lang.get("level", "")}</div>'
     
     if certificates:
-        html += """
+        html += f"""
         </div>
         
         <div class="section">
-            <div class="section-title">CERTIFICACIONES</div>
+            <div class="section-title">{section_titles['certificates']}</div>
         """
         
         for cert in certificates:
@@ -4826,7 +4913,7 @@ def profile():
     
     return render_template('profile.html', user=user, analyses_count=analyses_count, last_analysis=last_analysis)
 
-def generate_professional_summary_section(professional_summary, use_xyz, use_start):
+def generate_professional_summary_section(professional_summary, use_xyz, use_start, section_title='RESUMEN PROFESIONAL'):
     """Generar sección de resumen profesional con metodologías aplicadas"""
     enhanced_summary = professional_summary
     
@@ -4863,7 +4950,7 @@ def generate_professional_summary_section(professional_summary, use_xyz, use_sta
             if start_enhancements:
                 enhanced_summary += f" {start_enhancements[0]}."
     
-    return f'<div class="section"><div class="section-title">RESUMEN PROFESIONAL</div><div style="text-align: justify; line-height: 1.4;">{enhanced_summary}</div></div>'
+    return f'<div class="section"><div class="section-title">{section_title}</div><div style="text-align: justify; line-height: 1.4;">{enhanced_summary}</div></div>'
 
 def enhance_experience_description(description, use_xyz, use_start):
     """Mejorar descripción de experiencia con metodologías aplicadas"""
@@ -4917,6 +5004,16 @@ def generate_cv_html(cv_data):
     languages = cv_data.get('languages', [])
     certificates = cv_data.get('certificates', [])
     format_options = cv_data.get('format_options', {'format': 'hardware', 'summary_tech_xyz': False, 'summary_tech_start': False, 'experience_tech_xyz': False, 'experience_tech_start': False})
+    
+    # Obtener títulos de secciones (traducidos o por defecto en español)
+    section_titles = cv_data.get('section_titles', {
+        'professional_summary': 'RESUMEN PROFESIONAL',
+        'education': 'EDUCACIÓN',
+        'experience': 'EXPERIENCIA PROFESIONAL',
+        'skills': 'HABILIDADES',
+        'languages': 'IDIOMAS',
+        'certificates': 'CERTIFICACIONES'
+    })
     
     # Determinar el formato seleccionado
     is_ats_format = format_options.get('format') == 'ats'
@@ -5059,10 +5156,10 @@ def generate_cv_html(cv_data):
             {f'<div class="contact" style="font-size: 11px; margin-top: 5px;">{social_line}</div>' if social_line else ''}
         </div>
         
-        {generate_professional_summary_section(professional_summary, summary_tech_xyz, summary_tech_start) if professional_summary and professional_summary.strip() else ''}
+        {generate_professional_summary_section(professional_summary, summary_tech_xyz, summary_tech_start, section_titles['professional_summary']) if professional_summary and professional_summary.strip() else ''}
         
         <div class="section">
-            <div class="section-title">EDUCACIÓN</div>
+            <div class="section-title">{section_titles['education']}</div>
     """
     
     for edu in education:
@@ -5075,11 +5172,11 @@ def generate_cv_html(cv_data):
             </div>
         """
     
-    html += """
+    html += f"""
         </div>
         
         <div class="section">
-            <div class="section-title">EXPERIENCIA PROFESIONAL</div>
+            <div class="section-title">{section_titles['experience']}</div>
     """
     
     for exp in experience:
@@ -5094,11 +5191,11 @@ def generate_cv_html(cv_data):
         """
     
     if skills:
-        html += """
+        html += f"""
         </div>
         
         <div class="section">
-            <div class="section-title">HABILIDADES</div>
+            <div class="section-title">{section_titles['skills']}</div>
         """
         
         # Palabras clave para tecnologías XYZ (emergentes)
@@ -5131,22 +5228,22 @@ def generate_cv_html(cv_data):
             html += '</div>'
     
     if languages:
-        html += """
+        html += f"""
         </div>
         
         <div class="section">
-            <div class="section-title">IDIOMAS</div>
+            <div class="section-title">{section_titles['languages']}</div>
         """
         
         for lang in languages:
             html += f'<div class="language-item">{lang.get("language", "")} - {lang.get("level", "")}</div>'
     
     if certificates:
-        html += """
+        html += f"""
         </div>
         
         <div class="section">
-            <div class="section-title">CERTIFICACIONES</div>
+            <div class="section-title">{section_titles['certificates']}</div>
         """
         
         for cert in certificates:
