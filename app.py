@@ -3021,6 +3021,39 @@ def improve_cv_with_ai(cv_data, target_language='es'):
         if target_language != 'es':
             print(f"[DEBUG] Iniciando traducción completa al {target_language_name}")
             
+            # Traducir información personal (excluyendo nombres)
+            if improved_data.get('personal_info'):
+                print(f"[DEBUG] Traduciendo información personal (excluyendo nombres)")
+                personal_info = improved_data['personal_info']
+                
+                # Traducir solo el cargo/posición, no el nombre
+                if personal_info.get('position'):
+                    translate_prompt = f"""
+                    Traduce este cargo o profesión al {target_language_name}: {personal_info['position']}
+                    
+                    Instrucciones:
+                    1. Traduce solo el cargo profesional
+                    2. Mantén el tono profesional
+                    3. Responde SOLO con la traducción del cargo, sin explicaciones adicionales
+                    """
+                    
+                    try:
+                        response = OPENAI_CLIENT.chat.completions.create(
+                            model="gpt-3.5-turbo",
+                            messages=[
+                                {"role": "system", "content": f"Eres un traductor profesional especializado en cargos y profesiones. Traduce siempre al {target_language_name}."},
+                                {"role": "user", "content": translate_prompt}
+                            ],
+                            max_tokens=100,
+                            temperature=0.3
+                        )
+                        
+                        translated_position = response.choices[0].message.content.strip()
+                        improved_data['personal_info']['position'] = translated_position
+                        print(f"[DEBUG] Cargo traducido: {translated_position}")
+                    except Exception as openai_error:
+                        print(f"[DEBUG] Error traduciendo cargo: {str(openai_error)}")
+            
             # Traducir resumen profesional
             if improved_data.get('professional_summary'):
                 print(f"[DEBUG] Traduciendo resumen profesional")
@@ -3032,7 +3065,8 @@ def improve_cv_with_ai(cv_data, target_language='es'):
                 Instrucciones:
                 1. Mantén el tono profesional
                 2. Conserva la estructura y metodología aplicada
-                3. Responde SOLO con la traducción, sin explicaciones adicionales
+                3. NO traduzcas nombres propios de personas
+                4. Responde SOLO con la traducción, sin explicaciones adicionales
                 """
                 
                 try:
@@ -3068,10 +3102,12 @@ def improve_cv_with_ai(cv_data, target_language='es'):
                         Descripción: {exp['description']}
                         
                         Instrucciones:
-                        1. Traduce también el puesto y empresa si es necesario
-                        2. Mantén la estructura y metodología aplicada
-                        3. Conserva el tono profesional
-                        4. Responde en formato JSON con las claves: position, company, description
+                        1. Traduce el puesto de trabajo
+                        2. NO traduzcas nombres propios de empresas (mantén el nombre original de la empresa)
+                        3. NO traduzcas nombres propios de personas
+                        4. Mantén la estructura y metodología aplicada
+                        5. Conserva el tono profesional
+                        6. Responde en formato JSON con las claves: position, company, description
                         """
                         
                         try:
@@ -3124,17 +3160,25 @@ def translate_cv_fields(cv_data, target_language_name):
         return cv_data
     
     try:
-        # Traducir educación
+        # Traducir educación (excluyendo nombres de instituciones)
         education = cv_data.get('education', [])
         if education:
             for edu in education:
                 if edu.get('degree'):
-                    translate_prompt = f"Traduce este título académico al {target_language_name}: {edu['degree']}. Responde solo con la traducción."
+                    translate_prompt = f"""
+                    Traduce este título académico al {target_language_name}: {edu['degree']}
+                    
+                    Instrucciones:
+                    1. Traduce solo el título académico o grado
+                    2. NO traduzcas nombres propios de instituciones educativas
+                    3. NO traduzcas nombres propios de personas
+                    4. Responde solo con la traducción del título académico
+                    """
                     try:
                         response = OPENAI_CLIENT.chat.completions.create(
                             model="gpt-3.5-turbo",
                             messages=[
-                                {"role": "system", "content": "Eres un traductor profesional especializado en términos académicos y profesionales."},
+                                {"role": "system", "content": f"Eres un traductor profesional especializado en términos académicos. Traduce al {target_language_name} pero NO traduzcas nombres propios."},
                                 {"role": "user", "content": translate_prompt}
                             ],
                             max_tokens=100,
@@ -3144,17 +3188,26 @@ def translate_cv_fields(cv_data, target_language_name):
                     except Exception:
                         pass  # Mantener original si hay error
         
-        # Traducir certificados
+        # Traducir certificados (excluyendo nombres de instituciones y personas)
         certificates = cv_data.get('certificates', [])
         if certificates:
             for cert in certificates:
                 if cert.get('name'):
-                    translate_prompt = f"Traduce este nombre de certificado al {target_language_name}: {cert['name']}. Responde solo con la traducción."
+                    translate_prompt = f"""
+                    Traduce este nombre de certificado al {target_language_name}: {cert['name']}
+                    
+                    Instrucciones:
+                    1. Traduce solo el nombre del certificado o curso
+                    2. NO traduzcas nombres propios de instituciones, organizaciones o empresas
+                    3. NO traduzcas nombres propios de personas
+                    4. NO traduzcas marcas registradas o nombres comerciales
+                    5. Responde solo con la traducción del nombre del certificado
+                    """
                     try:
                         response = OPENAI_CLIENT.chat.completions.create(
                             model="gpt-3.5-turbo",
                             messages=[
-                                {"role": "system", "content": "Eres un traductor profesional especializado en términos académicos y profesionales."},
+                                {"role": "system", "content": f"Eres un traductor profesional especializado en certificaciones. Traduce al {target_language_name} pero NO traduzcas nombres propios, marcas o instituciones."},
                                 {"role": "user", "content": translate_prompt}
                             ],
                             max_tokens=100,
