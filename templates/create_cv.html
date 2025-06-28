@@ -57,15 +57,13 @@
     }
     
     .btn-outline-primary {
-        border-color: #4e73df;
-        color: #4e73df;
+        background-color: #198754;       
     }
     
     .btn-outline-primary:hover {
-        background-color: #4e73df;
-        border-color: #4e73df;
+        background-color: #198754;
+        border-color: #198754;
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(78, 115, 223, 0.3);
     }
     
     .btn-danger {
@@ -166,9 +164,22 @@
                             </div>
                         </div>
                         <div class="col-md-4 text-end">
-                            <button type="button" class="btn btn-success" id="generateCV">
-                                <i class="fas fa-save"></i> Generar CV
-                            </button>
+                            <div class="d-flex align-items-center justify-content-end gap-2">
+                                <div class="dropdown">
+                                    <button class="btn btn-outline-primary dropdown-toggle" type="button" id="languageDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="fas fa-language"></i> <span id="selectedLanguage">Español</span>
+                                    </button>
+                                    <ul class="dropdown-menu" aria-labelledby="languageDropdown">
+                                        <li><a class="dropdown-item" href="#" data-lang="es">Español</a></li>
+                                        <li><a class="dropdown-item" href="#" data-lang="en">Inglés</a></li>
+                                        <li><a class="dropdown-item" href="#" data-lang="pt">Portugués</a></li>
+                                        <li><a class="dropdown-item" href="#" data-lang="de">Alemán</a></li>
+                                    </ul>
+                                </div>
+                                <button type="button" class="btn btn-success" id="generateCV">
+                                    <i class="fas fa-save"></i> Generar CV
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -480,6 +491,10 @@ let skills = [];
 let autoSaveTimeout;
 let lastSaveData = '';
 
+// Variables globales para funcionalidad de idioma
+window.selectedLanguage = 'es';
+window.isGenerating = false;
+
 // Inicialización
 document.addEventListener('DOMContentLoaded', function() {
     loadUserData();
@@ -492,6 +507,29 @@ function setupEventListeners() {
     // Botones principales
     document.getElementById('generateCV').addEventListener('click', generateCV);
     document.getElementById('exportPdf').addEventListener('click', exportPdf);
+    
+    // Inicializar variable de idioma
+    window.selectedLanguage = 'es';
+    
+    // Selector de idioma - usar delegación de eventos
+    document.addEventListener('click', function(e) {
+        if (e.target.matches('[data-lang]')) {
+            e.preventDefault();
+            const lang = e.target.getAttribute('data-lang');
+            const langText = e.target.textContent;
+            window.selectedLanguage = lang;
+            
+            console.log('Idioma seleccionado:', lang, langText);
+            
+            const selectedElement = document.getElementById('selectedLanguage');
+            if (selectedElement) {
+                selectedElement.textContent = langText;
+                console.log('Texto del botón actualizado a:', langText);
+            } else {
+                console.error('Elemento selectedLanguage no encontrado');
+            }
+        }
+    });
     
     // Botones de agregar elementos
     document.getElementById('addExperience').addEventListener('click', addExperience);
@@ -739,6 +777,20 @@ function updatePreview() {
         return;
     }
     
+    // Verificar si está en modo de carga
+    if (window.isGenerating) {
+        preview.innerHTML = `
+            <div class="text-center text-muted">
+                <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <p class="mt-3">Generando CV en <span id="selectedLanguageText">${document.getElementById('selectedLanguage').textContent}</span>...</p>
+                <p class="small">Por favor espera mientras procesamos tu información</p>
+            </div>
+        `;
+        return;
+    }
+    
     const isAtsFormat = cvData.format_options.format === 'ats';
     const headerStyle = isAtsFormat 
         ? 'text-align: left; border-bottom: 1px solid #000; padding-bottom: 10px; margin-bottom: 20px;' 
@@ -868,6 +920,10 @@ function generateCV() {
         cvData.cv_id = cvId;
     }
     
+    // Obtener idioma seleccionado
+    const selectedLang = window.selectedLanguage || 'es';
+    cvData.target_language = selectedLang;
+    
     if (!cvData.personal_info.name || !cvData.personal_info.email) {
         alert('Por favor completa al menos el nombre y email.');
         return;
@@ -883,6 +939,12 @@ function generateCV() {
         return;
     }
     
+    // Activar modo de carga
+    window.isGenerating = true;
+    document.getElementById('generateCV').disabled = true;
+    document.getElementById('generateCV').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
+    updatePreview();
+    
     fetch('/save_cv', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -890,6 +952,11 @@ function generateCV() {
     })
     .then(response => response.json())
     .then(data => {
+        // Desactivar modo de carga
+        window.isGenerating = false;
+        document.getElementById('generateCV').disabled = false;
+        document.getElementById('generateCV').innerHTML = '<i class="fas fa-save"></i> Generar CV';
+        
         if (data.success) {
             // Actualizar variable global y URL
             window.cvId = data.cv_id;
@@ -898,7 +965,16 @@ function generateCV() {
             window.history.replaceState({}, '', newUrl);
             
             document.getElementById('exportPdf').disabled = false;
-            alert(data.message || 'CV guardado exitosamente!');
+            
+            // Mostrar mensaje de éxito
+            const languageName = {
+                'es': 'Español',
+                'en': 'Inglés', 
+                'pt': 'Portugués',
+                'de': 'Alemán'
+            }[selectedLang] || 'Español';
+            
+            alert(`CV generado exitosamente en ${languageName}!`);
             
             if (data.improved_data) {
                 if (data.improved_data.professional_summary) {
@@ -917,12 +993,19 @@ function generateCV() {
                 updatePreview();
             }
         } else {
-            alert('Error al guardar CV: ' + data.error);
+            alert('Error al generar CV: ' + data.error);
+            updatePreview();
         }
     })
     .catch(error => {
+        // Desactivar modo de carga en caso de error
+        window.isGenerating = false;
+        document.getElementById('generateCV').disabled = false;
+        document.getElementById('generateCV').innerHTML = '<i class="fas fa-save"></i> Generar CV';
+        updatePreview();
+        
         console.error('Error:', error);
-        alert('Error al guardar CV');
+        alert('Error al generar CV');
     });
 }
 

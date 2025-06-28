@@ -2877,10 +2877,20 @@ def get_user_cv_data():
         print(f"Error en get_user_cv_data: {e}")
         return jsonify({'error': str(e)}), 500
 
-def improve_cv_with_ai(cv_data):
-    """Mejorar el CV usando OpenAI basándose en las metodologías seleccionadas"""
+def improve_cv_with_ai(cv_data, target_language='es'):
+    """Mejorar el CV usando OpenAI basándose en las metodologías seleccionadas y traducir al idioma objetivo"""
     if not OPENAI_CLIENT:
         return cv_data
+    
+    # Mapeo de códigos de idioma a nombres completos
+    language_names = {
+        'es': 'español',
+        'en': 'inglés',
+        'pt': 'portugués',
+        'de': 'alemán'
+    }
+    
+    target_language_name = language_names.get(target_language, 'español')
     
     try:
         format_options = cv_data.get('format_options', {})
@@ -2909,7 +2919,8 @@ def improve_cv_with_ai(cv_data):
             - Incorpora las tecnologías mencionadas de manera natural
             - Si usas XYZ: estructura destacando experiencia específica, años de trayectoria y entusiasmo
             - Máximo 150 palabras
-            - Responde solo con el resumen mejorado, sin explicaciones adicionales
+            - IMPORTANTE: Traduce todo el contenido al {target_language_name}
+            - Responde solo con el resumen mejorado en {target_language_name}, sin explicaciones adicionales
             """
             
             try:
@@ -2952,7 +2963,8 @@ def improve_cv_with_ai(cv_data):
                     - Incorpora métricas y resultados cuantificables cuando sea posible
                     - Menciona tecnologías relevantes de manera natural
                     - Máximo 200 palabras
-                    - Responde solo con la descripción mejorada, sin explicaciones adicionales
+                    - IMPORTANTE: Traduce todo el contenido al {target_language_name}
+                    - Responde solo con la descripción mejorada en {target_language_name}, sin explicaciones adicionales
                     """
                     
                     try:
@@ -2976,10 +2988,65 @@ def improve_cv_with_ai(cv_data):
             
             cv_data['experience'] = improved_experience
         
+        # Traducir otros campos del CV
+        cv_data = translate_cv_fields(cv_data, target_language_name)
+        
         return cv_data
         
     except Exception as e:
         print(f"Error mejorando CV con IA: {str(e)}")
+        return cv_data
+
+def translate_cv_fields(cv_data, target_language_name):
+    """Traducir campos adicionales del CV que no se procesan con IA"""
+    if not OPENAI_CLIENT or target_language_name == 'español':
+        return cv_data
+    
+    try:
+        # Traducir educación
+        education = cv_data.get('education', [])
+        if education:
+            for edu in education:
+                if edu.get('degree'):
+                    translate_prompt = f"Traduce este título académico al {target_language_name}: {edu['degree']}. Responde solo con la traducción."
+                    try:
+                        response = openai.ChatCompletion.create(
+                            model="gpt-3.5-turbo",
+                            messages=[
+                                {"role": "system", "content": "Eres un traductor profesional especializado en términos académicos y profesionales."},
+                                {"role": "user", "content": translate_prompt}
+                            ],
+                            max_tokens=100,
+                            temperature=0.3
+                        )
+                        edu['degree'] = response['choices'][0]['message']['content'].strip()
+                    except Exception:
+                        pass  # Mantener original si hay error
+        
+        # Traducir certificados
+        certificates = cv_data.get('certificates', [])
+        if certificates:
+            for cert in certificates:
+                if cert.get('name'):
+                    translate_prompt = f"Traduce este nombre de certificado al {target_language_name}: {cert['name']}. Responde solo con la traducción."
+                    try:
+                        response = openai.ChatCompletion.create(
+                            model="gpt-3.5-turbo",
+                            messages=[
+                                {"role": "system", "content": "Eres un traductor profesional especializado en términos académicos y profesionales."},
+                                {"role": "user", "content": translate_prompt}
+                            ],
+                            max_tokens=100,
+                            temperature=0.3
+                        )
+                        cert['name'] = response['choices'][0]['message']['content'].strip()
+                    except Exception:
+                        pass  # Mantener original si hay error
+        
+        return cv_data
+        
+    except Exception as e:
+        print(f"Error traduciendo campos del CV: {str(e)}")
         return cv_data
 
 @app.route('/save_cv_draft', methods=['POST'])
@@ -3459,8 +3526,11 @@ def save_cv():
     if 'format_options' not in data:
         data['format_options'] = {'format': 'hardware', 'tech_xyz': False, 'tech_start': False}
     
+    # Obtener idioma objetivo (por defecto español)
+    target_language = data.get('target_language', 'es')
+    
     # Mejorar CV con IA antes de generar HTML
-    improved_data = improve_cv_with_ai(data)
+    improved_data = improve_cv_with_ai(data, target_language)
     
     # Generar HTML del CV con los datos mejorados
     cv_html = generate_cv_html(improved_data)
@@ -3570,12 +3640,23 @@ def save_cv():
         # Incrementar contador de uso para creación de CV
         increment_usage(session.get('user_id'), 'cv_creation')
         
+        # Crear mensaje de éxito con idioma
+        language_names = {
+            'es': 'español',
+            'en': 'inglés', 
+            'pt': 'portugués',
+            'de': 'alemán'
+        }
+        language_name = language_names.get(target_language, 'español')
+        success_message = f'CV guardado y mejorado con IA en {language_name}. Datos del usuario actualizados.'
+        
         return jsonify({
             'success': True, 
             'cv_id': new_cv_id, 
-            'message': 'CV guardado y mejorado con IA. Datos del usuario actualizados.',
+            'message': success_message,
             'improved_data': improved_data,
-            'cv_html': cv_html
+            'cv_html': cv_html,
+            'target_language': target_language
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
