@@ -3732,8 +3732,15 @@ def preview_cv(cv_id):
             'ai_methodologies': safe_json_loads(result['ai_methodologies'], {})
         }
         
-        # Generar el HTML del CV
-        cv_html = generate_cv_html(cv_data)
+        # Obtener idioma objetivo desde ai_methodologies (por defecto español)
+        ai_methodologies = cv_data.get('ai_methodologies', {})
+        target_language = ai_methodologies.get('target_language', 'es')
+        
+        # Aplicar mejoras de IA antes de generar HTML (igual que en export_cv)
+        improved_cv_data = improve_cv_with_ai(cv_data, target_language)
+        
+        # Generar el HTML del CV con los datos mejorados por IA
+        cv_html = generate_cv_html(improved_cv_data)
         
         # Crear HTML optimizado para preview con estilos responsivos
         preview_html = f"""
