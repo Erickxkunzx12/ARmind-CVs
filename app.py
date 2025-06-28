@@ -23,6 +23,13 @@ load_dotenv()  # Carga las variables de entorno desde .env
 # Configurar cliente OpenAI
 openai.api_key = os.getenv('OPENAI_API_KEY')
 
+# Configurar cliente OpenAI moderno
+try:
+    from openai import OpenAI
+    OPENAI_CLIENT = OpenAI(api_key=os.getenv('OPENAI_API_KEY')) if os.getenv('OPENAI_API_KEY') else None
+except ImportError:
+    OPENAI_CLIENT = None
+
 # Configuración de email
 EMAIL_USER = os.getenv('EMAIL_USER')
 EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
@@ -2257,7 +2264,7 @@ def analyze_cv_with_openai(cv_text, analysis_type):
     }"""
     
     try:
-        response = openai.ChatCompletion.create(
+        response = OPENAI_CLIENT.chat.completions.create(
             model="gpt-3.5-turbo",  # Usar gpt-3.5-turbo que es más estable
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -2267,7 +2274,7 @@ def analyze_cv_with_openai(cv_text, analysis_type):
             temperature=0.7
         )
         
-        analysis_text = response['choices'][0]['message']['content']
+        analysis_text = response.choices[0].message.content
         analysis = json.loads(analysis_text)
         
         # Asegurar campos requeridos
@@ -2878,14 +2885,20 @@ def get_user_cv_data():
         return jsonify({'error': str(e)}), 500
 
 def improve_cv_with_ai(cv_data, target_language='es'):
-    """Mejorar el CV usando OpenAI basándose en las metodologías seleccionadas y traducir al idioma objetivo"""
+    """Mejorar el CV usando OpenAI en dos etapas: 1) Aplicar metodologías, 2) Traducir todo el CV"""
+    print(f"[DEBUG] === INICIANDO PROCESO DE IA COMPLETO ===")
+    print(f"[DEBUG] Idioma objetivo: {target_language}")
+    print(f"[DEBUG] OPENAI_CLIENT configurado: {OPENAI_CLIENT is not None}")
+    print(f"[DEBUG] OPENAI_API_KEY presente: {bool(os.getenv('OPENAI_API_KEY'))}")
+    
     if not OPENAI_CLIENT:
+        print("[DEBUG] ERROR: OPENAI_CLIENT no está configurado")
         return cv_data
     
     # Mapeo de códigos de idioma a nombres completos
     language_names = {
         'es': 'español',
-        'en': 'inglés',
+        'en': 'inglés', 
         'pt': 'portugués',
         'de': 'alemán'
     }
@@ -2893,105 +2906,213 @@ def improve_cv_with_ai(cv_data, target_language='es'):
     target_language_name = language_names.get(target_language, 'español')
     
     try:
+        # ETAPA 1: APLICAR METODOLOGÍAS (en español)
+        print(f"[DEBUG] === ETAPA 1: APLICANDO METODOLOGÍAS ===")
+        
         format_options = cv_data.get('format_options', {})
         tech_xyz = format_options.get('tech_xyz', False)
         tech_start = format_options.get('tech_start', False)
         selected_skills = cv_data.get('skills', [])
         
-        # Crear prompt para mejorar resumen profesional
+        print(f"[DEBUG] Metodologías seleccionadas - XYZ: {tech_xyz}, STAR: {tech_start}")
+        print(f"[DEBUG] Habilidades seleccionadas: {selected_skills}")
+        
+        # Crear una copia de los datos para procesar
+        improved_data = cv_data.copy()
+        
         professional_summary = cv_data.get('professional_summary', '')
         experience = cv_data.get('experience', [])
         
-        # Mejorar resumen profesional usando metodología XYZ
-        if professional_summary:
-            if tech_xyz:
-                summary_methodology = "XYZ (eXperience, Years, Zeal): destaca tu experiencia específica, años de trayectoria y pasión por el área"
-            else:
-                summary_methodology = "metodología estándar profesional"
-                
-            summary_prompt = f"""
-            Mejora este resumen profesional usando la metodología {summary_methodology} e incorporando estas tecnologías: {', '.join(selected_skills)}.
+        # Mejorar resumen profesional con metodología XYZ (en español)
+        if professional_summary and tech_xyz:
+            print(f"[DEBUG] Aplicando metodología XYZ al resumen profesional")
+            print(f"[DEBUG] Resumen original: {professional_summary[:100]}...")
             
-            Resumen actual: {professional_summary}
+            prompt = f"""
+            Mejora el siguiente resumen profesional aplicando la metodología XYZ (eXplica lo que hiciste, tus logros cuantificados Y el impacto/resultado obtenido).
+            
+            Resumen original: {professional_summary}
+            
+            Habilidades relevantes: {', '.join(selected_skills) if selected_skills else 'No especificadas'}
             
             Instrucciones:
-            - Mantén un tono profesional y conciso
-            - Incorpora las tecnologías mencionadas de manera natural
-            - Si usas XYZ: estructura destacando experiencia específica, años de trayectoria y entusiasmo
-            - Máximo 150 palabras
-            - IMPORTANTE: Traduce todo el contenido al {target_language_name}
-            - Responde solo con el resumen mejorado en {target_language_name}, sin explicaciones adicionales
+            1. Mantén el tono profesional
+            2. Incluye logros cuantificados cuando sea posible
+            3. Enfócate en el impacto y resultados
+            4. Máximo 150 palabras
+            5. Responde SOLO con el resumen mejorado, sin explicaciones adicionales
+            6. Mantén el texto en español
             """
             
             try:
-                response = openai.ChatCompletion.create(
+                response = OPENAI_CLIENT.chat.completions.create(
                     model="gpt-3.5-turbo",
                     messages=[
-                        {"role": "system", "content": "Eres un experto en recursos humanos especializado en optimización de CVs."},
-                        {"role": "user", "content": summary_prompt}
+                        {"role": "system", "content": "Eres un experto en recursos humanos especializado en optimización de CVs. Siempre respondes en español."},
+                        {"role": "user", "content": prompt}
                     ],
                     max_tokens=300,
                     temperature=0.7
                 )
-                improved_summary = response['choices'][0]['message']['content'].strip()
-                cv_data['professional_summary'] = improved_summary
+                
+                improved_summary = response.choices[0].message.content.strip()
+                improved_data['professional_summary'] = improved_summary
+                print(f"[DEBUG] Resumen mejorado con XYZ: {improved_summary[:100]}...")
             except Exception as openai_error:
-                print(f"Error con OpenAI API en resumen: {str(openai_error)}")
-                # Mantener el resumen original si hay error con la API
+                print(f"[DEBUG] Error con OpenAI API en resumen: {str(openai_error)}")
+        else:
+            print(f"[DEBUG] No se aplica metodología XYZ al resumen (vacío: {not professional_summary}, no seleccionado: {not tech_xyz})")
             
 
         
-        # Mejorar experiencia laboral usando metodología STAR
-        if experience:
-            improved_experience = []
-            for exp in experience:
+        # Mejorar experiencias laborales con metodología STAR (en español)
+        print(f"[DEBUG] Procesando {len(experience)} experiencias laborales")
+        
+        if experience and tech_start:
+            print(f"[DEBUG] Aplicando metodología STAR a experiencias laborales")
+            
+            for i, exp in enumerate(experience):
                 if exp.get('description'):
-                    if tech_start:
-                        exp_methodology = "STAR (Situation, Task, Action, Result): describe la situación, tarea asignada, acciones tomadas y resultados obtenidos"
-                    else:
-                        exp_methodology = "metodología estándar profesional orientada a logros"
-                        
-                    exp_prompt = f"""
-                    Mejora esta descripción de experiencia laboral usando la metodología {exp_methodology} e incorporando estas tecnologías cuando sea relevante: {', '.join(selected_skills)}.
+                    print(f"[DEBUG] Procesando experiencia {i+1}: {exp.get('position', 'Sin puesto')} en {exp.get('company', 'Sin empresa')}")
                     
-                    Puesto: {exp.get('position', '')}
-                    Empresa: {exp.get('company', '')}
-                    Descripción actual: {exp.get('description', '')}
+                    prompt = f"""
+                    Mejora la siguiente descripción de experiencia laboral aplicando la metodología STAR (Situación, Tarea, Acción, Resultado).
+                    
+                    Puesto: {exp.get('position', 'No especificado')}
+                    Empresa: {exp.get('company', 'No especificada')}
+                    Descripción original: {exp['description']}
+                    
+                    Habilidades relevantes: {', '.join(selected_skills) if selected_skills else 'No especificadas'}
                     
                     Instrucciones:
-                    - Si usas STAR: estructura cada logro con Situación, Tarea, Acción y Resultado
-                    - Incorpora métricas y resultados cuantificables cuando sea posible
-                    - Menciona tecnologías relevantes de manera natural
-                    - Máximo 200 palabras
-                    - IMPORTANTE: Traduce todo el contenido al {target_language_name}
-                    - Responde solo con la descripción mejorada en {target_language_name}, sin explicaciones adicionales
+                    1. Estructura la descripción usando STAR
+                    2. Incluye logros cuantificados
+                    3. Enfócate en resultados medibles
+                    4. Máximo 200 palabras
+                    5. Responde SOLO con la descripción mejorada, sin explicaciones adicionales
+                    6. Mantén el texto en español
                     """
                     
                     try:
-                        response = openai.ChatCompletion.create(
+                        response = OPENAI_CLIENT.chat.completions.create(
                             model="gpt-3.5-turbo",
                             messages=[
-                                {"role": "system", "content": "Eres un experto en recursos humanos especializado en optimización de CVs."},
-                                {"role": "user", "content": exp_prompt}
+                                {"role": "system", "content": "Eres un experto en recursos humanos especializado en optimización de CVs. Siempre respondes en español."},
+                                {"role": "user", "content": prompt}
                             ],
                             max_tokens=400,
                             temperature=0.7
                         )
                         
-                        improved_description = response['choices'][0]['message']['content'].strip()
-                        exp['description'] = improved_description
+                        improved_description = response.choices[0].message.content.strip()
+                        improved_data['experience'][i]['description'] = improved_description
+                        print(f"[DEBUG] Experiencia {i+1} mejorada con STAR: {improved_description[:100]}...")
                     except Exception as openai_error:
-                        print(f"Error con OpenAI API en experiencia: {str(openai_error)}")
-                        # Mantener la descripción original si hay error con la API
-                
-                improved_experience.append(exp)
+                        print(f"[DEBUG] Error con OpenAI API en experiencia {i+1}: {str(openai_error)}")
+                else:
+                    print(f"[DEBUG] Experiencia {i+1} sin descripción, saltando")
+        else:
+            print(f"[DEBUG] No se aplica metodología STAR (sin experiencias: {not experience}, no seleccionado: {not tech_start})")
+        
+        # ETAPA 2: TRADUCIR TODO EL CV AL IDIOMA SELECCIONADO
+        print(f"[DEBUG] === ETAPA 2: TRADUCIENDO TODO EL CV ===")
+        print(f"[DEBUG] Idioma objetivo: {target_language_name}")
+        
+        if target_language != 'es':
+            print(f"[DEBUG] Iniciando traducción completa al {target_language_name}")
             
-            cv_data['experience'] = improved_experience
+            # Traducir resumen profesional
+            if improved_data.get('professional_summary'):
+                print(f"[DEBUG] Traduciendo resumen profesional")
+                translate_prompt = f"""
+                Traduce el siguiente resumen profesional al {target_language_name}, manteniendo el tono profesional y la estructura:
+                
+                {improved_data['professional_summary']}
+                
+                Instrucciones:
+                1. Mantén el tono profesional
+                2. Conserva la estructura y metodología aplicada
+                3. Responde SOLO con la traducción, sin explicaciones adicionales
+                """
+                
+                try:
+                    response = OPENAI_CLIENT.chat.completions.create(
+                        model="gpt-3.5-turbo",
+                        messages=[
+                            {"role": "system", "content": f"Eres un traductor profesional especializado en CVs y documentos profesionales. Traduce siempre al {target_language_name}."},
+                            {"role": "user", "content": translate_prompt}
+                        ],
+                        max_tokens=400,
+                        temperature=0.3
+                    )
+                    
+                    translated_summary = response.choices[0].message.content.strip()
+                    improved_data['professional_summary'] = translated_summary
+                    print(f"[DEBUG] Resumen traducido: {translated_summary[:100]}...")
+                except Exception as openai_error:
+                    print(f"[DEBUG] Error traduciendo resumen: {str(openai_error)}")
+            
+            # Traducir experiencias laborales
+            if improved_data.get('experience'):
+                print(f"[DEBUG] Traduciendo {len(improved_data['experience'])} experiencias laborales")
+                
+                for i, exp in enumerate(improved_data['experience']):
+                    if exp.get('description'):
+                        print(f"[DEBUG] Traduciendo experiencia {i+1}")
+                        
+                        translate_prompt = f"""
+                        Traduce la siguiente descripción de experiencia laboral al {target_language_name}, manteniendo la estructura STAR y el contenido profesional:
+                        
+                        Puesto: {exp.get('position', '')}
+                        Empresa: {exp.get('company', '')}
+                        Descripción: {exp['description']}
+                        
+                        Instrucciones:
+                        1. Traduce también el puesto y empresa si es necesario
+                        2. Mantén la estructura y metodología aplicada
+                        3. Conserva el tono profesional
+                        4. Responde en formato JSON con las claves: position, company, description
+                        """
+                        
+                        try:
+                            response = OPENAI_CLIENT.chat.completions.create(
+                                model="gpt-3.5-turbo",
+                                messages=[
+                                    {"role": "system", "content": f"Eres un traductor profesional especializado en CVs. Traduce siempre al {target_language_name} y responde en formato JSON."},
+                                    {"role": "user", "content": translate_prompt}
+                                ],
+                                max_tokens=500,
+                                temperature=0.3
+                            )
+                            
+                            translated_content = response.choices[0].message.content.strip()
+                            
+                            # Intentar parsear JSON, si falla usar solo la descripción
+                            try:
+                                import json
+                                translated_exp = json.loads(translated_content)
+                                if 'position' in translated_exp:
+                                    improved_data['experience'][i]['position'] = translated_exp['position']
+                                if 'company' in translated_exp:
+                                    improved_data['experience'][i]['company'] = translated_exp['company']
+                                if 'description' in translated_exp:
+                                    improved_data['experience'][i]['description'] = translated_exp['description']
+                            except:
+                                # Si no es JSON válido, usar como descripción directa
+                                improved_data['experience'][i]['description'] = translated_content
+                            
+                            print(f"[DEBUG] Experiencia {i+1} traducida")
+                        except Exception as openai_error:
+                            print(f"[DEBUG] Error traduciendo experiencia {i+1}: {str(openai_error)}")
+            
+            # Traducir otros campos usando la función existente
+            improved_data = translate_cv_fields(improved_data, target_language_name)
+            
+        else:
+            print(f"[DEBUG] No se requiere traducción (idioma español)")
         
-        # Traducir otros campos del CV
-        cv_data = translate_cv_fields(cv_data, target_language_name)
-        
-        return cv_data
+        print(f"[DEBUG] === PROCESO COMPLETO FINALIZADO ===")
+        return improved_data
         
     except Exception as e:
         print(f"Error mejorando CV con IA: {str(e)}")
@@ -3010,7 +3131,7 @@ def translate_cv_fields(cv_data, target_language_name):
                 if edu.get('degree'):
                     translate_prompt = f"Traduce este título académico al {target_language_name}: {edu['degree']}. Responde solo con la traducción."
                     try:
-                        response = openai.ChatCompletion.create(
+                        response = OPENAI_CLIENT.chat.completions.create(
                             model="gpt-3.5-turbo",
                             messages=[
                                 {"role": "system", "content": "Eres un traductor profesional especializado en términos académicos y profesionales."},
@@ -3019,7 +3140,7 @@ def translate_cv_fields(cv_data, target_language_name):
                             max_tokens=100,
                             temperature=0.3
                         )
-                        edu['degree'] = response['choices'][0]['message']['content'].strip()
+                        edu['degree'] = response.choices[0].message.content.strip()
                     except Exception:
                         pass  # Mantener original si hay error
         
@@ -3030,7 +3151,7 @@ def translate_cv_fields(cv_data, target_language_name):
                 if cert.get('name'):
                     translate_prompt = f"Traduce este nombre de certificado al {target_language_name}: {cert['name']}. Responde solo con la traducción."
                     try:
-                        response = openai.ChatCompletion.create(
+                        response = OPENAI_CLIENT.chat.completions.create(
                             model="gpt-3.5-turbo",
                             messages=[
                                 {"role": "system", "content": "Eres un traductor profesional especializado en términos académicos y profesionales."},
@@ -3039,7 +3160,7 @@ def translate_cv_fields(cv_data, target_language_name):
                             max_tokens=100,
                             temperature=0.3
                         )
-                        cert['name'] = response['choices'][0]['message']['content'].strip()
+                        cert['name'] = response.choices[0].message.content.strip()
                     except Exception:
                         pass  # Mantener original si hay error
         
@@ -3530,7 +3651,14 @@ def save_cv():
     target_language = data.get('target_language', 'es')
     
     # Mejorar CV con IA antes de generar HTML
+    print(f"[DEBUG] Datos originales antes de IA - resumen: {data.get('professional_summary', 'VACIO')[:50]}...")
+    print(f"[DEBUG] Idioma objetivo: {target_language}")
+    print(f"[DEBUG] Opciones de formato: {data.get('format_options', {})}")
+    
     improved_data = improve_cv_with_ai(data, target_language)
+    
+    print(f"[DEBUG] Datos mejorados después de IA - resumen: {improved_data.get('professional_summary', 'VACIO')[:50]}...")
+    print(f"[DEBUG] ¿Los datos cambiaron? {data.get('professional_summary') != improved_data.get('professional_summary')}")
     
     # Generar HTML del CV con los datos mejorados
     cv_html = generate_cv_html(improved_data)
@@ -3578,7 +3706,7 @@ def save_cv():
                     json.dumps(improved_data.get('languages', [])),
                     json.dumps(improved_data.get('certificates', [])),
                     json.dumps(improved_data.get('format_options', {})),
-                    json.dumps(improved_data.get('ai_methodologies', {})),
+                    json.dumps({**improved_data.get('ai_methodologies', {}), 'target_language': target_language}),
                     cv_data_id,
                     session['user_id']
                 )
@@ -3628,7 +3756,7 @@ def save_cv():
                     json.dumps(improved_data.get('languages', [])),
                     json.dumps(improved_data.get('certificates', [])),
                     json.dumps(improved_data.get('format_options', {})),
-                    json.dumps(improved_data.get('ai_methodologies', {}))
+                    json.dumps({**improved_data.get('ai_methodologies', {}), 'target_language': target_language})
                 )
             )
             new_cv_id = cursor.fetchone()['id']
@@ -3711,8 +3839,15 @@ def export_cv(cv_id):
             'ai_methodologies': safe_json_loads(result['ai_methodologies'], {})
         }
         
-        # Generar el HTML exactamente igual que en la vista previa
-        cv_html = generate_cv_html(cv_data)
+        # Obtener idioma objetivo desde ai_methodologies (por defecto español)
+        ai_methodologies = cv_data.get('ai_methodologies', {})
+        target_language = ai_methodologies.get('target_language', 'es')
+        
+        # Aplicar mejoras de IA antes de generar HTML (igual que en save_cv)
+        improved_cv_data = improve_cv_with_ai(cv_data, target_language)
+        
+        # Generar el HTML con los datos mejorados por IA
+        cv_html = generate_cv_html(improved_cv_data)
         
         # Crear HTML optimizado para PDF con estilos mejorados para impresión
         pdf_optimized_html = f"""
@@ -3720,7 +3855,7 @@ def export_cv(cv_id):
         <html>
         <head>
             <meta charset="UTF-8">
-            <title>{cv_data['cv_name']}</title>
+            <title>{improved_cv_data['cv_name']}</title>
             <style>
                 @page {{
                     margin: 0;
@@ -3815,7 +3950,6 @@ def export_cv(cv_id):
                 
                 .header {{
                     text-align: center;
-                    border-bottom: 2px solid #000;
                     padding-bottom: 10px;
                     margin-bottom: 20px;
                 }}
@@ -4263,7 +4397,6 @@ def generate_cv_html(cv_data):
             }
             .header { 
                 text-align: left; 
-                border-bottom: 2px solid #000; 
                 padding-bottom: 15px; 
                 margin-bottom: 25px; 
             }
@@ -4358,6 +4491,8 @@ def generate_cv_html(cv_data):
     <body>
         <div class="header">
             <div class="name">{personal.get('name', '')}</div>
+            <div style="border-bottom: 2px solid #000; margin: 5px 0;"></div>
+            {f'<div style="font-size: 16pt; font-weight: 600; color: #000; margin-bottom: 8px; text-transform: uppercase; text-align: center;">{personal.get("position", "")}</div>' if personal.get('position') else ''}
             <div class="contact">
                 {contact_line}
             </div>
@@ -4769,7 +4904,6 @@ def generate_cv_html(cv_data):
             }
             .header { 
                 text-align: left; 
-                border-bottom: 2px solid #000; 
                 padding-bottom: 15px; 
                 margin-bottom: 25px; 
             }
@@ -4864,6 +4998,8 @@ def generate_cv_html(cv_data):
     <body>
         <div class="header">
             <div class="name">{personal.get('name', '')}</div>
+            <div style="border-bottom: 2px solid #000; margin: 5px 0;"></div>
+            {f'<div style="font-size: 16pt; font-weight: 600; color: #000; margin-bottom: 8px; text-transform: uppercase; text-align: center;">{personal.get("position", "")}</div>' if personal.get('position') else ''}
             <div class="contact">
                 {contact_line}
             </div>

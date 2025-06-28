@@ -57,12 +57,12 @@
     }
     
     .btn-outline-primary {
-        background-color: #198754;       
+        background-color: #0d6efd;       
     }
     
     .btn-outline-primary:hover {
-        background-color: #198754;
-        border-color: #198754;
+        background-color: #0d6efd;
+        border-color: #0d6efd;
         transform: translateY(-2px);
     }
     
@@ -166,7 +166,7 @@
                         <div class="col-md-4 text-end">
                             <div class="d-flex align-items-center justify-content-end gap-2">
                                 <div class="dropdown">
-                                    <button class="btn btn-outline-primary dropdown-toggle" type="button" id="languageDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <button class="btn btn-light dropdown-toggle" type="button" id="languageDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="border: 2px solid #ffffff; color: #1a365d; font-weight: 500;">
                                         <i class="fas fa-language"></i> <span id="selectedLanguage">Español</span>
                                     </button>
                                     <ul class="dropdown-menu" aria-labelledby="languageDropdown">
@@ -205,16 +205,22 @@
                                     <input type="text" class="form-control" id="name" required>
                                 </div>
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label">Email *</label>
-                                    <input type="email" class="form-control" id="email" required>
+                                    <label class="form-label">Cargo o Profesión *</label>
+                                    <input type="text" class="form-control" id="position" required placeholder="Ej: Ingeniero de Software, Analista de Datos">
                                 </div>
                             </div>
                             <div class="row">
                                 <div class="col-md-6 mb-3">
+                                    <label class="form-label">Email *</label>
+                                    <input type="email" class="form-control" id="email" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
                                     <label class="form-label">Teléfono</label>
                                     <input type="tel" class="form-control" id="phone">
                                 </div>
-                                <div class="col-md-6 mb-3">
+                            </div>
+                            <div class="row">
+                                <div class="col-md-12 mb-3">
                                     <label class="form-label">Dirección</label>
                                     <input type="text" class="form-control" id="address">
                                 </div>
@@ -681,7 +687,8 @@ function collectFormData() {
     const data = {
         cv_name: document.getElementById('cvName').value || 'Mi CV',
         personal_info: {
-            name: document.getElementById('name').value,
+            name: document.getElementById('name').value.toUpperCase(),
+            position: document.getElementById('position').value,
             email: document.getElementById('email').value,
             phone: document.getElementById('phone').value,
             address: document.getElementById('address').value,
@@ -793,8 +800,8 @@ function updatePreview() {
     
     const isAtsFormat = cvData.format_options.format === 'ats';
     const headerStyle = isAtsFormat 
-        ? 'text-align: left; border-bottom: 1px solid #000; padding-bottom: 10px; margin-bottom: 20px;' 
-        : 'text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px;';
+        ? 'text-align: left; padding-bottom: 10px; margin-bottom: 20px;' 
+        : 'text-align: center; padding-bottom: 10px; margin-bottom: 20px;';
     
     const nameStyle = isAtsFormat 
         ? 'font-size: 18px; font-weight: bold; margin-bottom: 5px;' 
@@ -814,6 +821,8 @@ function updatePreview() {
     let html = `
         <div style="${headerStyle}">
             <div style="${nameStyle}">${cvData.personal_info.name}</div>
+            <div style="border-bottom: 2px solid #000000; margin: 5px 0;"></div>
+            ${cvData.personal_info.position ? `<div style="font-size: 20px; font-weight: 600; color: #000000; margin-bottom: 5px; text-transform: uppercase;">${cvData.personal_info.position}</div>` : ''}
             <div style="font-size: 12px;">${contactInfo}</div>
             ${socialLinks.length > 0 ? `<div style="font-size: 11px; margin-top: 5px;">${socialLinks.join(' | ')}</div>` : ''}
         </div>
@@ -822,7 +831,7 @@ function updatePreview() {
     // Resumen profesional
     if (cvData.professional_summary && cvData.professional_summary.trim()) {
         html += `
-            <div style="margin-bottom: 20px;">
+            <div style="margin-bottom: 14px;">
                 <div style="${sectionTitleStyle}">RESUMEN PROFESIONAL</div>
                 <div style="text-align: justify; line-height: 1.4;">${cvData.professional_summary}</div>
             </div>
@@ -924,8 +933,8 @@ function generateCV() {
     const selectedLang = window.selectedLanguage || 'es';
     cvData.target_language = selectedLang;
     
-    if (!cvData.personal_info.name || !cvData.personal_info.email) {
-        alert('Por favor completa al menos el nombre y email.');
+    if (!cvData.personal_info.name || !cvData.personal_info.email || !cvData.personal_info.position) {
+        alert('Por favor completa al menos el nombre, cargo/profesión y email.');
         return;
     }
     
@@ -1115,6 +1124,16 @@ function loadUserData() {
                         console.log('Set name:', pi.name);
                     } else {
                         console.warn('name input not found');
+                    }
+                }
+                
+                if (pi.position) {
+                    const positionInput = document.getElementById('position');
+                    if (positionInput) {
+                        positionInput.value = pi.position;
+                        console.log('Set position:', pi.position);
+                    } else {
+                        console.warn('position input not found');
                     }
                 }
                 
