@@ -429,62 +429,38 @@
         
         <div class="col-lg-4">
             <!-- Tips Section -->
-            <div class="card mb-4 {% if session.user_role == 'admin' %}editable-section{% endif %}">
-                {% if session.user_role == 'admin' %}
-                <div class="section-edit-pencil" onclick="openEditModal('tips_section', 'Sección: Consejos del Día', {
-                    section_title: 'Consejos del Día',
-                    section_icon: 'fas fa-lightbulb',
-                    section_icon_color: 'text-warning'
-                })">
-                    <i class="fas fa-pencil-alt"></i>
-                </div>
-                {% endif %}
+            <div class="card mb-4">
                 <div class="card-header">
                     <h5 class="mb-0">
                         <i class="fas fa-lightbulb me-2 text-warning"></i>Consejos del Día
                     </h5>
                 </div>
                 <div class="card-body">
-                    {% if daily_tips %}
-                    {% for tip in daily_tips %}
-                    <div class="tip-item mb-3 {% if session.user_role == 'admin' %}editable-card{% endif %} position-relative">
+                    {% for tip in tips_data %}
+                    <div class="tip-item {% if not loop.last %}mb-3{% endif %} editable-card position-relative">
                         {% if session.user_role == 'admin' %}
-                        <div class="card-edit-pencil" onclick="openEditModal('daily_tip_{{ loop.index }}', 'Consejo: {{ tip[0] }}', {
-                            title: '{{ tip[0] }}',
-                            description: '{{ tip[1] }}',
-                            icon: '{{ tip[2] or "fas fa-lightbulb" }}',
-                            icon_color: '{{ tip[3] or "text-primary" }}'
-                        })">
+                        <div class="card-edit-pencil" onclick="openEditModal('daily_tip_{{ tip.id }}', 'Editar Consejo', { title: '{{ tip.title }}', description: '{{ tip.description }}', icon: '{{ tip.icon }}', icon_color: '{{ tip.color }}' })">
                             <i class="fas fa-pencil-alt"></i>
                         </div>
                         {% endif %}
-                        <div class="d-flex p-3 border rounded" style="background-color: #f8f9fa;">
+                        <div class="d-flex">
                             <div class="tip-icon me-3">
-                                <i class="{{ tip[2] or 'fas fa-lightbulb' }} {{ tip[3] or 'text-primary' }}" style="font-size: 1.5rem;"></i>
+                                <i class="{{ tip.icon }} {{ tip.icon_color }}"></i>
                             </div>
                             <div>
-                                <h6 class="mb-1">{{ tip[0] }}</h6>
+                                <h6 class="mb-1">{{ tip.title }}</h6>
                                 <small class="text-muted">
-                                    {{ tip[1] }}
+                                    {{ tip.description }}
                                 </small>
                             </div>
                         </div>
                     </div>
                     {% endfor %}
-                    {% else %}
-                    <div class="text-center text-muted p-3">
-                        <i class="fas fa-lightbulb fa-2x mb-3"></i>
-                        <p>No hay consejos disponibles en este momento.</p>
-                        {% if session.user_role == 'admin' %}
-                        <button class="btn btn-sm btn-primary" onclick="openEditModal('daily_tip_new', 'Nuevo Consejo del Día', {
-                            icon: 'fas fa-lightbulb',
-                            icon_color: 'primary',
-                            title: '',
-                            description: ''
-                        })">
-                            <i class="fas fa-plus me-1"></i>Agregar Consejo
-                        </button>
-                        {% endif %}
+                    
+                    {% if tips_data|length == 0 %}
+                    <div class="text-center text-muted py-3">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No hay consejos disponibles en este momento.
                     </div>
                     {% endif %}
                 </div>
@@ -637,25 +613,7 @@
                         <textarea class="form-control" id="editDescription" name="description" rows="3"></textarea>
                     </div>
                     
-                    <!-- Ícono del cuadro -->
-                    <div class="mb-3" id="iconGroup">
-                        <label for="editIcon" class="form-label">Ícono</label>
-                        <input type="text" class="form-control" id="editIcon" name="icon" placeholder="fas fa-example">
-                        <small class="form-text text-muted">Ejemplo: fas fa-star, fab fa-facebook, fas fa-lightbulb</small>
-                    </div>
-                    
-                    <!-- Color del ícono -->
-                    <div class="mb-3" id="iconColorGroup">
-                        <label for="editIconColor" class="form-label">Color del Ícono</label>
-                        <select class="form-control" id="editIconColor" name="icon_color">
-                            <option value="text-primary">Azul (primary)</option>
-                            <option value="text-success">Verde (success)</option>
-                            <option value="text-warning">Amarillo (warning)</option>
-                            <option value="text-danger">Rojo (danger)</option>
-                            <option value="text-info">Celeste (info)</option>
-                            <option value="text-dark">Negro (dark)</option>
-                        </select>
-                    </div>
+
                     
                     <!-- Texto del botón -->
                     <div class="mb-3" id="buttonTextGroup" style="display: none;">
@@ -677,6 +635,9 @@
         </div>
     </div>
 </div>
+
+<!-- Modal para seleccionar icono -->
+
 
 <script>
 // Función para abrir el modal de edición de cuadros
@@ -737,15 +698,22 @@ function openEditModal(cardId, cardTitle, cardData) {
 
 // Función para guardar cambios del cuadro
 function saveCardEdit() {
-    const formData = new FormData(document.getElementById('editForm'));
-    const jsonData = {};
+    const elementId = document.getElementById('editElementId').value;
+    const jsonData = {
+        section: elementId,
+        title: document.getElementById('editTitle').value,
+        description: document.getElementById('editDescription').value,
+        icon: document.getElementById('editIcon').value,
+        icon_color: document.getElementById('editIconColor').value
+    };
     
-    // Convertir FormData a JSON
-    for (let [key, value] of formData.entries()) {
-        jsonData[key] = value;
+    // Determinar la URL según el tipo de contenido
+    let url = '/admin/update_content';
+    if (elementId && elementId.startsWith('daily_tip_')) {
+        url = '/admin/daily_tips/update';
     }
     
-    fetch('/admin/update_content', {
+    fetch(url, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -1181,4 +1149,54 @@ function showSuccessMessage(message) {
         </div>
     </div>
 </div>
+
+<script>
+
+
+
+
+
+
+
+// Función para abrir selector de iconos
+
+
+// Función para obtener CSRF token
+function getCsrfToken() {
+    const token = document.querySelector('meta[name="csrf-token"]');
+    return token ? token.getAttribute('content') : '';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // Agregar estilos CSS para mejorar la apariencia
+    const style = document.createElement('style');
+    style.textContent = `
+        .editable-tip-content input:focus,
+        .editable-tip-content textarea:focus {
+            background-color: #f8f9fa !important;
+            border: 1px solid #007bff !important;
+            border-radius: 4px;
+            padding: 4px 8px !important;
+        }
+        
+        .editable-tip-content {
+            transition: all 0.2s ease;
+        }
+        
+        .save-indicator {
+            animation: fadeInOut 2s ease-in-out;
+        }
+        
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(-50%) scale(0.8); }
+            20% { opacity: 1; transform: translateY(-50%) scale(1); }
+            80% { opacity: 1; transform: translateY(-50%) scale(1); }
+            100% { opacity: 0; transform: translateY(-50%) scale(0.8); }
+        }
+    `;
+    document.head.appendChild(style);
+});
+</script>
+
 {% endblock %}

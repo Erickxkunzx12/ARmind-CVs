@@ -132,6 +132,51 @@
             padding: 16px;
         }
     }
+    
+    /* Estilos para notas administrativas profesionales */
+    .admin-note {
+        transition: all 0.2s ease;
+        position: relative;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
+    .admin-note:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .admin-note [contenteditable]:focus {
+        background: rgba(255,255,255,0.9);
+        border-radius: 4px;
+        padding: 8px;
+        outline: 2px solid #007bff;
+        box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+        transition: all 0.2s ease;
+    }
+    
+    .admin-note [contenteditable]:not([contenteditable="true"]) {
+        cursor: default;
+    }
+    
+    .admin-note [contenteditable="true"] {
+        cursor: text;
+        transition: all 0.2s ease;
+    }
+    
+    .admin-note [contenteditable="true"]:hover {
+        background: rgba(255,255,255,0.6);
+        border-radius: 4px;
+        padding: 6px;
+    }
+    
+    .admin-note i {
+        flex-shrink: 0;
+    }
+    
+    .admin-note strong {
+        font-weight: 600;
+        font-size: 14px;
+    }
 </style>
 
 <div class="container mt-4">
@@ -189,7 +234,7 @@
     
     <div class="row">
         <!-- Formulario -->
-        <div class="col-md-6">
+        <div class="col-md-5">
             <div class="card">
                 <div class="card-header bg-secondary text-white">
                     <h5 class="mb-0"><i class="fas fa-edit"></i> Información del CV</h5>
@@ -468,10 +513,13 @@
         </div>
 
         <!-- Vista Previa -->
-        <div class="col-md-6">
+        <div class="col-md-5">
             <div class="card">
                 <div class="card-header bg-success text-white">
-                    <h4 class="mb-0"><i class="fas fa-eye"></i> Vista Previa</h4>
+                    <h4 class="mb-0">
+                        <i class="fas fa-eye"></i> Vista Previa 
+                        <span class="badge bg-warning text-dark ms-2" style="font-size: 0.7em; padding: 4px 8px; border-radius: 12px;">BETA</span>
+                    </h4>
                 </div>
                 <div class="card-body">
                     <div id="cvPreview" class="border p-3" style="min-height: 600px; background: white; font-family: 'Times New Roman', serif;">
@@ -486,6 +534,55 @@
                         </button>
                     </div>
                 </div>
+            </div>
+        </div>
+        
+        <!-- Post-its Informativos -->
+        <div class="col-md-2">
+            <!-- Post-it sobre nombres duplicados -->
+            <div class="admin-note mb-4" style="
+                background: #f8f9fa;
+                border: 1px solid #dee2e6;
+                border-left: 4px solid #007bff;
+                border-radius: 6px;
+                padding: 15px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                font-size: 13px;
+                line-height: 1.4;
+            ">
+                <div class="d-flex align-items-start mb-2">
+                    <i class="fas fa-exclamation-triangle text-warning me-2 mt-1"></i>
+                    <strong class="text-dark">Importante</strong>
+                </div>
+                <div class="text-muted">
+                    <span id="duplicate-name-warning" {% if session.get('is_admin') %}contenteditable="true"{% endif %} style="outline: none; display: block;">No se puede guardar o generar un CV con el mismo nombre.</span>
+                </div>
+                {% if session.get('is_admin') %}
+                <small class="text-muted d-block mt-2"><i class="fas fa-edit"></i> Editable por admin</small>
+                {% endif %}
+            </div>
+            
+            <!-- Post-it sobre vista previa beta -->
+            <div class="admin-note" style="
+                background: #fff3cd;
+                border: 1px solid #ffeaa7;
+                border-left: 4px solid #ffc107;
+                border-radius: 6px;
+                padding: 15px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                font-size: 13px;
+                line-height: 1.4;
+            ">
+                <div class="d-flex align-items-start mb-2">
+                    <i class="fas fa-info-circle text-warning me-2 mt-1"></i>
+                    <strong class="text-dark">Información</strong>
+                </div>
+                <div class="text-muted">
+                    <span id="beta-preview-info" {% if session.get('is_admin') %}contenteditable="true"{% endif %} style="outline: none; display: block;">El apartado de vista previa aún se encuentra en fase de beta. Por lo cual no va a poder visualizar la traducción completa del idioma seleccionado. Pero al momento de descargar el currículum, va a tenerlo completamente traducido al idioma seleccionado.</span>
+                </div>
+                {% if session.get('is_admin') %}
+                <small class="text-muted d-block mt-2"><i class="fas fa-edit"></i> Editable por admin</small>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -1415,5 +1512,64 @@ function exportPdf() {
         alert('Primero debes generar el CV antes de poder descargarlo.');
     }
 }
+
+// Funcionalidad para notas administrativas editables
+document.addEventListener('DOMContentLoaded', function() {
+    // Cargar contenido guardado de las notas administrativas
+    const duplicateWarning = document.getElementById('duplicate-name-warning');
+    const betaPreviewInfo = document.getElementById('beta-preview-info');
+    
+    if (duplicateWarning) {
+        // Cargar desde localStorage
+        const savedDuplicateWarning = localStorage.getItem('admin-duplicate-warning');
+        if (savedDuplicateWarning) {
+            duplicateWarning.textContent = savedDuplicateWarning;
+        }
+        
+        // Guardar automáticamente cuando se edite (solo si es editable)
+        if (duplicateWarning.getAttribute('contenteditable') === 'true') {
+            duplicateWarning.addEventListener('input', function() {
+                localStorage.setItem('admin-duplicate-warning', this.textContent);
+            });
+            
+            // Efecto visual al editar
+            duplicateWarning.addEventListener('focus', function() {
+                this.closest('.admin-note').style.transform = 'translateY(-4px)';
+                this.closest('.admin-note').style.boxShadow = '0 6px 16px rgba(0,0,0,0.2)';
+            });
+            
+            duplicateWarning.addEventListener('blur', function() {
+                this.closest('.admin-note').style.transform = 'translateY(0)';
+                this.closest('.admin-note').style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+            });
+        }
+    }
+    
+    if (betaPreviewInfo) {
+        // Cargar desde localStorage
+        const savedBetaPreviewInfo = localStorage.getItem('admin-beta-preview-info');
+        if (savedBetaPreviewInfo) {
+            betaPreviewInfo.textContent = savedBetaPreviewInfo;
+        }
+        
+        // Guardar automáticamente cuando se edite (solo si es editable)
+        if (betaPreviewInfo.getAttribute('contenteditable') === 'true') {
+            betaPreviewInfo.addEventListener('input', function() {
+                localStorage.setItem('admin-beta-preview-info', this.textContent);
+            });
+            
+            // Efecto visual al editar
+            betaPreviewInfo.addEventListener('focus', function() {
+                this.closest('.admin-note').style.transform = 'translateY(-4px)';
+                this.closest('.admin-note').style.boxShadow = '0 6px 16px rgba(0,0,0,0.2)';
+            });
+            
+            betaPreviewInfo.addEventListener('blur', function() {
+                this.closest('.admin-note').style.transform = 'translateY(0)';
+                this.closest('.admin-note').style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+            });
+        }
+    }
+});
 </script>
 {% endblock %}

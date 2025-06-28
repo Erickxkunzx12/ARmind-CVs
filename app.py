@@ -1384,12 +1384,6 @@ def dashboard():
         result = cursor.fetchone()
         stats['jobs_found'] = result['count'] if result else 0
         
-        # Obtener consejos del día activos
-        cursor.execute(
-            "SELECT title, description, icon, color FROM daily_tips WHERE is_active = TRUE ORDER BY RANDOM() LIMIT 5"
-        )
-        daily_tips = cursor.fetchall()
-        
         # Obtener contenido del sitio
         cursor.execute(
             "SELECT section, content_key, content_value FROM site_content"
@@ -1404,6 +1398,55 @@ def dashboard():
         cursor.close()
         connection.close()
     
+    # Obtener consejos del día desde la tabla daily_tips
+    tips_data = []
+    try:
+        connection = get_db_connection()
+        if connection:
+            cursor = connection.cursor()
+            
+            # Obtener todos los consejos del día desde la base de datos
+            cursor.execute("""
+                SELECT id, title, description, icon, color, is_active 
+                FROM daily_tips 
+                WHERE is_active = 1
+                ORDER BY id
+            """)
+            
+            daily_tips_results = cursor.fetchall()
+            
+            # Convertir a formato compatible con el template
+            for tip in daily_tips_results:
+                tips_data.append({
+                    'id': tip['id'],
+                    'title': tip['title'],
+                    'description': tip['description'],
+                    'icon': tip['icon'],
+                    'icon_color': tip['color']
+                })
+            
+            cursor.close()
+            connection.close()
+    except Exception as e:
+        print(f"Error cargando consejos del día desde BD: {e}")
+        # Valores por defecto si hay error
+        tips_data = [
+            {
+                'id': 1,
+                'title': 'Formato Profesional',
+                'description': 'Usa un formato limpio y profesional para tu CV.',
+                'icon': 'fas fa-file-alt',
+                'icon_color': 'text-info'
+            },
+            {
+                'id': 2,
+                'title': 'Palabras Clave',
+                'description': 'Incluye palabras clave relevantes para tu industria.',
+                'icon': 'fas fa-key',
+                'icon_color': 'text-primary'
+            }
+        ]
+    
     # Obtener información de suscripción del usuario
     from subscription_helpers import get_complete_user_usage
     from subscription_system import get_user_subscription, SUBSCRIPTION_PLANS
@@ -1413,7 +1456,7 @@ def dashboard():
     
     return render_template('dashboard.html', 
                          stats=stats, 
-                         daily_tips=daily_tips, 
+                         tips_data=tips_data, 
                          site_content=site_content,
                          user_subscription=user_subscription,
                          user_usage=user_usage,
@@ -3026,10 +3069,12 @@ def improve_cv_with_ai(cv_data, target_language='es'):
         
         # ETAPA 2: TRADUCIR TODO EL CV AL IDIOMA SELECCIONADO
         print(f"[DEBUG] === ETAPA 2: TRADUCIENDO TODO EL CV ===")
-        print(f"[DEBUG] Idioma objetivo: {target_language_name}")
+        print(f"[DEBUG] Idioma objetivo código: {target_language}")
+        print(f"[DEBUG] Idioma objetivo nombre: {target_language_name}")
+        print(f"[DEBUG] Condición target_language != 'es': {target_language != 'es'}")
         
         if target_language != 'es':
-            print(f"[DEBUG] Iniciando traducción completa al {target_language_name}")
+            print(f"[DEBUG] ✅ Iniciando traducción completa al {target_language_name}")
             
             # Traducir información personal (excluyendo nombres)
             if improved_data.get('personal_info'):
@@ -3187,7 +3232,7 @@ def improve_cv_with_ai(cv_data, target_language='es'):
             improved_data['section_titles'] = section_titles
             
         else:
-            print(f"[DEBUG] No se requiere traducción (idioma español)")
+            print(f"[DEBUG] ❌ No se requiere traducción (idioma español o código: {target_language})")
             # Agregar títulos en español por defecto
             improved_data['section_titles'] = section_titles
         
@@ -3208,6 +3253,7 @@ def translate_cv_fields(cv_data, target_language_name):
         education = cv_data.get('education', [])
         if education:
             for edu in education:
+                # Traducir título académico (degree)
                 if edu.get('degree'):
                     translate_prompt = f"""
                     Traduce este título académico al {target_language_name}: {edu['degree']}
@@ -3222,13 +3268,39 @@ def translate_cv_fields(cv_data, target_language_name):
                         response = OPENAI_CLIENT.chat.completions.create(
                             model="gpt-3.5-turbo",
                             messages=[
-                                {"role": "system", "content": f"Eres un traductor profesional especializado en términos académicos. Traduce al {target_language_name} pero NO traduzcas nombres propios."},
+                                {"role": "system", "content": f"Eres un traductor profesional especializado en CVs y documentos profesionales. Traduce al {target_language_name} pero NO traduzcas nombres propios."},
                                 {"role": "user", "content": translate_prompt}
                             ],
                             max_tokens=100,
                             temperature=0.3
                         )
                         edu['degree'] = response.choices[0].message.content.strip()
+                    except Exception:
+                        pass  # Mantener original si hay error
+                
+                # Traducir carrera (career)
+                if edu.get('career'):
+                    translate_prompt = f"""
+                    Traduce este nombre de carrera al {target_language_name}: {edu['career']}
+                    
+                    Instrucciones:
+                    1. Traduce solo el nombre de la carrera o programa académico
+                    2. NO traduzcas nombres propios de instituciones educativas
+                    3. NO traduzcas nombres propios de personas
+                    4. Responde solo con la traducción del nombre de la carrera
+                    """
+                    try:
+                        response = OPENAI_CLIENT.chat.completions.create(
+                            model="gpt-3.5-turbo",
+                            messages=[
+                                {"role": "system", "content": f"Eres un traductor profesional especializado en CVs y documentos profesionales. Traduce al {target_language_name} pero NO traduzcas nombres propios."},
+                                {"role": "user", "content": translate_prompt}
+                            ],
+                            max_tokens=100,
+                            temperature=0.3
+                        )
+                        edu['career'] = response.choices[0].message.content.strip()
+                        print(f"[DEBUG] Carrera traducida: {edu['career']}")
                     except Exception:
                         pass  # Mantener original si hay error
         
@@ -3251,7 +3323,7 @@ def translate_cv_fields(cv_data, target_language_name):
                         response = OPENAI_CLIENT.chat.completions.create(
                             model="gpt-3.5-turbo",
                             messages=[
-                                {"role": "system", "content": f"Eres un traductor profesional especializado en certificaciones. Traduce al {target_language_name} pero NO traduzcas nombres propios, marcas o instituciones."},
+                                {"role": "system", "content": f"Eres un traductor profesional especializado en CVs y documentos profesionales. Traduce al {target_language_name} pero NO traduzcas nombres propios, marcas o instituciones."},
                                 {"role": "user", "content": translate_prompt}
                             ],
                             max_tokens=100,
@@ -3277,7 +3349,7 @@ def translate_cv_fields(cv_data, target_language_name):
                 response = OPENAI_CLIENT.chat.completions.create(
                     model="gpt-3.5-turbo",
                     messages=[
-                        {"role": "system", "content": f"Eres un traductor profesional. Traduce al {target_language_name}."},
+                        {"role": "system", "content": f"Eres un traductor profesional especializado en CVs y documentos profesionales. Traduce al {target_language_name}."},
                         {"role": "user", "content": translate_prompt}
                     ],
                     max_tokens=20,
@@ -6401,7 +6473,7 @@ def update_content_inline():
             tip_index = int(section.split('_')[-1])
             
             # Obtener el ID del consejo basado en el índice
-            cursor.execute("SELECT id FROM daily_tips ORDER BY id LIMIT %s, 1", (tip_index - 1,))
+            cursor.execute("SELECT id FROM daily_tips ORDER BY id LIMIT 1 OFFSET %s", (tip_index - 1,))
             result = cursor.fetchone()
             
             if result:
@@ -6554,10 +6626,14 @@ def admin_add_tip():
     username = session.get('username', 'unknown')
     user_id = session.get('user_id')
     
-    title = request.form.get('title')
-    description = request.form.get('description')
-    icon = request.form.get('icon', 'fas fa-lightbulb')
-    color = request.form.get('color', 'primary')
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'message': 'No se recibieron datos'})
+    
+    title = data.get('title', 'Nuevo Consejo')
+    description = data.get('description', 'Descripción del consejo')
+    icon = data.get('icon', 'fas fa-lightbulb')
+    color = data.get('color', 'primary')
     
     if not all([title, description]):
         return jsonify({'success': False, 'message': 'Título y descripción son requeridos'})
@@ -6627,12 +6703,134 @@ def admin_update_tip():
         app.logger.error(f"Error actualizando consejo: {e}")
         return jsonify({'success': False, 'message': 'Error actualizando consejo'})
 
+@app.route('/admin/daily_tips/update', methods=['POST'])
+@admin_required
+def admin_update_daily_tip():
+    """Actualizar consejo del día desde modal"""
+    username = session.get('username', 'unknown')
+    user_id = session.get('user_id')
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'message': 'No se recibieron datos'})
+    
+    section = data.get('section')
+    title = data.get('title')
+    description = data.get('description')
+    icon = data.get('icon')
+    icon_color = data.get('icon_color')
+    
+    # Extraer el ID del consejo del section (formato: daily_tip_X)
+    if not section or not section.startswith('daily_tip_'):
+        return jsonify({'success': False, 'message': 'Sección inválida'})
+    
+    try:
+        tip_id = int(section.split('_')[2])
+    except (IndexError, ValueError):
+        return jsonify({'success': False, 'message': 'ID de consejo inválido'})
+    
+    if not all([title, description]):
+        return jsonify({'success': False, 'message': 'Título y descripción son requeridos'})
+    
+    connection = get_db_connection()
+    if not connection:
+        return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'})
+    
+    try:
+        cursor = connection.cursor()
+        
+        cursor.execute("""
+            UPDATE daily_tips 
+            SET title = %s, description = %s, icon = %s, color = %s, 
+                updated_at = CURRENT_TIMESTAMP, updated_by = %s 
+            WHERE id = %s
+        """, (title, description, icon, icon_color, user_id, tip_id))
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        add_console_log('INFO', f'Admin {username} actualizó consejo del día ID {tip_id}', 'CONTENT')
+        return jsonify({'success': True, 'message': 'Consejo actualizado correctamente'})
+        
+    except Exception as e:
+        app.logger.error(f"Error actualizando consejo del día: {e}")
+        return jsonify({'success': False, 'message': 'Error actualizando consejo'})
+
+@app.route('/admin/tips/update_inline', methods=['POST'])
+@admin_required
+def admin_update_tip_inline():
+    """Actualizar consejo del día en línea"""
+    username = session.get('username', 'unknown')
+    user_id = session.get('user_id')
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'message': 'No se recibieron datos'})
+    
+    tip_id = data.get('tip_id')
+    field = data.get('field')
+    value = data.get('value')
+    
+    # Validación específica por campo
+    if tip_id is None or not field:
+        return jsonify({'success': False, 'message': 'Datos incompletos'})
+    
+    if field == 'icon':
+        icon = data.get('icon')
+        color = data.get('color')
+        if not icon or not color:
+            return jsonify({'success': False, 'message': 'Icono y color requeridos'})
+    elif not value:
+        return jsonify({'success': False, 'message': 'Valor requerido'})
+    
+    connection = get_db_connection()
+    if not connection:
+        return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'})
+    
+    try:
+        cursor = connection.cursor()
+        
+        # Usar directamente el ID real del consejo
+        real_tip_id = int(tip_id)
+        
+        # Actualizar el campo específico
+        if field == 'title':
+            cursor.execute("UPDATE daily_tips SET title = %s, updated_at = CURRENT_TIMESTAMP, updated_by = %s WHERE id = %s", 
+                         (value, user_id, real_tip_id))
+        elif field == 'description':
+            cursor.execute("UPDATE daily_tips SET description = %s, updated_at = CURRENT_TIMESTAMP, updated_by = %s WHERE id = %s", 
+                         (value, user_id, real_tip_id))
+        elif field == 'icon':
+            icon = data.get('icon')
+            color = data.get('color')
+            cursor.execute("UPDATE daily_tips SET icon = %s, color = %s, updated_at = CURRENT_TIMESTAMP, updated_by = %s WHERE id = %s", 
+                         (icon, color, user_id, real_tip_id))
+        else:
+            return jsonify({'success': False, 'message': 'Campo no válido'})
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        add_console_log('INFO', f'Admin {username} actualizó consejo ID {real_tip_id} campo {field}', 'CONTENT')
+        return jsonify({'success': True, 'message': 'Consejo actualizado correctamente'})
+        
+    except Exception as e:
+        app.logger.error(f"Error actualizando consejo en línea: {e}")
+        return jsonify({'success': False, 'message': 'Error actualizando consejo'})
+
 @app.route('/admin/tips/delete', methods=['POST'])
 @admin_required
 def admin_delete_tip():
     """Eliminar consejo del día"""
     username = session.get('username', 'unknown')
-    tip_id = request.form.get('tip_id')
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'message': 'No se recibieron datos'})
+    
+    tip_id = data.get('tip_id')
     
     if not tip_id:
         return jsonify({'success': False, 'message': 'ID de consejo requerido'})
@@ -6644,7 +6842,10 @@ def admin_delete_tip():
     try:
         cursor = connection.cursor()
         
-        cursor.execute("DELETE FROM daily_tips WHERE id = %s", (tip_id,))
+        # Usar directamente el ID real del consejo
+        real_tip_id = int(tip_id)
+        
+        cursor.execute("DELETE FROM daily_tips WHERE id = %s", (real_tip_id,))
         
         connection.commit()
         cursor.close()
