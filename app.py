@@ -515,21 +515,25 @@ def init_default_content(cursor):
             ON CONFLICT (section, content_key) DO NOTHING
         """, (section, key, value))
     
-    # Consejos del día por defecto
-    default_tips = [
-        ('Palabras Clave', 'Incluye palabras clave relevantes del sector en tu CV para mejorar tu puntuación ATS.', 'fas fa-key', 'primary'),
-        ('Cuantifica Logros', 'Usa números y porcentajes para demostrar el impacto de tus logros profesionales.', 'fas fa-chart-bar', 'success'),
-        ('Formato Limpio', 'Mantén un diseño limpio y profesional. Evita fuentes decorativas y colores excesivos.', 'fas fa-format-align-left', 'info'),
-        ('Formato Claro', 'Asegúrate de que tu CV tenga un formato limpio y sea fácil de leer.', 'fas fa-check-circle', 'success'),
-        ('Logros Cuantificados', 'Usa números y porcentajes para demostrar tus logros.', 'fas fa-chart-bar', 'info'),
-        ('Sin Errores', 'Revisa la ortografía y gramática antes de subir tu CV.', 'fas fa-spell-check', 'warning')
-    ]
-    
-    for title, description, icon, color in default_tips:
-        cursor.execute("""
-            INSERT INTO daily_tips (title, description, icon, color) 
-            VALUES (%s, %s, %s, %s)
-        """, (title, description, icon, color))
+    # Consejos del día por defecto - solo insertar si no existen
+    try:
+        cursor.execute("SELECT COUNT(*) FROM daily_tips")
+        tips_count = cursor.fetchone()[0]
+        
+        if tips_count == 0:
+            default_tips = [
+                ('Palabras Clave', 'Incluye palabras clave relevantes del sector en tu CV para mejorar tu puntuación ATS.', 'fas fa-key', 'primary'),
+                ('Cuantifica Logros', 'Usa números y porcentajes para demostrar el impacto de tus logros profesionales.', 'fas fa-chart-bar', 'success')
+            ]
+            
+            for title, description, icon, color in default_tips:
+                cursor.execute("""
+                    INSERT INTO daily_tips (title, description, icon, color) 
+                    VALUES (%s, %s, %s, %s)
+                """, (title, description, icon, color))
+    except Exception as e:
+        # Si hay error, continuar sin insertar consejos
+        pass
 
 def init_database():
     """Inicializar la base de datos y crear las tablas necesarias"""
@@ -841,7 +845,11 @@ def save_image_to_database(image_file):
             
             result = cursor.fetchone()
             if result:
-                image_id = result[0]
+                # Manejar tanto tuplas como diccionarios
+                if isinstance(result, dict):
+                    image_id = result['id']
+                else:
+                    image_id = result[0]
                 app.logger.info(f"Imagen guardada con ID: {image_id}")
             else:
                 app.logger.error("No se obtuvo ID de la imagen insertada")
@@ -894,7 +902,13 @@ def serve_image(image_id):
         if not result:
             abort(404)
             
-        image_data, content_type, filename = result
+        # Manejar tanto tuplas como diccionarios
+        if isinstance(result, dict):
+            image_data = result['image_data']
+            content_type = result['content_type']
+            filename = result['filename']
+        else:
+            image_data, content_type, filename = result
         
         from flask import Response
         return Response(
@@ -1409,7 +1423,7 @@ def dashboard():
             cursor.execute("""
                 SELECT id, title, description, icon, color, is_active 
                 FROM daily_tips 
-                WHERE is_active = 1
+                WHERE is_active = true
                 ORDER BY id
             """)
             
@@ -6442,6 +6456,15 @@ def update_content_inline():
         
         section = data.get('element_id')
         
+        # Debug logging para identificar el problema
+        app.logger.info(f"Datos recibidos: {data}")
+        app.logger.info(f"Section/element_id: {section} (tipo: {type(section)})")
+        
+        # Validar que section sea un string válido
+        if not section or not isinstance(section, str):
+            app.logger.error(f"Section inválido: {section}")
+            return jsonify({'success': False, 'message': f'Identificador de sección inválido: {section}'})
+        
         # Obtener todos los campos del cuadro
         title = data.get('title')
         description = data.get('description')
@@ -6470,28 +6493,43 @@ def update_content_inline():
         # Manejar diferentes tipos de secciones
         if section.startswith('daily_tip_'):
             # Actualizar consejo del día específico
-            tip_index = int(section.split('_')[-1])
-            
-            # Obtener el ID del consejo basado en el índice
-            cursor.execute("SELECT id FROM daily_tips ORDER BY id LIMIT 1 OFFSET %s", (tip_index - 1,))
-            result = cursor.fetchone()
-            
-            if result:
-                tip_id = result[0]
+            try:
+                tip_id = int(section.split('_')[-1])
+                app.logger.info(f"Actualizando tip con ID: {tip_id}")
                 
+                # Verificar que el tip existe
+                cursor.execute("SELECT id FROM daily_tips WHERE id = %s", (tip_id,))
+                result = cursor.fetchone()
+                
+                if not result:
+                    app.logger.error(f"No se encontró tip con ID: {tip_id}")
+                    return jsonify({'success': False, 'message': f'No se encontró el consejo con ID: {tip_id}'})
+                
+                # Actualizar campos
                 if title:
                     cursor.execute("UPDATE daily_tips SET title = %s WHERE id = %s", (title, tip_id))
+                    app.logger.info(f"Título actualizado: {title}")
                 
                 if description:
                     cursor.execute("UPDATE daily_tips SET description = %s WHERE id = %s", (description, tip_id))
+                    app.logger.info(f"Descripción actualizada: {description}")
                 
                 if icon:
                     cursor.execute("UPDATE daily_tips SET icon = %s WHERE id = %s", (icon, tip_id))
+                    app.logger.info(f"Icono actualizado: {icon}")
                 
                 if icon_color:
                     # Limpiar el prefijo 'text-' si existe
                     color_value = icon_color.replace('text-', '') if icon_color.startswith('text-') else icon_color
                     cursor.execute("UPDATE daily_tips SET color = %s WHERE id = %s", (color_value, tip_id))
+                    app.logger.info(f"Color actualizado: {color_value}")
+                    
+            except ValueError as e:
+                app.logger.error(f"Error convirtiendo tip_id: {e}")
+                return jsonify({'success': False, 'message': 'ID de consejo inválido'})
+            except Exception as e:
+                app.logger.error(f"Error actualizando daily_tip: {e}")
+                return jsonify({'success': False, 'message': f'Error actualizando consejo: {str(e)}'})
         
         elif section.startswith('quick_action_'):
             # Actualizar acciones rápidas
