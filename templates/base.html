@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}ARMind CVs{% endblock %}</title>
+    <title>{% block title %}ARMindCV{% endblock %}</title>
     
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
@@ -546,16 +546,16 @@
                         <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('cv_builder') }}">Crear CV</a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('analyze_cv') }}">Analizar CV</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('job_search') }}">Buscar Empleos</a>
+                        <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('compare_cv_job') }}">Compatibilidad CV </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('cover_letter_generator') }}">Crear Carta</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('cv_builder') }}">Crear CV</a>
+                        <a class="nav-link" href="{{ url_for('cover_letter_generator') }}">Carta Presentación</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('my_cvs') }}">Mis CVs</a>
@@ -564,8 +564,11 @@
                         <a class="nav-link" href="{{ url_for('my_analyses') }}">Mis Análisis</a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('job_search') }}">Buscar Empleos</a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('blog_tips') }}">
-                            <i class="fas fa-lightbulb me-1"></i>Tips y Sugerencias
+                            <i class="fas fa-lightbulb me-1"></i>Tips
                         </a>
                     </li>
                     {% if session.user_role == 'admin' %}
@@ -652,6 +655,31 @@
     
     <!-- Custom JavaScript -->
     <script>
+        // Manejador global de errores JavaScript
+        window.addEventListener('error', function(e) {
+            // Manejar errores específicos conocidos
+            if (e.filename && e.filename.includes('injection-topics.js')) {
+                console.warn('Script injection-topics.js no encontrado - error ignorado');
+                e.preventDefault();
+                return false;
+            }
+            
+            // Log otros errores para debugging
+            console.error('Error JavaScript:', {
+                message: e.message,
+                filename: e.filename,
+                lineno: e.lineno,
+                colno: e.colno,
+                error: e.error
+            });
+        });
+        
+        // Manejador para promesas rechazadas
+        window.addEventListener('unhandledrejection', function(e) {
+            console.error('Promesa rechazada:', e.reason);
+            e.preventDefault();
+        });
+        
         // Función para mostrar/ocultar spinner de carga
         function toggleLoading(show = true) {
             const spinner = document.querySelector('.loading-spinner');
@@ -685,19 +713,35 @@
         
         // Initialize tooltips when DOM is ready
         document.addEventListener('DOMContentLoaded', function() {
-            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
-            });
+            try {
+                // Inicializar tooltips si Bootstrap está disponible
+                if (typeof bootstrap !== 'undefined') {
+                    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                        return new bootstrap.Tooltip(tooltipTriggerEl);
+                    });
+                }
+                
+                console.log('Aplicación inicializada correctamente');
+                
+            } catch (error) {
+                console.error('Error durante la inicialización:', error);
+            }
         });
         
         // Auto-hide alerts after 5 seconds (except admin controls)
         setTimeout(function() {
-            const alerts = document.querySelectorAll('.alert:not(.admin-controls .alert)');
-            alerts.forEach(function(alert) {
-                const bsAlert = new bootstrap.Alert(alert);
-                bsAlert.close();
-            });
+            try {
+                const alerts = document.querySelectorAll('.alert:not(.admin-controls .alert)');
+                alerts.forEach(function(alert) {
+                    if (typeof bootstrap !== 'undefined') {
+                        const bsAlert = new bootstrap.Alert(alert);
+                        bsAlert.close();
+                    }
+                });
+            } catch (error) {
+                console.error('Error al ocultar alertas:', error);
+            }
         }, 5000);
         
         // Bootstrap maneja automáticamente los dropdowns

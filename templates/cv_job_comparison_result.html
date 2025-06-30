@@ -1,0 +1,344 @@
+{% extends "base.html" %}
+
+{% block title %}Resultado Comparación CV-Oferta - ARMindCV{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="fw-bold mb-2">
+                        <i class="fas fa-chart-line me-2 text-primary"></i>Resultado de Comparación
+                    </h2>
+                    <p class="text-muted mb-0">
+                        Análisis de compatibilidad entre tu CV y la oferta laboral
+                    </p>
+                </div>
+                <div>
+                    <a href="{{ url_for('compare_cv_job') }}" class="btn btn-outline-primary me-2">
+                        <i class="fas fa-plus me-2"></i>Nueva Comparación
+                    </a>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Información del análisis -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-1">Archivo analizado:</h6>
+                            <p class="mb-0"><i class="fas fa-file-alt me-2"></i>{{ filename }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-1">Oferta laboral:</h6>
+                            <p class="mb-0"><i class="fas fa-briefcase me-2"></i>{{ job_description }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Puntaje de coincidencia -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-percentage me-2"></i>Puntaje de Coincidencia
+                    </h5>
+                </div>
+                <div class="card-body text-center">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <div class="position-relative d-inline-block">
+                                <canvas id="matchChart" width="200" height="200"></canvas>
+                                <div class="position-absolute top-50 start-50 translate-middle">
+                                    <h1 class="display-4 fw-bold text-primary mb-0">{{ result.match_percentage|default(0) }}%</h1>
+                                    <p class="text-muted mb-0">Compatibilidad</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 text-start">
+                            <div class="mb-3">
+                                {% set match_pct = result.match_percentage|default(0) %}
+                                {% if match_pct >= 80 %}
+                                    <div class="alert alert-success">
+                                        <i class="fas fa-check-circle me-2"></i>
+                                        <strong>¡Excelente compatibilidad!</strong><br>
+                                        Tu CV está muy bien alineado con esta oferta laboral.
+                                    </div>
+                                {% elif match_pct >= 60 %}
+                                    <div class="alert alert-warning">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                        <strong>Buena compatibilidad</strong><br>
+                                        Tu CV tiene potencial, pero puede mejorarse.
+                                    </div>
+                                {% else %}
+                                    <div class="alert alert-danger">
+                                        <i class="fas fa-times-circle me-2"></i>
+                                        <strong>Compatibilidad baja</strong><br>
+                                        Considera optimizar tu CV para esta posición.
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="progress mb-2" style="height: 20px;">
+                                {% set match_pct = result.match_percentage|default(0) %}
+                                {% if match_pct >= 80 %}
+                                    <div class="progress-bar bg-success" style="width: {{ match_pct }}%"></div>
+                                {% elif match_pct >= 60 %}
+                                    <div class="progress-bar bg-warning" style="width: {{ match_pct }}%"></div>
+                                {% else %}
+                                    <div class="progress-bar bg-danger" style="width: {{ match_pct }}%"></div>
+                                {% endif %}
+                            </div>
+                            <small class="text-muted">Basado en análisis de IA de habilidades, experiencia y palabras clave</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Fortalezas encontradas -->
+        <div class="col-lg-4 mb-4">
+            <div class="card h-100 border-success">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-star me-2"></i>Tus Fortalezas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">Aspectos destacados de tu CV para esta oferta:</p>
+                    {% if result and result.strengths and result.strengths|length > 0 %}
+                        <ul class="list-unstyled">
+                            {% for strength in result.strengths %}
+                                <li class="mb-2">
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    {{ strength }}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted">No se identificaron fortalezas específicas.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Palabras clave encontradas -->
+        <div class="col-lg-4 mb-4">
+            <div class="card h-100 border-info">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-key me-2"></i>Palabras Clave
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">Términos relevantes encontrados en tu CV:</p>
+                    {% if result and result.keywords_found and result.keywords_found|length > 0 %}
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for keyword in result.keywords_found %}
+                                <span class="badge bg-info">{{ keyword }}</span>
+                            {% endfor %}
+                        </div>
+                        <small class="text-muted mt-3 d-block">
+                            <i class="fas fa-lightbulb me-1"></i>
+                            Estas palabras clave ayudan a que tu CV sea detectado por sistemas ATS.
+                        </small>
+                    {% else %}
+                        <p class="text-muted">No se identificaron palabras clave específicas.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mejoras recomendadas -->
+        <div class="col-lg-4 mb-4">
+            <div class="card h-100 border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-lightbulb me-2"></i>Mejoras Sugeridas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">Recomendaciones para aumentar tu compatibilidad:</p>
+                    {% if result and result.improvements and result.improvements|length > 0 %}
+                        <ul class="list-unstyled">
+                            {% for improvement in result.improvements %}
+                                <li class="mb-2">
+                                    <i class="fas fa-arrow-up text-warning me-2"></i>
+                                    {{ improvement }}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted">No se identificaron mejoras específicas.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Resumen ejecutivo -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-file-alt me-2"></i>Resumen Ejecutivo
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-light">
+                        <p class="mb-0">{{ result.summary|default('No se pudo generar un resumen del análisis.') }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Acciones recomendadas -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-rocket me-2"></i>Próximos Pasos
+                    </h5>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <div class="d-flex align-items-start">
+                                <div class="flex-shrink-0">
+                                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                        <span class="fw-bold">1</span>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <h6 class="mb-1">Optimiza tu CV</h6>
+                                    <small class="text-muted">Implementa las mejoras sugeridas para aumentar tu compatibilidad.</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="d-flex align-items-start">
+                                <div class="flex-shrink-0">
+                                    <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                        <span class="fw-bold">2</span>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <h6 class="mb-1">Analiza nuevamente</h6>
+                                    <small class="text-muted">Vuelve a comparar tu CV optimizado con la misma oferta.</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="d-flex align-items-start">
+                                <div class="flex-shrink-0">
+                                    <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                        <span class="fw-bold">3</span>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <h6 class="mb-1">Aplica con confianza</h6>
+                                    <small class="text-muted">Envía tu CV optimizado y aumenta tus posibilidades de éxito.</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        // Verificar que Chart.js esté disponible
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js no está disponible');
+            return;
+        }
+        
+        // Verificar que el elemento del gráfico exista
+        const chartElement = document.getElementById('matchChart');
+        if (!chartElement) {
+            console.error('Elemento matchChart no encontrado');
+            return;
+        }
+        
+        // Crear gráfico circular para el puntaje
+        const ctx = chartElement.getContext('2d');
+        const matchPercentage = {{ result.match_percentage|default(0) }};
+        
+        // Validar que matchPercentage sea un número válido
+        const validPercentage = isNaN(matchPercentage) ? 0 : Math.max(0, Math.min(100, matchPercentage));
+        
+        let color;
+        if (validPercentage >= 80) {
+            color = '#198754'; // success
+        } else if (validPercentage >= 60) {
+            color = '#ffc107'; // warning
+        } else {
+            color = '#dc3545'; // danger
+        }
+        
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                datasets: [{
+                    data: [validPercentage, 100 - validPercentage],
+                    backgroundColor: [color, '#e9ecef'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: false,
+                maintainAspectRatio: false,
+                cutout: '70%',
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        enabled: false
+                    }
+                }
+            }
+        });
+        
+        console.log('Gráfico de comparación CV-Trabajo creado exitosamente');
+        
+    } catch (error) {
+        console.error('Error al crear el gráfico:', error);
+        // Mostrar el porcentaje sin gráfico si hay error
+        const chartElement = document.getElementById('matchChart');
+        if (chartElement) {
+            chartElement.style.display = 'none';
+        }
+    }
+});
+
+// Prevenir errores de scripts externos
+window.addEventListener('error', function(e) {
+    if (e.filename && e.filename.includes('injection-topics.js')) {
+        console.warn('Script injection-topics.js no encontrado - ignorando error');
+        e.preventDefault();
+        return false;
+    }
+});
+</script>
+{% endblock %}

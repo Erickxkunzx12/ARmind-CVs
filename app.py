@@ -11,6 +11,7 @@ from docx import Document
 from datetime import datetime
 import json
 import uuid
+import tempfile
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -790,6 +791,18 @@ def init_database():
                 company_name VARCHAR(255) NOT NULL,
                 content TEXT NOT NULL,
                 language VARCHAR(10) DEFAULT 'es',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Crear tabla para análisis de CV
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS cv_analyses (
+                id VARCHAR(255) PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                filename VARCHAR(255) NOT NULL,
+                analysis_type VARCHAR(100) NOT NULL,
+                analysis_result TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -8109,6 +8122,280 @@ Formato: Solo el contenido de la carta, sin encabezados adicionales.
             
     except Exception as e:
         app.logger.error(f"Error en generate_cover_letter_with_ai: {e}")
+        return None
+
+@app.route('/compare_cv_job', methods=['GET', 'POST'])
+def compare_cv_job():
+    """Comparador de CV con ofertas laborales usando IA"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    # Verificar restricciones de suscripción
+    user_id = session.get('user_id')
+    can_analyze, message = check_user_limits(user_id, 'cv_analysis')
+    
+    if not can_analyze:
+        flash(f'Restricción de plan: {message}', 'error')
+        return redirect(url_for('dashboard'))
+    
+    username = session.get('username', 'unknown')
+    
+    if request.method == 'POST':
+        add_console_log('INFO', f'Usuario inició comparación CV-Oferta: {username}', 'CV_COMPARE')
+        
+        # Verificar que se subió un archivo
+        if 'file' not in request.files:
+            flash('No se seleccionó ningún archivo', 'error')
+            return redirect(request.url)
+        
+        file = request.files['file']
+        job_description = request.form.get('job_description', '').strip()
+        
+        # Validaciones
+        if file.filename == '':
+            flash('No se seleccionó ningún archivo', 'error')
+            return redirect(request.url)
+            
+        if not job_description:
+            flash('Debe ingresar la descripción de la oferta laboral', 'error')
+            return redirect(request.url)
+        
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            
+            # Usar archivo temporal
+            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                filepath = temp_file.name
+                file.save(filepath)
+                
+                # Extraer texto del CV
+                original_extension = filename.rsplit('.', 1)[1].lower() if '.' in filename else None
+                cv_text = extract_text_from_file(filepath, original_extension)
+                
+                # Eliminar archivo temporal
+                try:
+                    os.unlink(filepath)
+                except PermissionError:
+                    pass
+                
+                if cv_text:
+                    # Realizar comparación con IA
+                    comparison_result = compare_cv_with_job_ai(cv_text, job_description)
+                    
+                    # Asegurar que siempre tengamos un resultado válido
+                    if not comparison_result:
+                        print("WARNING: No se obtuvo resultado del análisis IA, usando valores por defecto")
+                        add_console_log('WARNING', f'Análisis IA falló para usuario {username}, usando valores por defecto', 'CV_COMPARE')
+                        comparison_result = {
+                            'match_percentage': 0,
+                            'strengths': ['No se pudieron identificar fortalezas específicas'],
+                            'keywords_found': ['No se encontraron palabras clave'],
+                            'improvements': ['Revisar el formato del CV y la descripción del trabajo'],
+                            'summary': 'No se pudo completar el análisis automático. El CV y la descripción del trabajo han sido procesados, pero se recomienda una revisión manual.'
+                        }
+                    
+                    # Validar y limpiar el resultado
+                    try:
+                        # Asegurar que match_percentage sea un entero válido
+                        if 'match_percentage' not in comparison_result or not isinstance(comparison_result['match_percentage'], (int, float)):
+                            comparison_result['match_percentage'] = 0
+                        else:
+                            comparison_result['match_percentage'] = max(0, min(100, int(comparison_result['match_percentage'])))
+                        
+                        # Asegurar que las listas sean válidas
+                        for key in ['strengths', 'keywords_found', 'improvements']:
+                            if key not in comparison_result or not isinstance(comparison_result[key], list):
+                                comparison_result[key] = [f'No se pudieron identificar {key}']
+                            elif not comparison_result[key]:  # Lista vacía
+                                comparison_result[key] = [f'No se encontraron {key} específicos']
+                        
+                        # Asegurar que summary sea una cadena válida
+                        if 'summary' not in comparison_result or not isinstance(comparison_result['summary'], str):
+                            comparison_result['summary'] = 'Resumen no disponible'
+                        
+                        print(f"INFO: Resultado validado - Match: {comparison_result['match_percentage']}%")
+                        
+                    except Exception as e:
+                        print(f"ERROR validando resultado: {e}")
+                        add_console_log('ERROR', f'Error validando resultado para usuario {username}: {str(e)}', 'CV_COMPARE')
+                        comparison_result = {
+                            'match_percentage': 0,
+                            'strengths': ['Error en el procesamiento'],
+                            'keywords_found': ['Error en el procesamiento'],
+                            'improvements': ['Intenta nuevamente con un formato de archivo diferente'],
+                            'summary': 'Ocurrió un error durante la validación del análisis. Por favor, intenta nuevamente.'
+                        }
+                    
+                    # Incrementar contador de uso
+                    increment_usage(session.get('user_id'), 'cv_analysis')
+                    
+                    # Guardar resultado en base de datos
+                    try:
+                        connection = get_db_connection()
+                        if connection:
+                            cursor = connection.cursor()
+                            
+                            analysis_id = str(uuid.uuid4())
+                            cursor.execute("""
+                                INSERT INTO cv_analyses 
+                                (id, user_id, filename, analysis_type, analysis_result, created_at)
+                                VALUES (%s, %s, %s, %s, %s, %s)
+                            """, (
+                                analysis_id,
+                                user_id,
+                                filename,
+                                'cv_job_comparison',
+                                json.dumps(comparison_result),
+                                datetime.now()
+                            ))
+                            
+                            connection.commit()
+                            cursor.close()
+                            connection.close()
+                            
+                            add_console_log('INFO', f'Comparación CV-Oferta completada: {filename} por {username}', 'CV_COMPARE')
+                            
+                    except Exception as e:
+                        add_console_log('ERROR', f'Error guardando comparación: {str(e)}', 'CV_COMPARE')
+                        print(f"ERROR guardando en base de datos: {e}")
+                        # Continuar sin fallar, ya que tenemos el resultado
+                    
+                    # Siempre retornar el resultado, incluso si hubo error en BD
+                    return render_template('cv_job_comparison_result.html', 
+                                         result=comparison_result,
+                                         filename=filename,
+                                         job_description=job_description[:200] + '...' if len(job_description) > 200 else job_description)
+                else:
+                    flash('No se pudo extraer texto del archivo CV', 'error')
+        else:
+            flash('Tipo de archivo no permitido. Solo se permiten archivos PDF, DOC y DOCX.', 'error')
+    
+    return render_template('compare_cv_job.html')
+
+def compare_cv_with_job_ai(cv_text, job_description):
+    """Comparar CV con oferta laboral usando IA de Gemini"""
+    try:
+        # Configurar Gemini
+        import google.generativeai as genai
+        
+        gemini_api_key = os.getenv('GEMINI_API_KEY')
+        if not gemini_api_key:
+            print("ERROR: GEMINI_API_KEY no configurada")
+            add_console_log('ERROR', 'GEMINI_API_KEY no configurada', 'CV_COMPARE')
+            return None
+            
+        genai.configure(api_key=gemini_api_key)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        print(f"INFO: Configuración de Gemini exitosa, modelo: gemini-1.5-flash")
+        
+        # Prompt para la comparación
+        prompt = f"""
+Eres un experto en recursos humanos y análisis de currículums. Analiza el siguiente CV en relación con la oferta laboral proporcionada.
+
+CV DEL CANDIDATO:
+{cv_text}
+
+OFERTA LABORAL:
+{job_description}
+
+Por favor, proporciona un análisis detallado en formato JSON con la siguiente estructura:
+
+{{
+    "match_percentage": [número del 0 al 100],
+    "strengths": [
+        "Fortaleza 1 específica encontrada",
+        "Fortaleza 2 específica encontrada",
+        "Fortaleza 3 específica encontrada"
+    ],
+    "keywords_found": [
+        "palabra clave 1",
+        "palabra clave 2",
+        "palabra clave 3"
+    ],
+    "improvements": [
+        "Mejora 1 específica recomendada",
+        "Mejora 2 específica recomendada",
+        "Mejora 3 específica recomendada"
+    ],
+    "summary": "Resumen ejecutivo de la compatibilidad entre el CV y la oferta laboral"
+}}
+
+Analiza específicamente:
+1. Coincidencia de habilidades técnicas
+2. Experiencia relevante
+3. Nivel de educación requerido
+4. Palabras clave importantes
+5. Competencias blandas
+
+Sé específico y constructivo en tus recomendaciones.
+"""
+        
+        print(f"INFO: Enviando prompt a Gemini (longitud: {len(prompt)} caracteres)")
+        response = model.generate_content(prompt)
+        
+        if response and response.text:
+            print(f"INFO: Respuesta recibida de Gemini (longitud: {len(response.text)} caracteres)")
+            # Intentar parsear la respuesta JSON
+            try:
+                # Limpiar la respuesta para extraer solo el JSON
+                response_text = response.text.strip()
+                
+                # Buscar el JSON en la respuesta
+                start_idx = response_text.find('{')
+                end_idx = response_text.rfind('}') + 1
+                
+                if start_idx != -1 and end_idx != -1:
+                    json_str = response_text[start_idx:end_idx]
+                    print(f"INFO: JSON extraído (longitud: {len(json_str)} caracteres)")
+                    result = json.loads(json_str)
+                    
+                    # Validar estructura del resultado
+                    required_keys = ['match_percentage', 'strengths', 'keywords_found', 'improvements', 'summary']
+                    if all(key in result for key in required_keys):
+                        # Asegurar que match_percentage sea un número válido
+                        try:
+                            result['match_percentage'] = int(result['match_percentage'])
+                            if result['match_percentage'] < 0 or result['match_percentage'] > 100:
+                                result['match_percentage'] = 0
+                        except (ValueError, TypeError):
+                            result['match_percentage'] = 0
+                        
+                        # Asegurar que las listas sean listas válidas
+                        for list_key in ['strengths', 'keywords_found', 'improvements']:
+                            if not isinstance(result[list_key], list):
+                                result[list_key] = []
+                        
+                        # Asegurar que summary sea una cadena
+                        if not isinstance(result['summary'], str):
+                            result['summary'] = 'Resumen no disponible'
+                        
+                        print(f"INFO: Análisis completado exitosamente")
+                        return result
+                    else:
+                        print(f"ERROR: Estructura JSON incompleta: {result.keys()}")
+                        add_console_log('ERROR', f'Estructura JSON incompleta: {result.keys()}', 'CV_COMPARE')
+                        return None
+                else:
+                    print(f"ERROR: No se encontró JSON válido en la respuesta")
+                    print(f"Respuesta completa: {response_text[:1000]}...")
+                    add_console_log('ERROR', f'No se encontró JSON válido en respuesta de Gemini', 'CV_COMPARE')
+                    return None
+                    
+            except json.JSONDecodeError as e:
+                print(f"ERROR: Error parseando JSON de Gemini: {e}")
+                print(f"Respuesta recibida: {response.text[:500]}...")
+                add_console_log('ERROR', f'Error parseando JSON de Gemini: {str(e)}', 'CV_COMPARE')
+                return None
+        else:
+            print("ERROR: No se recibió respuesta de Gemini")
+            add_console_log('ERROR', 'No se recibió respuesta de Gemini', 'CV_COMPARE')
+            return None
+            
+    except Exception as e:
+        print(f"ERROR en compare_cv_with_job_ai: {e}")
+        add_console_log('ERROR', f'Excepción en compare_cv_with_job_ai: {str(e)}', 'CV_COMPARE')
+        import traceback
+        print(f"Traceback completo: {traceback.format_exc()}")
         return None
 
 # Manejadores de errores

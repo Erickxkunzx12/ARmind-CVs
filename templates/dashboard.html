@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - ARMind CVs{% endblock %}
+{% block title %}Dashboard - ARMindCV{% endblock %}
 
 {% block content %}
 <!-- Estilos para edición directa de cuadros completos -->
@@ -355,6 +355,40 @@
         <div class="col-lg-3 col-md-6 mb-4">
             <div class="card h-100 border-0 shadow-sm hover-card {% if session.user_role == 'admin' %}editable-card{% endif %}">
                 {% if session.user_role == 'admin' %}
+                <div class="card-edit-pencil" onclick="openEditModal('quick_action_compare', 'Tarjeta: Comparar CV', {
+                    icon: 'fas fa-balance-scale',
+                    icon_color: 'text-success',
+                    title: 'Comparar CV',
+                    description: 'Compara tu CV con ofertas laborales usando IA',
+                    button_text: 'Comparar',
+                    button_icon: 'fas fa-balance-scale'
+                })">
+                    <i class="fas fa-pencil-alt"></i>
+                </div>
+                {% endif %}
+                <div class="card-body text-center p-4">
+                    <div class="feature-icon mb-3" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto;">
+                        <i class="fas fa-balance-scale"></i>
+                    </div>
+                    <h5 class="card-title">
+                        Comparar CV
+                    </h5>
+                    <p class="card-text text-muted">
+                        Compara tu CV con ofertas laborales usando IA
+                    </p>
+                    <a href="{{ url_for('compare_cv_job') }}" class="btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+                        <i class="fas fa-balance-scale me-2"></i>Comparar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Segunda fila de Quick Actions -->
+    <div class="row mb-5">
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card h-100 border-0 shadow-sm hover-card {% if session.user_role == 'admin' %}editable-card{% endif %}">
+                {% if session.user_role == 'admin' %}
                 <div class="card-edit-pencil" onclick="openEditModal('quick_action_analyses', 'Tarjeta: Mis Análisis', {
                     icon: 'fas fa-chart-line',
                     icon_color: 'text-warning',
@@ -380,10 +414,7 @@
                 </div>
             </div>
         </div>
-    </div>
-    
-    <!-- Segunda fila de Quick Actions -->
-    <div class="row mb-5">
+        
         <div class="col-lg-3 col-md-6 mb-4">
             <div class="card h-100 border-0 shadow-sm hover-card {% if session.user_role == 'admin' %}editable-card{% endif %}">
                 {% if session.user_role == 'admin' %}
