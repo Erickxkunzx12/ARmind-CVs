@@ -1,0 +1,446 @@
+{% extends "base.html" %}
+
+{% block title %}Generador de Cartas de Presentación - ARMIND{% endblock %}
+
+{% block extra_css %}
+    <style>
+        .upload-area {
+            border: 2px dashed #007bff;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9fa;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .upload-area:hover {
+            border-color: #0056b3;
+            background: #e3f2fd;
+        }
+        .upload-area.dragover {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+        .file-info {
+            background: #e8f5e8;
+            border: 1px solid #28a745;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+        .progress-step {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+        .progress-step.active {
+            background: #e3f2fd;
+            border-left: 4px solid #007bff;
+        }
+        .progress-step.completed {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+        }
+        .step-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-size: 14px;
+        }
+        .step-icon.pending {
+            background: #6c757d;
+            color: white;
+        }
+        .step-icon.active {
+            background: #007bff;
+            color: white;
+        }
+        .step-icon.completed {
+            background: #28a745;
+            color: white;
+        }
+        .cover-letter-result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+            line-height: 1.6;
+        }
+        .language-selector {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .language-option {
+            padding: 8px 16px;
+            border: 2px solid #dee2e6;
+            border-radius: 20px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .language-option:hover {
+            border-color: #007bff;
+        }
+        .language-option.selected {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0">
+                            <i class="fas fa-file-alt me-2"></i>Generador de Cartas de Presentación
+                        </h4>
+                        <p class="mb-0 mt-2">Sube tu currículum para generar una carta de presentación profesional</p>
+                    </div>
+                    <div class="card-body">
+                        <form id="coverLetterForm" enctype="multipart/form-data">
+                            <!-- Subida de CV -->
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">1. Sube tu Currículum</label>
+                                <div class="upload-area" id="uploadArea">
+                                    <i class="fas fa-cloud-upload-alt fa-3x text-primary mb-3"></i>
+                                    <h5>Arrastra tu archivo o haz clic aquí</h5>
+                                    <p class="text-muted">Soporta archivos PDF y DOCX (máx. 5MB)</p>
+                                    <input type="file" id="cvFile" name="cv_file" accept=".pdf,.doc,.docx" style="display: none;">
+                                </div>
+                                <div id="fileInfo" class="file-info" style="display: none;">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-file-pdf text-danger me-2"></i>
+                                        <div>
+                                            <strong id="fileName"></strong>
+                                            <br><small class="text-muted" id="fileSize"></small>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-danger ms-auto" id="removeFile">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Información del puesto -->
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">2. Información del Puesto</label>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="jobTitle" class="form-label">Título del Puesto *</label>
+                                        <input type="text" class="form-control" id="jobTitle" name="job_title" required placeholder="ej. Desarrollador Frontend">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="companyName" class="form-label">Nombre de la Empresa *</label>
+                                        <input type="text" class="form-control" id="companyName" name="company_name" required placeholder="ej. Google Inc.">
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="jobDescription" class="form-label">Descripción del Puesto (Opcional)</label>
+                                    <textarea class="form-control" id="jobDescription" name="job_description" rows="4" placeholder="Pega aquí la descripción del puesto para una carta más personalizada..."></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Selector de idioma -->
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">3. Idioma de la Carta</label>
+                                <div class="language-selector">
+                                    <div class="language-option selected" data-lang="es">
+                                        <i class="fas fa-flag me-1"></i>Español
+                                    </div>
+                                    <div class="language-option" data-lang="en">
+                                        <i class="fas fa-flag me-1"></i>English
+                                    </div>
+                                    <div class="language-option" data-lang="pt">
+                                        <i class="fas fa-flag me-1"></i>Português
+                                    </div>
+                                    <div class="language-option" data-lang="de">
+                                        <i class="fas fa-flag me-1"></i>Deutsch
+                                    </div>
+                                    <div class="language-option" data-lang="fr">
+                                        <i class="fas fa-flag me-1"></i>Français
+                                    </div>
+                                </div>
+                                <input type="hidden" id="selectedLanguage" name="language" value="es">
+                            </div>
+
+                            <button type="submit" class="btn btn-primary btn-lg w-100" id="generateBtn">
+                                <i class="fas fa-magic me-2"></i>Generar Carta de Presentación
+                            </button>
+                        </form>
+
+                        <!-- Resultado -->
+                        <div id="resultSection" style="display: none;">
+                            <hr class="my-4">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5><i class="fas fa-file-alt me-2"></i>Tu Carta de Presentación</h5>
+                                <button type="button" class="btn btn-success" id="downloadBtn">
+                                    <i class="fas fa-download me-1"></i>Descargar PDF
+                                </button>
+                            </div>
+                            <div id="coverLetterContent" class="cover-letter-result"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card shadow">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-info-circle me-2"></i>Cómo funciona
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="step1" class="progress-step active">
+                            <div class="step-icon active">
+                                <i class="fas fa-upload"></i>
+                            </div>
+                            <div>
+                                <strong>Sube tu CV</strong>
+                                <br><small class="text-muted">Sube tu currículum en formato PDF o DOCX para que nuestro sistema lo analice.</small>
+                            </div>
+                        </div>
+                        
+                        <div id="step2" class="progress-step">
+                            <div class="step-icon pending">
+                                <i class="fas fa-edit"></i>
+                            </div>
+                            <div>
+                                <strong>Ingresa los detalles</strong>
+                                <br><small class="text-muted">Proporciona la información del puesto y la empresa para personalizar tu carta.</small>
+                            </div>
+                        </div>
+                        
+                        <div id="step3" class="progress-step">
+                            <div class="step-icon pending">
+                                <i class="fas fa-robot"></i>
+                            </div>
+                            <div>
+                                <strong>Carta de presentación lista</strong>
+                                <br><small class="text-muted">Recibe una carta profesional que puedes editar y personalizar según tus necesidades.</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow mt-4">
+                    <div class="card-header bg-warning text-dark">
+                        <h6 class="mb-0">
+                            <i class="fas fa-lightbulb me-2"></i>Principios de Harvard
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <p class="small mb-2">Nuestras cartas siguen los principios de Harvard Business School:</p>
+                        <ul class="small mb-0">
+                            <li>Dirigida y personalizada</li>
+                            <li>Conecta con la empresa</li>
+                            <li>Enfocada en el valor que aportas</li>
+                            <li>Muestra entusiasmo genuino</li>
+                            <li>Breve y concisa</li>
+                            <li>Lenguaje de acción</li>
+                            <li>Complementa, no repite el CV</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Modal -->
+    <div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-body text-center py-4">
+                    <div class="spinner-border text-primary mb-3" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <h5>Generando tu carta de presentación...</h5>
+                    <p class="text-muted mb-0">Esto puede tomar unos segundos</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let selectedFile = null;
+        let coverLetterId = null;
+
+        // Manejo de subida de archivos
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('cvFile');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const removeFileBtn = document.getElementById('removeFile');
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        removeFileBtn.addEventListener('click', () => {
+            selectedFile = null;
+            fileInput.value = '';
+            fileInfo.style.display = 'none';
+            updateSteps();
+        });
+
+        function handleFile(file) {
+            const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
+            if (!allowedTypes.includes(file.type)) {
+                alert('Solo se permiten archivos PDF, DOC y DOCX');
+                return;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                alert('El archivo no puede ser mayor a 5MB');
+                return;
+            }
+
+            selectedFile = file;
+            fileName.textContent = file.name;
+            fileSize.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
+            fileInfo.style.display = 'block';
+            updateSteps();
+        }
+
+        // Selector de idioma
+        document.querySelectorAll('.language-option').forEach(option => {
+            option.addEventListener('click', () => {
+                document.querySelectorAll('.language-option').forEach(opt => opt.classList.remove('selected'));
+                option.classList.add('selected');
+                document.getElementById('selectedLanguage').value = option.dataset.lang;
+            });
+        });
+
+        // Actualizar pasos
+        function updateSteps() {
+            const step1 = document.getElementById('step1');
+            const step2 = document.getElementById('step2');
+            const step3 = document.getElementById('step3');
+
+            if (selectedFile) {
+                step1.classList.remove('active');
+                step1.classList.add('completed');
+                step1.querySelector('.step-icon').classList.remove('active');
+                step1.querySelector('.step-icon').classList.add('completed');
+                step1.querySelector('.step-icon i').className = 'fas fa-check';
+
+                step2.classList.add('active');
+                step2.querySelector('.step-icon').classList.remove('pending');
+                step2.querySelector('.step-icon').classList.add('active');
+            } else {
+                step1.classList.add('active');
+                step1.classList.remove('completed');
+                step1.querySelector('.step-icon').classList.add('active');
+                step1.querySelector('.step-icon').classList.remove('completed');
+                step1.querySelector('.step-icon i').className = 'fas fa-upload';
+
+                step2.classList.remove('active');
+                step2.querySelector('.step-icon').classList.add('pending');
+                step2.querySelector('.step-icon').classList.remove('active');
+            }
+        }
+
+        // Envío del formulario
+        document.getElementById('coverLetterForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!selectedFile) {
+                alert('Por favor, sube tu currículum');
+                return;
+            }
+
+            const jobTitle = document.getElementById('jobTitle').value.trim();
+            const companyName = document.getElementById('companyName').value.trim();
+
+            if (!jobTitle || !companyName) {
+                alert('Por favor, completa el título del puesto y el nombre de la empresa');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('cv_file', selectedFile);
+            formData.append('job_title', jobTitle);
+            formData.append('company_name', companyName);
+            formData.append('job_description', document.getElementById('jobDescription').value);
+            formData.append('language', document.getElementById('selectedLanguage').value);
+
+            // Mostrar modal de carga
+            const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
+            loadingModal.show();
+
+            try {
+                const response = await fetch('/generate_cover_letter', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                loadingModal.hide();
+
+                if (result.success) {
+                    document.getElementById('coverLetterContent').textContent = result.cover_letter;
+                    document.getElementById('resultSection').style.display = 'block';
+                    coverLetterId = result.cover_letter_id;
+
+                    // Actualizar paso 3
+                    const step3 = document.getElementById('step3');
+                    step3.classList.remove('active');
+                    step3.classList.add('completed');
+                    step3.querySelector('.step-icon').classList.remove('pending', 'active');
+                    step3.querySelector('.step-icon').classList.add('completed');
+                    step3.querySelector('.step-icon i').className = 'fas fa-check';
+
+                    // Scroll al resultado
+                    document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                loadingModal.hide();
+                alert('Error de conexión. Por favor, inténtalo de nuevo.');
+            }
+        });
+
+        // Descargar PDF
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+            if (coverLetterId) {
+                window.location.href = `/download_cover_letter/${coverLetterId}`;
+            }
+        });
+    </script>
+</div>
+{% endblock %}

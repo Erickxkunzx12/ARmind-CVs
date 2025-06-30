@@ -214,14 +214,33 @@ def generate_pdf_with_reportlab(html_content, title):
         story.append(Spacer(1, 12))
         
         # Procesar el contenido
-        for element in soup.find_all(['h2', 'h3', 'p', 'div']):
-            text = element.get_text().strip()
-            if text:
-                if element.name in ['h2', 'h3']:
-                    story.append(Paragraph(text, heading_style))
-                else:
-                    story.append(Paragraph(text, styles['Normal']))
-                story.append(Spacer(1, 6))
+        content_div = soup.find('div', class_='content')
+        if content_div:
+            # Obtener el HTML interno y procesarlo
+            content_html = str(content_div)
+            # Reemplazar <br> con saltos de línea para ReportLab
+            content_html = content_html.replace('<br>', '<br/>')
+            content_html = content_html.replace('<br/><br/>', '<br/><br/>')
+            
+            # Dividir por <br/> para crear párrafos separados
+            paragraphs = content_html.split('<br/>')
+            
+            for para_text in paragraphs:
+                # Limpiar el texto de tags HTML
+                clean_text = BeautifulSoup(para_text, 'html.parser').get_text().strip()
+                if clean_text:
+                    story.append(Paragraph(clean_text, styles['Normal']))
+                    story.append(Spacer(1, 6))
+        else:
+            # Fallback: procesar todos los elementos
+            for element in soup.find_all(['h2', 'h3', 'p', 'div']):
+                text = element.get_text().strip()
+                if text:
+                    if element.name in ['h2', 'h3']:
+                        story.append(Paragraph(text, heading_style))
+                    else:
+                        story.append(Paragraph(text, styles['Normal']))
+                    story.append(Spacer(1, 6))
         
         # Construir PDF
         doc.build(story)
@@ -745,6 +764,19 @@ def init_database():
                 file_size INTEGER NOT NULL,
                 image_data BYTEA NOT NULL,
                 uploaded_by INTEGER REFERENCES users(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Crear tabla para cartas de presentación
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS cover_letters (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                job_title VARCHAR(255) NOT NULL,
+                company_name VARCHAR(255) NOT NULL,
+                content TEXT NOT NULL,
+                language VARCHAR(10) DEFAULT 'es',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -7241,6 +7273,283 @@ def admin_blog_delete(post_id):
     except Exception as e:
         app.logger.error(f"Error eliminando post: {e}")
         return jsonify({'success': False, 'message': 'Error eliminando el post'})
+
+# ==================== GENERADOR DE CARTAS DE PRESENTACIÓN ====================
+
+@app.route('/cover_letter_generator')
+@login_required
+def cover_letter_generator():
+    """Generador de cartas de presentación con IA"""
+    # Verificar restricciones de suscripción
+    user_id = session.get('user_id')
+    can_generate, message = check_user_limits(user_id, 'cover_letter_generation')
+    
+    if not can_generate:
+        flash(f'Restricción de plan: {message}', 'error')
+        return redirect(url_for('dashboard'))
+    
+    return render_template('cover_letter_generator.html')
+
+@app.route('/generate_cover_letter', methods=['POST'])
+@login_required
+def generate_cover_letter():
+    """Generar carta de presentación con IA"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    # Verificar restricciones de suscripción
+    user_id = session.get('user_id')
+    can_generate, message = check_user_limits(user_id, 'cover_letter_generation')
+    
+    if not can_generate:
+        return jsonify({'success': False, 'message': f'Restricción de plan: {message}'})
+    
+    try:
+        # Obtener datos del formulario
+        cv_file = request.files.get('cv_file')
+        job_title = request.form.get('job_title', '').strip()
+        company_name = request.form.get('company_name', '').strip()
+        job_description = request.form.get('job_description', '').strip()
+        language = request.form.get('language', 'es')
+        
+        if not cv_file or cv_file.filename == '':
+            return jsonify({'success': False, 'message': 'Debe subir un archivo de CV'})
+        
+        if not job_title:
+            return jsonify({'success': False, 'message': 'El título del puesto es requerido'})
+        
+        # Validar archivo
+        if not allowed_file(cv_file.filename):
+            return jsonify({'success': False, 'message': 'Tipo de archivo no permitido. Solo se permiten PDF, DOC y DOCX.'})
+        
+        # Extraer texto del CV
+        filename = secure_filename(cv_file.filename)
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            filepath = temp_file.name
+            cv_file.save(filepath)
+            
+            original_extension = filename.rsplit('.', 1)[1].lower() if '.' in filename else None
+            cv_text = extract_text_from_file(filepath, original_extension)
+            
+            # Limpiar archivo temporal
+            try:
+                os.unlink(filepath)
+            except PermissionError:
+                pass
+        
+        if not cv_text:
+            return jsonify({'success': False, 'message': 'No se pudo extraer texto del CV'})
+        
+        # Generar carta de presentación con IA
+        cover_letter = generate_cover_letter_with_ai(
+            cv_text=cv_text,
+            job_title=job_title,
+            company_name=company_name,
+            job_description=job_description,
+            language=language
+        )
+        
+        if not cover_letter:
+            return jsonify({'success': False, 'message': 'Error generando la carta de presentación'})
+        
+        # Guardar en base de datos
+        connection = get_db_connection()
+        if connection:
+            cursor = connection.cursor()
+            cursor.execute("""
+                INSERT INTO cover_letters (user_id, job_title, company_name, content, language, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id
+            """, (user_id, job_title, company_name, cover_letter, language, datetime.now()))
+            
+            cover_letter_id = cursor.fetchone()['id']
+            connection.commit()
+            cursor.close()
+            connection.close()
+            
+            # Incrementar contador de uso
+            increment_usage(user_id, 'cover_letter_generation')
+            
+            username = session.get('username', 'unknown')
+            add_console_log('INFO', f'Usuario {username} generó carta para: {job_title} en {company_name}', 'COVER_LETTER')
+            
+            return jsonify({
+                'success': True, 
+                'cover_letter': cover_letter,
+                'cover_letter_id': cover_letter_id
+            })
+        
+        return jsonify({'success': False, 'message': 'Error guardando la carta de presentación'})
+        
+    except Exception as e:
+        app.logger.error(f"Error generando carta de presentación: {e}")
+        return jsonify({'success': False, 'message': 'Error interno del servidor'})
+
+@app.route('/download_cover_letter/<int:cover_letter_id>')
+@login_required
+def download_cover_letter(cover_letter_id):
+    """Descargar carta de presentación en PDF"""
+    try:
+        connection = get_db_connection()
+        if not connection:
+            flash('Error de conexión a la base de datos', 'error')
+            return redirect(url_for('cover_letter_generator'))
+        
+        cursor = connection.cursor()
+        cursor.execute("""
+            SELECT job_title, company_name, content, language, created_at
+            FROM cover_letters 
+            WHERE id = %s AND user_id = %s
+        """, (cover_letter_id, session['user_id']))
+        
+        cover_letter_data = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        
+        if not cover_letter_data:
+            flash('Carta de presentación no encontrada', 'error')
+            return redirect(url_for('cover_letter_generator'))
+        
+        job_title, company_name, content, language, created_at = cover_letter_data
+        
+        # Generar PDF
+        # Procesar el contenido para preservar los saltos de línea
+        formatted_content = content.replace('\n', '<br>').replace('\r\n', '<br>')
+        
+        html_content = f"""
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; margin: 40px; }}
+                .header {{ text-align: center; margin-bottom: 30px; }}
+                .content {{ text-align: justify; }}
+                .signature {{ margin-top: 30px; }}
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>Carta de Presentación</h1>
+                <p><strong>{job_title}</strong> - {company_name}</p>
+            </div>
+            <div class="content">
+                {formatted_content}
+            </div>
+            <div class="signature">
+                <p>Atentamente,<br>
+                {session.get('username', 'Candidato')}</p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # Generar PDF usando ReportLab
+        pdf_content = generate_pdf_with_reportlab(html_content, f"Carta_{job_title}_{company_name}")
+        
+        if pdf_content:
+            filename = f"carta_presentacion_{job_title}_{company_name}.pdf".replace(' ', '_')
+            
+            response = make_response(pdf_content)
+            response.headers['Content-Type'] = 'application/pdf'
+            response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+            
+            return response
+        else:
+            flash('Error generando el PDF', 'error')
+            return redirect(url_for('cover_letter_generator'))
+            
+    except Exception as e:
+        app.logger.error(f"Error descargando carta: {e}")
+        flash('Error descargando la carta de presentación', 'error')
+        return redirect(url_for('cover_letter_generator'))
+
+def generate_cover_letter_with_ai(cv_text, job_title, company_name, job_description, language='es'):
+    """Generar carta de presentación usando OpenAI siguiendo principios de Harvard"""
+    try:
+        # Mapeo de idiomas
+        language_prompts = {
+            'es': {
+                'lang_name': 'español',
+                'greeting': 'Estimado/a',
+                'closing': 'Atentamente'
+            },
+            'en': {
+                'lang_name': 'inglés',
+                'greeting': 'Dear',
+                'closing': 'Sincerely'
+            },
+            'pt': {
+                'lang_name': 'portugués',
+                'greeting': 'Prezado/a',
+                'closing': 'Atenciosamente'
+            },
+            'de': {
+                'lang_name': 'alemán',
+                'greeting': 'Sehr geehrte/r',
+                'closing': 'Mit freundlichen Grüßen'
+            },
+            'fr': {
+                'lang_name': 'francés',
+                'greeting': 'Cher/Chère',
+                'closing': 'Cordialement'
+            }
+        }
+        
+        lang_config = language_prompts.get(language, language_prompts['es'])
+        
+        # Prompt siguiendo principios de Harvard
+        prompt = f"""
+Eres un experto en redacción de cartas de presentación siguiendo los principios de Harvard Business School. 
+
+Genera una carta de presentación profesional en {lang_config['lang_name']} que siga estos principios clave:
+
+1. DIRIGIDA Y PERSONALIZADA: Dirígela específicamente al puesto y empresa
+2. CONECTA CON LA EMPRESA: Demuestra comprensión de la misión y valores
+3. ENFOCADA EN EL VALOR: Explica qué puedes hacer por ellos, no solo lo que has hecho
+4. MUESTRA ENTUSIASMO: Transmite interés genuino
+5. BREVE Y CONCISA: Máximo una página
+6. LENGUAJE DE ACCIÓN: Describe logros de manera impactante
+7. NO REPITAS EL CV: Complementa, no dupliques
+
+INFORMACIÓN:
+- Puesto: {job_title}
+- Empresa: {company_name}
+- Descripción del puesto: {job_description if job_description else 'No proporcionada'}
+
+CV DEL CANDIDATO:
+{cv_text[:3000]}  # Limitar texto para evitar tokens excesivos
+
+Genera una carta de presentación que:
+- Use un saludo apropiado ({lang_config['greeting']})
+- Tenga 3-4 párrafos bien estructurados
+- Conecte específicamente con {company_name}
+- Destaque 2-3 logros clave del CV que sean relevantes para {job_title}
+- Explique el valor específico que aportaría a la empresa
+- Termine con {lang_config['closing']}
+- Sea profesional pero con personalidad
+- No exceda 400 palabras
+
+Formato: Solo el contenido de la carta, sin encabezados adicionales.
+"""
+        
+        if OPENAI_CLIENT:
+            response = OPENAI_CLIENT.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "Eres un experto en redacción de cartas de presentación profesionales siguiendo los estándares de Harvard Business School."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=800,
+                temperature=0.7
+            )
+            
+            return response.choices[0].message.content.strip()
+        else:
+            return None
+            
+    except Exception as e:
+        app.logger.error(f"Error en generate_cover_letter_with_ai: {e}")
+        return None
 
 # Manejadores de errores
 @app.errorhandler(404)

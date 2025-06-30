@@ -380,6 +380,40 @@
                 </div>
             </div>
         </div>
+    </div>
+    
+    <!-- Segunda fila de Quick Actions -->
+    <div class="row mb-5">
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card h-100 border-0 shadow-sm hover-card {% if session.user_role == 'admin' %}editable-card{% endif %}">
+                {% if session.user_role == 'admin' %}
+                <div class="card-edit-pencil" onclick="openEditModal('quick_action_cover_letter', 'Tarjeta: Generador de Cartas', {
+                    icon: 'fas fa-file-signature',
+                    icon_color: 'text-purple',
+                    title: 'Generador de Cartas',
+                    description: 'Crea cartas de presentación profesionales con IA',
+                    button_text: 'Generar Carta',
+                    button_icon: 'fas fa-magic'
+                })">
+                    <i class="fas fa-pencil-alt"></i>
+                </div>
+                {% endif %}
+                <div class="card-body text-center p-4">
+                    <div class="feature-icon mb-3" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto;">
+                        <i class="fas fa-file-signature"></i>
+                    </div>
+                    <h5 class="card-title">
+                        Generador de Cartas
+                    </h5>
+                    <p class="card-text text-muted">
+                        Crea cartas de presentación profesionales con IA
+                    </p>
+                    <a href="{{ url_for('cover_letter_generator') }}" class="btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+                        <i class="fas fa-magic me-2"></i>Generar Carta
+                    </a>
+                </div>
+            </div>
+        </div>
         
 
     </div>
