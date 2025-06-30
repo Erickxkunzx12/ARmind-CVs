@@ -3589,34 +3589,219 @@ def translate_cv_fields(cv_data, target_language_name):
                     except Exception:
                         pass  # Mantener original si hay error
         
-        # Traducir certificados (excluyendo nombres de instituciones y personas)
+        # Traducir certificados (incluyendo instituciones)
         certificates = cv_data.get('certificates', [])
         if certificates:
             for cert in certificates:
-                if cert.get('name'):
+                # Traducir nombre del certificado
+                if cert.get('title'):
                     translate_prompt = f"""
-                    Traduce este nombre de certificado al {target_language_name}: {cert['name']}
+                    Traduce este nombre de certificado al {target_language_name}: {cert['title']}
                     
                     Instrucciones:
-                    1. Traduce solo el nombre del certificado o curso
-                    2. NO traduzcas nombres propios de instituciones, organizaciones o empresas
-                    3. NO traduzcas nombres propios de personas
-                    4. NO traduzcas marcas registradas o nombres comerciales
-                    5. Responde solo con la traducción del nombre del certificado
+                    1. Detecta palabras en español que necesiten traducción (como 'Avanzado', 'Intermedio', 'Básico', etc.)
+                    2. Traduce las palabras en español al {target_language_name} de forma profesional para un CV
+                    3. Mantén nombres propios de software, marcas o tecnologías (Excel, Power BI, SAP, etc.)
+                    4. Mantén el formato profesional apropiado para un CV
+                    5. Responde SOLO con la traducción completa del nombre del certificado
                     """
                     try:
                         response = OPENAI_CLIENT.chat.completions.create(
                             model="gpt-3.5-turbo",
                             messages=[
-                                {"role": "system", "content": f"Eres un traductor profesional especializado en CVs y documentos profesionales. Traduce al {target_language_name} pero NO traduzcas nombres propios, marcas o instituciones."},
+                                {"role": "system", "content": f"Eres un traductor profesional especializado en CVs y documentos profesionales. Detecta palabras en español y tradúcelas al {target_language_name} manteniendo nombres propios de tecnologías."},
                                 {"role": "user", "content": translate_prompt}
                             ],
                             max_tokens=100,
                             temperature=0.3
                         )
-                        cert['name'] = response.choices[0].message.content.strip()
+                        translated_name = response.choices[0].message.content.strip()
+                        
+                        # Limpiar formato no deseado (guiones, flechas, texto duplicado)
+                        if ' - ' in translated_name:
+                            # Si contiene guión, tomar solo la parte después del guión
+                            translated_name = translated_name.split(' - ')[-1].strip()
+                        if ' -> ' in translated_name:
+                            # Si contiene flecha, tomar solo la parte después de la flecha
+                            translated_name = translated_name.split(' -> ')[-1].strip()
+                        
+                        cert['title'] = translated_name
+                        print(f"[DEBUG] Certificado traducido: {cert['title']}")
                     except Exception:
                         pass  # Mantener original si hay error
+                
+                # Traducir institución del certificado
+                if cert.get('institution'):
+                    translate_prompt = f"""
+                    Traduce este nombre de institución al {target_language_name}: {cert['institution']}
+                    
+                    Instrucciones:
+                    1. Traduce el nombre de la institución si es un nombre genérico
+                    2. Si es un nombre propio específico de una empresa/universidad, manténlo igual
+                    3. Responde solo con la traducción o el nombre original
+                    """
+                    try:
+                        response = OPENAI_CLIENT.chat.completions.create(
+                            model="gpt-3.5-turbo",
+                            messages=[
+                                {"role": "system", "content": f"Eres un traductor profesional especializado en CVs y documentos profesionales. Traduce al {target_language_name}."},
+                                {"role": "user", "content": translate_prompt}
+                            ],
+                            max_tokens=100,
+                            temperature=0.3
+                        )
+                        translated_institution = response.choices[0].message.content.strip()
+                        
+                        # Limpiar formato no deseado (guiones, flechas, texto duplicado)
+                        if ' - ' in translated_institution:
+                            # Si contiene guión, tomar solo la parte después del guión
+                            translated_institution = translated_institution.split(' - ')[-1].strip()
+                        if ' -> ' in translated_institution:
+                            # Si contiene flecha, tomar solo la parte después de la flecha
+                            translated_institution = translated_institution.split(' -> ')[-1].strip()
+                        
+                        cert['institution'] = translated_institution
+                        print(f"[DEBUG] Institución del certificado traducida: {cert['institution']}")
+                    except Exception:
+                        pass  # Mantener original si hay error
+        
+        # Traducir idiomas y niveles de idioma
+        languages = cv_data.get('languages', [])
+        print(f"[DEBUG] Datos de idiomas antes de traducir: {languages}")
+        if languages:
+            for lang in languages:
+                print(f"[DEBUG] Procesando idioma: {lang}")
+                # Traducir nombre del idioma
+                if lang.get('language'):
+                    translate_prompt = f"""
+                    Traduce SOLO el nombre de este idioma al {target_language_name}: {lang['language']}
+                    
+                    Instrucciones:
+                    1. Traduce únicamente el nombre del idioma (Inglés, Francés, Alemán, Español, etc.)
+                    2. NO incluyas niveles de competencia en la respuesta
+                    3. Responde SOLO con el nombre del idioma traducido
+                    
+                    Ejemplos:
+                    - Si el idioma es "Inglés" y traduces al francés, responde: "Anglais"
+                    - Si el idioma es "Francés" y traduces al inglés, responde: "French"
+                    """
+                    try:
+                        response = OPENAI_CLIENT.chat.completions.create(
+                            model="gpt-3.5-turbo",
+                            messages=[
+                                {"role": "system", "content": f"Eres un traductor profesional especializado en CVs. Traduce ÚNICAMENTE nombres de idiomas al {target_language_name}, sin incluir niveles."},
+                                {"role": "user", "content": translate_prompt}
+                            ],
+                            max_tokens=30,
+                            temperature=0.1
+                        )
+                        translated_language = response.choices[0].message.content.strip()
+                        
+                        # Limpiar formato no deseado (guiones, flechas, texto duplicado)
+                        if ' - ' in translated_language:
+                            # Si contiene guión, tomar solo la parte después del guión
+                            translated_language = translated_language.split(' - ')[-1].strip()
+                        if ' -> ' in translated_language:
+                            # Si contiene flecha, tomar solo la parte después de la flecha
+                            translated_language = translated_language.split(' -> ')[-1].strip()
+                        
+                        lang['language'] = translated_language
+                        print(f"[DEBUG] Idioma traducido: {lang['language']}")
+                    except Exception:
+                        pass  # Mantener original si hay error
+                
+                # Traducir nivel del idioma
+                if lang.get('level'):
+                    translate_prompt = f"""
+                    Traduce SOLO este nivel de competencia de idioma al {target_language_name}: {lang['level']}
+                    
+                    Instrucciones:
+                    1. Traduce únicamente el nivel de competencia (Básico, Intermedio, Avanzado, Nativo, etc.)
+                    2. NO incluyas nombres de idiomas en la respuesta
+                    3. Responde SOLO con el nivel traducido
+                    
+                    Ejemplos:
+                    - Si el nivel es "Intermedio" y traduces al francés, responde: "Intermédiaire"
+                    - Si el nivel es "Avanzado" y traduces al inglés, responde: "Advanced"
+                    """
+                    try:
+                        response = OPENAI_CLIENT.chat.completions.create(
+                            model="gpt-3.5-turbo",
+                            messages=[
+                                {"role": "system", "content": f"Eres un traductor profesional especializado en CVs. Traduce ÚNICAMENTE niveles de competencia al {target_language_name}, sin incluir nombres de idiomas."},
+                                {"role": "user", "content": translate_prompt}
+                            ],
+                            max_tokens=30,
+                            temperature=0.1
+                        )
+                        translated_level = response.choices[0].message.content.strip()
+                        
+                        # Limpiar formato no deseado (guiones, flechas, texto duplicado)
+                        if ' - ' in translated_level:
+                            # Si contiene guión, tomar solo la parte después del guión
+                            translated_level = translated_level.split(' - ')[-1].strip()
+                        if ' -> ' in translated_level:
+                            # Si contiene flecha, tomar solo la parte después de la flecha
+                            translated_level = translated_level.split(' -> ')[-1].strip()
+                        
+                        lang['level'] = translated_level
+                        print(f"[DEBUG] Nivel de idioma traducido: {lang['level']}")
+                    except Exception:
+                        pass  # Mantener original si hay error
+        
+        print(f"[DEBUG] Datos de idiomas después de traducir: {languages}")
+        
+        # Traducir competencias/habilidades
+        skills = cv_data.get('skills', [])
+        if skills:
+            translated_skills = []
+            for skill in skills:
+                if isinstance(skill, str) and skill.strip():
+                    translate_prompt = f"""
+                    Traduce esta competencia o habilidad profesional al {target_language_name}: {skill}
+                    
+                    Instrucciones CRÍTICAS:
+                    1. Detecta si la palabra está en español y necesita traducción
+                    2. Si está en español, tradúcela al {target_language_name} de forma profesional para un CV
+                    3. Si ya está en el idioma objetivo o es un término técnico universal, manténla igual
+                    4. Mantén el formato profesional apropiado para un CV
+                    5. Responde ÚNICAMENTE con la traducción final, SIN incluir el texto original
+                    6. NO uses guiones, flechas o separadores entre el original y la traducción
+                    7. SOLO devuelve el resultado final traducido
+                    
+                    EJEMPLO CORRECTO:
+                    - Input: "gestión de proyectos"
+                    - Output: "project management" (NO "gestión de proyectos - project management")
+                    """
+                    try:
+                        response = OPENAI_CLIENT.chat.completions.create(
+                            model="gpt-3.5-turbo",
+                            messages=[
+                                {"role": "system", "content": f"Eres un traductor profesional. SOLO devuelve la traducción final al {target_language_name}, sin incluir el texto original, guiones, flechas o explicaciones."},
+                                {"role": "user", "content": translate_prompt}
+                            ],
+                            max_tokens=50,
+                            temperature=0.1
+                        )
+                        translated_skill = response.choices[0].message.content.strip()
+                        
+                        # Limpiar formato no deseado (guiones, flechas, texto duplicado)
+                        if ' - ' in translated_skill:
+                            # Si contiene guión, tomar solo la parte después del guión
+                            translated_skill = translated_skill.split(' - ')[-1].strip()
+                        if ' -> ' in translated_skill:
+                            # Si contiene flecha, tomar solo la parte después de la flecha
+                            translated_skill = translated_skill.split(' -> ')[-1].strip()
+                        
+                        translated_skills.append(translated_skill)
+                        print(f"[DEBUG] Competencia traducida: {skill} -> {translated_skill}")
+                    except Exception as e:
+                        print(f"[DEBUG] Error traduciendo competencia '{skill}': {str(e)}")
+                        translated_skills.append(skill)  # Mantener original si hay error
+                else:
+                    translated_skills.append(skill)  # Mantener si no es string válido
+            
+            cv_data['skills'] = translated_skills
         
         # Traducir fechas 'Presente' en experiencia laboral
         experience = cv_data.get('experience', [])
