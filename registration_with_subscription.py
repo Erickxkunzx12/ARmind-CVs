@@ -37,31 +37,13 @@ class RegistrationWithSubscription:
                 # Obtener datos del formulario
                 first_name = request.form.get('first_name', '').strip()
                 last_name = request.form.get('last_name', '').strip()
+                username = request.form.get('username', '').strip()
                 country_code = request.form.get('country_code', '+56').strip()
                 phone = request.form.get('phone', '').strip()
                 email = request.form.get('email', '').strip().lower()
                 password = request.form.get('password', '')
                 confirm_password = request.form.get('confirmPassword', '')
                 selected_plan = request.form.get('selected_plan', '')
-                
-                # Generar username a partir del nombre y apellido
-                # Limpiar caracteres especiales y espacios, solo permitir letras, números y guiones bajos
-                clean_first = re.sub(r'[^a-zA-Z0-9]', '', first_name.lower())
-                clean_last = re.sub(r'[^a-zA-Z0-9]', '', last_name.lower())
-                
-                # Generar username sin puntos, solo con guión bajo
-                if clean_first and clean_last:
-                    username = f"{clean_first}_{clean_last}"
-                elif clean_first:
-                    username = clean_first
-                elif clean_last:
-                    username = clean_last
-                else:
-                    username = f"user{secrets.token_hex(3)}"
-                
-                # Asegurar que el username tenga al menos 3 caracteres
-                if len(username) < 3:
-                    username = f"user{secrets.token_hex(3)}"
                 
                 # Combinar código de país con número de teléfono
                 full_phone = f"{country_code}{phone}" if phone else ''
@@ -200,8 +182,25 @@ class RegistrationWithSubscription:
         if not username or len(username) < 3:
             errors.append('El nombre de usuario debe tener al menos 3 caracteres')
         
-        if not re.match(r'^[a-zA-Z0-9_]+$', username):
-            errors.append('El nombre de usuario solo puede contener letras, números y guiones bajos')
+        if len(username) > 30:
+            errors.append('El nombre de usuario no puede tener más de 30 caracteres')
+        
+        if not re.match(r'^[a-zA-Z0-9._-]+$', username):
+            errors.append('El nombre de usuario solo puede contener letras, números, puntos, guiones y guiones bajos')
+        
+        # Verificar que el username no esté ya en uso
+        try:
+            from app import get_db_connection
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
+            if cursor.fetchone():
+                errors.append('Este nombre de usuario ya está en uso')
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            logger.error(f"Error verificando username: {str(e)}")
+            errors.append('Error verificando disponibilidad del nombre de usuario')
         
         # Validar email
         if not self.security_manager.validate_email(email):

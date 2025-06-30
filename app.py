@@ -985,13 +985,11 @@ def register_legacy():
     if request.method == 'POST':
         first_name = request.form.get('first_name', '').strip()
         last_name = request.form.get('last_name', '').strip()
+        username = request.form.get('username', '').strip()
         country_code = request.form.get('country_code', '+56').strip()
         phone = request.form.get('phone', '').strip()
         email = request.form['email']
         password = request.form['password']
-        
-        # Generar username a partir del nombre y apellido
-        username = f"{first_name.lower()}.{last_name.lower()}".replace(' ', '')
         
         # Combinar código de país con número de teléfono
         full_phone = f"{country_code}{phone}" if phone else ''
@@ -999,9 +997,40 @@ def register_legacy():
         add_console_log('INFO', f'Intento de registro para usuario: {username} ({email})', 'AUTH')
         
         # Validaciones básicas
-        if not first_name or not last_name or not email or not password or not phone:
+        if not first_name or not last_name or not username or not email or not password or not phone:
             add_console_log('WARNING', f'Registro fallido - campos incompletos para: {username}', 'AUTH')
             flash('Todos los campos son obligatorios', 'error')
+            return render_template('register.html')
+        
+        # Validar username
+        if len(username) < 3:
+            flash('El nombre de usuario debe tener al menos 3 caracteres', 'error')
+            return render_template('register.html')
+        
+        if len(username) > 30:
+            flash('El nombre de usuario no puede tener más de 30 caracteres', 'error')
+            return render_template('register.html')
+        
+        if not re.match(r'^[a-zA-Z0-9._-]+$', username):
+            flash('El nombre de usuario solo puede contener letras, números, puntos, guiones y guiones bajos', 'error')
+            return render_template('register.html')
+        
+        # Verificar que el username no esté ya en uso
+        try:
+            connection = get_db_connection()
+            if connection:
+                cursor = connection.cursor()
+                cursor.execute("SELECT id FROM users WHERE username = %s", (username,))
+                if cursor.fetchone():
+                    flash('Este nombre de usuario ya está en uso', 'error')
+                    cursor.close()
+                    connection.close()
+                    return render_template('register.html')
+                cursor.close()
+                connection.close()
+        except Exception as e:
+            add_console_log('ERROR', f'Error verificando username: {str(e)}', 'AUTH')
+            flash('Error verificando disponibilidad del nombre de usuario', 'error')
             return render_template('register.html')
         
         # Validar fortaleza de la contraseña

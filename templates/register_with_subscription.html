@@ -21,6 +21,29 @@
                             <h4 class="mb-4"><i class="fas fa-user me-2"></i>Información Personal</h4>
                             
                             <div class="row">
+                                <div class="col-md-12 mb-4">
+                                    <label for="username" class="form-label">
+                                        <i class="fas fa-at me-2"></i>Nombre de Usuario
+                                    </label>
+                                    <input type="text" 
+                                           class="form-control form-control-lg" 
+                                           id="username" 
+                                           name="username" 
+                                           required 
+                                           minlength="3"
+                                           maxlength="30"
+                                           pattern="[a-zA-Z0-9._-]+"
+                                           placeholder="Elige tu nombre de usuario">
+                                    <div class="form-text">
+                                        <small class="text-muted">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Solo letras, números, puntos, guiones y guiones bajos. Entre 3 y 30 caracteres.
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
                                 <div class="col-md-6 mb-4">
                                     <label for="first_name" class="form-label">
                                         <i class="fas fa-user me-2"></i>Nombre
@@ -117,12 +140,19 @@
                                     <label for="confirmPassword" class="form-label">
                                         <i class="fas fa-lock me-2"></i>Confirmar Contraseña
                                     </label>
-                                    <input type="password" 
-                                           class="form-control form-control-lg" 
-                                           id="confirmPassword" 
-                                           name="confirmPassword" 
-                                           required 
-                                           placeholder="Repite tu contraseña">
+                                    <div class="input-group">
+                                        <input type="password" 
+                                               class="form-control form-control-lg" 
+                                               id="confirmPassword" 
+                                               name="confirmPassword" 
+                                               required 
+                                               placeholder="Repite tu contraseña">
+                                        <button class="btn btn-outline-secondary" 
+                                                type="button" 
+                                                id="toggleConfirmPassword">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </div>
                                     <div class="invalid-feedback" id="passwordMismatch">
                                         Las contraseñas no coinciden
                                     </div>
@@ -525,6 +555,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const password = document.getElementById('password');
     const confirmPassword = document.getElementById('confirmPassword');
     const togglePassword = document.getElementById('togglePassword');
+    const toggleConfirmPassword = document.getElementById('toggleConfirmPassword');
+    const username = document.getElementById('username');
     const passwordStrength = document.getElementById('passwordStrength');
     const passwordHelp = document.getElementById('passwordHelp');
     const loadingSpinner = document.getElementById('loadingSpinner');
@@ -535,6 +567,34 @@ document.addEventListener('DOMContentLoaded', function() {
         password.setAttribute('type', type);
         this.querySelector('i').classList.toggle('fa-eye');
         this.querySelector('i').classList.toggle('fa-eye-slash');
+    });
+    
+    // Toggle confirm password visibility
+    toggleConfirmPassword.addEventListener('click', function() {
+        const type = confirmPassword.getAttribute('type') === 'password' ? 'text' : 'password';
+        confirmPassword.setAttribute('type', type);
+        this.querySelector('i').classList.toggle('fa-eye');
+        this.querySelector('i').classList.toggle('fa-eye-slash');
+    });
+    
+    // Username validation
+    username.addEventListener('input', function() {
+        const value = this.value;
+        const usernameRegex = /^[a-zA-Z0-9._-]+$/;
+        
+        if (value.length < 3) {
+            this.classList.add('is-invalid');
+            this.setCustomValidity('El nombre de usuario debe tener al menos 3 caracteres');
+        } else if (value.length > 30) {
+            this.classList.add('is-invalid');
+            this.setCustomValidity('El nombre de usuario no puede tener más de 30 caracteres');
+        } else if (!usernameRegex.test(value)) {
+            this.classList.add('is-invalid');
+            this.setCustomValidity('Solo se permiten letras, números, puntos, guiones y guiones bajos');
+        } else {
+            this.classList.remove('is-invalid');
+            this.setCustomValidity('');
+        }
     });
     
     // Password strength checker
@@ -723,6 +783,7 @@ function validateCurrentStep() {
         const requiredFields = [
             { id: 'first_name', name: 'Nombre' },
             { id: 'last_name', name: 'Apellido' },
+            { id: 'username', name: 'Nombre de Usuario' },
             { id: 'email', name: 'Email' },
             { id: 'phone', name: 'Teléfono' },
             { id: 'password', name: 'Contraseña' },

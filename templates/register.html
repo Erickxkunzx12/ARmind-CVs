@@ -76,6 +76,24 @@
                         </div>
                         
                         <div class="mb-4">
+                            <label for="username" class="form-label">
+                                <i class="fas fa-at me-2"></i>Nombre de Usuario
+                            </label>
+                            <input type="text" 
+                                   class="form-control form-control-lg" 
+                                   id="username" 
+                                   name="username" 
+                                   required 
+                                   minlength="3"
+                                   maxlength="30"
+                                   pattern="[a-zA-Z0-9._-]+"
+                                   placeholder="tu_usuario">
+                            <div class="form-text">
+                                Solo letras, números, puntos, guiones y guiones bajos. Mínimo 3 caracteres.
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
                             <label for="email" class="form-label">
                                 <i class="fas fa-envelope me-2"></i>Correo Electrónico
                             </label>
@@ -130,12 +148,19 @@
                             <label for="confirmPassword" class="form-label">
                                 <i class="fas fa-lock me-2"></i>Confirmar Contraseña
                             </label>
-                            <input type="password" 
-                                   class="form-control form-control-lg" 
-                                   id="confirmPassword" 
-                                   name="confirmPassword" 
-                                   required 
-                                   placeholder="Repite tu contraseña">
+                            <div class="input-group">
+                                <input type="password" 
+                                       class="form-control form-control-lg" 
+                                       id="confirmPassword" 
+                                       name="confirmPassword" 
+                                       required 
+                                       placeholder="Repite tu contraseña">
+                                <button class="btn btn-outline-secondary" 
+                                        type="button" 
+                                        id="toggleConfirmPassword">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
                             <div class="invalid-feedback" id="passwordMismatch">
                                 Las contraseñas no coinciden
                             </div>
@@ -369,6 +394,19 @@
              }
          });
         
+        // Username validation
+        const username = document.getElementById('username');
+        username.addEventListener('input', function() {
+            const value = this.value;
+            const isValid = /^[a-zA-Z0-9._-]{3,30}$/.test(value);
+            
+            if (value && !isValid) {
+                this.classList.add('is-invalid');
+            } else {
+                this.classList.remove('is-invalid');
+            }
+        });
+        
         // Email validation
         const email = document.getElementById('email');
         email.addEventListener('input', function() {
@@ -379,6 +417,23 @@
                 this.classList.add('is-invalid');
             } else {
                 this.classList.remove('is-invalid');
+            }
+        });
+        
+        // Toggle confirm password visibility
+        const toggleConfirmPassword = document.getElementById('toggleConfirmPassword');
+        toggleConfirmPassword.addEventListener('click', function() {
+            const confirmPasswordField = document.getElementById('confirmPassword');
+            const icon = this.querySelector('i');
+            
+            if (confirmPasswordField.type === 'password') {
+                confirmPasswordField.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                confirmPasswordField.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
             }
         });
     });
