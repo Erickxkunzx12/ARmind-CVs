@@ -1563,32 +1563,85 @@ def analyze_cv():
                 
                 # Extraer texto del archivo (pasar la extensión del archivo original)
                 original_extension = filename.rsplit('.', 1)[1].lower() if '.' in filename else None
+                
+                # LOGGING DETALLADO PARA DEBUG
+                add_console_log('INFO', f'Iniciando extracción de texto - Archivo: {filename}, Extensión: {original_extension}, Usuario: {username}', 'CV')
+                print(f"[DEBUG CV] Archivo: {filename}, Tamaño: {os.path.getsize(filepath)} bytes, Extensión: {original_extension}")
+                
                 text_content = extract_text_from_file(filepath, original_extension)
-                print(f"Texto extraído (primeros 200 caracteres): {text_content[:200] if text_content else 'None'}")
+                
+                # LOGGING DETALLADO DEL RESULTADO
+                if text_content:
+                    text_length = len(text_content)
+                    text_preview = text_content[:200] if text_content else 'None'
+                    add_console_log('INFO', f'Texto extraído exitosamente - {text_length} caracteres de {filename} por {username}', 'CV')
+                    print(f"[DEBUG CV] ✅ Extracción exitosa: {text_length} caracteres")
+                    print(f"[DEBUG CV] Vista previa: {repr(text_preview)}")
+                    
+                    # Validaciones adicionales para debug
+                    if text_length < 50:
+                        add_console_log('WARNING', f'Texto muy corto extraído ({text_length} chars) de {filename} por {username}', 'CV')
+                        print(f"[DEBUG CV] ⚠️ ADVERTENCIA: Texto muy corto ({text_length} caracteres)")
+                    
+                    # Verificar palabras clave de CV
+                    cv_keywords = ['experiencia', 'educación', 'habilidades', 'trabajo', 'universidad', 'empresa', 'proyecto', 'experience', 'education', 'skills', 'work', 'university', 'company', 'project']
+                    found_keywords = sum(1 for keyword in cv_keywords if keyword.lower() in text_content.lower())
+                    
+                    if found_keywords < 2:
+                        add_console_log('WARNING', f'Posible contenido no-CV detectado ({found_keywords} palabras clave) en {filename} por {username}', 'CV')
+                        print(f"[DEBUG CV] ⚠️ ADVERTENCIA: Solo {found_keywords} palabras clave de CV encontradas")
+                    else:
+                        print(f"[DEBUG CV] ✅ Contenido parece ser CV ({found_keywords} palabras clave)")
+                else:
+                    add_console_log('ERROR', f'Extracción de texto falló completamente para {filename} por {username}', 'CV')
+                    print(f"[DEBUG CV] ❌ ERROR: No se extrajo texto del archivo")
+                
+                print(f"[DEBUG CV] Texto extraído (primeros 200 caracteres): {text_content[:200] if text_content else 'None'}")
                 
                 # Eliminar el archivo temporal después de extraer el texto
                 try:
                     os.unlink(filepath)
+                    print(f"[DEBUG CV] ✅ Archivo temporal eliminado: {filepath}")
                 except PermissionError:
                     # En Windows, a veces el archivo sigue en uso
                     # Registrar el error pero continuar con el proceso
                     add_console_log('WARNING', f'No se pudo eliminar el archivo temporal: {filepath}', 'CV')
+                    print(f"[DEBUG CV] ⚠️ No se pudo eliminar archivo temporal: {filepath}")
                     pass
                 
                 if text_content:
+                    # LOGGING DETALLADO DE SESIÓN
+                    print(f"[DEBUG CV] Guardando en sesión - Usuario: {user_id}, Archivo: {filename}")
+                    
                     # Guardar el contenido del CV en la sesión para el siguiente paso
                     session['cv_content'] = text_content
                     session['cv_filename'] = filename
                     
+                    # Verificar que se guardó correctamente
+                    if 'cv_content' in session and session['cv_content']:
+                        add_console_log('INFO', f'CV guardado en sesión exitosamente - {len(session["cv_content"])} chars para {username}', 'CV')
+                        print(f"[DEBUG CV] ✅ Sesión actualizada correctamente")
+                        print(f"[DEBUG CV] Contenido en sesión: {len(session['cv_content'])} caracteres")
+                        print(f"[DEBUG CV] Archivo en sesión: {session.get('cv_filename', 'NO_FILENAME')}")
+                    else:
+                        add_console_log('ERROR', f'FALLO CRÍTICO: CV no se guardó en sesión para {username}', 'CV')
+                        print(f"[DEBUG CV] ❌ ERROR CRÍTICO: No se guardó en sesión")
+                        flash('Error interno: No se pudo procesar el CV', 'error')
+                        return redirect(request.url)
+                    
                     # Incrementar contador de uso
                     increment_usage(session.get('user_id'), 'cv_analysis')
+                    
+                    # LOGGING ANTES DE REDIRECCIÓN
+                    add_console_log('INFO', f'Redirigiendo a selección de IA - {filename} por {username}', 'CV')
+                    print(f"[DEBUG CV] 🔄 Redirigiendo a select_ai_provider")
                     
                     # Redirigir a la selección de IA
                     return redirect(url_for('select_ai_provider'))
                 else:
                     add_console_log('ERROR', f'Error extrayendo texto de: {filename} por {username}', 'CV')
-                    print("Error: No se pudo extraer texto del archivo")
-                    flash('No se pudo extraer texto del archivo', 'error')
+                    print(f"[DEBUG CV] ❌ Error: No se pudo extraer texto del archivo")
+                    flash('No se pudo extraer texto del archivo. Verifica que el archivo no esté dañado o encriptado.', 'error')
         else:
             add_console_log('WARNING', f'Archivo no permitido subido: {file.filename} por {username}', 'CV')
             flash('Tipo de archivo no permitido. Solo se permiten archivos PDF, DOC y DOCX.', 'error')
@@ -1667,12 +1720,44 @@ def analyze_cv():
 @app.route('/select_ai_provider')
 def select_ai_provider():
     """Paso 2: Seleccionar proveedor de IA"""
+    # LOGGING DETALLADO PARA DEBUG
+    user_id = session.get('user_id')
+    username = session.get('username', 'unknown')
+    
+    print(f"[DEBUG AI_SELECT] Acceso a select_ai_provider - Usuario: {username} (ID: {user_id})")
+    
     if 'user_id' not in session:
+        print(f"[DEBUG AI_SELECT] ❌ Sin user_id en sesión")
         return redirect(url_for('login'))
     
+    # VERIFICACIÓN DETALLADA DE SESIÓN
+    print(f"[DEBUG AI_SELECT] Verificando contenido de sesión...")
+    print(f"[DEBUG AI_SELECT] Claves en sesión: {list(session.keys())}")
+    
     if 'cv_content' not in session:
+        print(f"[DEBUG AI_SELECT] ❌ ERROR CRÍTICO: cv_content no está en sesión")
+        print(f"[DEBUG AI_SELECT] Sesión actual: {dict(session)}")
+        add_console_log('ERROR', f'FALLO CRÍTICO: cv_content perdido en sesión para {username}', 'CV')
         flash('Primero debes subir un CV', 'error')
         return redirect(url_for('analyze_cv'))
+    
+    # VERIFICACIONES ADICIONALES
+    cv_content = session.get('cv_content')
+    cv_filename = session.get('cv_filename', 'NO_FILENAME')
+    
+    if not cv_content:
+        print(f"[DEBUG AI_SELECT] ❌ ERROR: cv_content está vacío")
+        add_console_log('ERROR', f'cv_content vacío en select_ai_provider para {username}', 'CV')
+        flash('El contenido del CV se perdió. Por favor, sube el archivo nuevamente.', 'error')
+        return redirect(url_for('analyze_cv'))
+    
+    cv_length = len(cv_content)
+    print(f"[DEBUG AI_SELECT] ✅ CV encontrado en sesión")
+    print(f"[DEBUG AI_SELECT] Archivo: {cv_filename}")
+    print(f"[DEBUG AI_SELECT] Contenido: {cv_length} caracteres")
+    print(f"[DEBUG AI_SELECT] Vista previa: {repr(cv_content[:100])}")
+    
+    add_console_log('INFO', f'Acceso exitoso a select_ai_provider - {cv_filename} ({cv_length} chars) por {username}', 'CV')
     
     return render_template('select_ai_provider.html')
 
@@ -1757,44 +1842,184 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def extract_text_from_file(filepath, file_extension=None):
-    """Extraer texto de archivos PDF o Word"""
-    text = ""
+    """Extraer texto de archivos PDF o Word con manejo robusto de errores"""
     
-    # Si no se proporciona extensión, intentar obtenerla del filepath
+    # Validaciones iniciales
+    if not filepath or not os.path.exists(filepath):
+        print(f"Error: Archivo no existe: {filepath}")
+        return None
+    
+    if not os.access(filepath, os.R_OK):
+        print(f"Error: No se puede leer el archivo: {filepath}")
+        return None
+    
+    file_size = os.path.getsize(filepath)
+    if file_size == 0:
+        print(f"Error: El archivo está vacío: {filepath}")
+        return None
+    
+    if file_size > 50 * 1024 * 1024:  # 50MB límite
+        print(f"Error: Archivo demasiado grande: {file_size} bytes")
+        return None
+    
+    print(f"Procesando archivo: {os.path.basename(filepath)} ({file_size} bytes)")
+    
+    # Determinar extensión del archivo
     if file_extension is None:
         if '.' not in filepath:
-            # Si no hay extensión, intentar detectar el tipo de archivo
+            # Detectar tipo por header
             try:
                 with open(filepath, 'rb') as f:
-                    header = f.read(8)
+                    header = f.read(16)
                     if header.startswith(b'%PDF'):
                         file_extension = 'pdf'
+                        print("Detectado como PDF por header")
                     elif header.startswith(b'PK\x03\x04'):
                         file_extension = 'docx'
+                        print("Detectado como DOCX por header")
+                    elif header.startswith(b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1'):
+                        file_extension = 'doc'
+                        print("Detectado como DOC por header")
                     else:
-                        return ""
-            except:
-                return ""
+                        print(f"Error: Tipo de archivo no reconocido: {header[:8]}")
+                        return None
+            except Exception as e:
+                print(f"Error leyendo header del archivo: {e}")
+                return None
         else:
             file_extension = filepath.rsplit('.', 1)[1].lower()
     
+    text = ""
+    
     try:
         if file_extension == 'pdf':
-            with open(filepath, 'rb') as file:
-                pdf_reader = PyPDF2.PdfReader(file)
-                for page in pdf_reader.pages:
-                    text += page.extract_text()
-        
+            text = _extract_from_pdf_robust(filepath)
         elif file_extension in ['doc', 'docx']:
-            doc = Document(filepath)
-            for paragraph in doc.paragraphs:
-                text += paragraph.text + '\n'
+            text = _extract_from_word_robust(filepath, file_extension)
+        else:
+            print(f"Error: Extensión no soportada: {file_extension}")
+            return None
     
     except Exception as e:
-        print(f"Error al extraer texto: {e}")
+        print(f"Error general extrayendo texto: {e}")
         return None
     
-    return text.strip()
+    if not text or len(text.strip()) == 0:
+        print("Advertencia: No se extrajo texto del archivo")
+        return None
+    
+    # Validar calidad del texto
+    text = text.strip()
+    if len(text) < 10:
+        print(f"Advertencia: Texto extraído muy corto: {len(text)} caracteres")
+    
+    # Verificar caracteres imprimibles
+    printable_ratio = sum(1 for c in text if c.isprintable() or c.isspace()) / len(text)
+    if printable_ratio < 0.8:
+        print(f"Advertencia: Texto contiene muchos caracteres no imprimibles: {printable_ratio:.2%}")
+    
+    print(f"Texto extraído exitosamente: {len(text)} caracteres")
+    return text
+
+def _extract_from_pdf_robust(filepath):
+    """Extraer texto de archivo PDF con manejo robusto de errores"""
+    text = ""
+    
+    try:
+        with open(filepath, 'rb') as file:
+            # Verificar que es un PDF válido
+            file.seek(0)
+            header = file.read(4)
+            if not header.startswith(b'%PDF'):
+                raise ValueError("No es un archivo PDF válido")
+            
+            file.seek(0)
+            pdf_reader = PyPDF2.PdfReader(file)
+            
+            # Verificar si está encriptado
+            if pdf_reader.is_encrypted:
+                print("PDF está encriptado, intentando desencriptar")
+                try:
+                    pdf_reader.decrypt('')  # Intentar con contraseña vacía
+                    print("PDF desencriptado exitosamente")
+                except:
+                    print("Error: No se puede desencriptar el PDF")
+                    return None
+            
+            num_pages = len(pdf_reader.pages)
+            if num_pages == 0:
+                print("Error: PDF no tiene páginas")
+                return None
+            
+            print(f"PDF tiene {num_pages} páginas")
+            
+            # Extraer texto de cada página
+            pages_with_text = 0
+            for i, page in enumerate(pdf_reader.pages):
+                try:
+                    page_text = page.extract_text()
+                    if page_text and page_text.strip():
+                        text += page_text + "\n"
+                        pages_with_text += 1
+                    else:
+                        print(f"Advertencia: Página {i+1} no tiene texto extraíble")
+                except Exception as page_error:
+                    print(f"Advertencia: Error en página {i+1}: {page_error}")
+                    continue
+            
+            print(f"Texto extraído de {pages_with_text}/{num_pages} páginas")
+    
+    except Exception as e:
+        print(f"Error procesando PDF: {e}")
+        raise
+    
+    return text
+
+def _extract_from_word_robust(filepath, file_extension):
+    """Extraer texto de archivo Word con manejo robusto de errores"""
+    text = ""
+    
+    try:
+        # Verificar header del archivo
+        with open(filepath, 'rb') as f:
+            header = f.read(8)
+            if file_extension == 'docx' and not header.startswith(b'PK'):
+                print("Advertencia: El archivo no parece ser un DOCX válido")
+            elif file_extension == 'doc' and not header.startswith(b'\xd0\xcf'):
+                print("Advertencia: El archivo no parece ser un DOC válido")
+        
+        # Abrir documento
+        doc = Document(filepath)
+        
+        # Extraer texto de párrafos
+        paragraph_count = 0
+        for paragraph in doc.paragraphs:
+            para_text = paragraph.text.strip()
+            if para_text:
+                text += para_text + '\n'
+                paragraph_count += 1
+        
+        print(f"Extraídos {paragraph_count} párrafos")
+        
+        # Extraer texto de tablas
+        table_count = 0
+        if hasattr(doc, 'tables') and doc.tables:
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        cell_text = cell.text.strip()
+                        if cell_text:
+                            text += cell_text + ' '
+                text += '\n'
+                table_count += 1
+            
+            print(f"Extraídas {table_count} tablas")
+    
+    except Exception as e:
+        print(f"Error procesando documento Word: {e}")
+        raise
+    
+    return text
 
 def perform_cv_analysis(cv_text, ai_provider, analysis_type):
     """Realizar análisis de CV según el proveedor de IA y tipo de análisis seleccionado"""
@@ -3002,7 +3227,8 @@ def improve_cv_with_ai(cv_data, target_language='es'):
         'es': 'español',
         'en': 'inglés', 
         'pt': 'portugués',
-        'de': 'alemán'
+        'de': 'alemán',
+        'fr': 'francés'
     }
     
     target_language_name = language_names.get(target_language, 'español')
@@ -4041,7 +4267,8 @@ def save_cv():
             'es': 'español',
             'en': 'inglés', 
             'pt': 'portugués',
-            'de': 'alemán'
+            'de': 'alemán',
+            'fr': 'francés'
         }
         language_name = language_names.get(target_language, 'español')
         success_message = f'CV guardado y mejorado con IA en {language_name}. Datos del usuario actualizados.'
