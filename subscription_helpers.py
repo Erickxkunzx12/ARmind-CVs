@@ -5,7 +5,7 @@ def get_complete_user_usage(user_id):
     """Obtener el uso completo del usuario para todas las funciones"""
     try:
         # Obtener uso de análisis de CV
-        cv_analysis_count = get_user_usage(user_id, 'analysis')
+        cv_analysis_count = get_user_usage(user_id, 'cv_analysis')
         
         # Obtener uso de creación de CV
         cv_creation_count = get_user_usage(user_id, 'cv_creation')

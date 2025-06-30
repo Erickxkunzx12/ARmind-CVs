@@ -1521,6 +1521,17 @@ def dashboard():
                          user_usage=user_usage,
                          subscription_plans=SUBSCRIPTION_PLANS)
 
+def cleanup_cv_temp_file(cv_temp_id):
+    """Función auxiliar para limpiar archivos temporales de CV"""
+    if cv_temp_id:
+        temp_cv_path = os.path.join(os.getcwd(), 'temp', f'cv_{cv_temp_id}.txt')
+        try:
+            if os.path.exists(temp_cv_path):
+                os.remove(temp_cv_path)
+                print(f"[DEBUG CV] ✅ Archivo temporal eliminado: {cv_temp_id}")
+        except Exception as e:
+            print(f"[DEBUG CV] ⚠️ Error eliminando archivo temporal: {str(e)}")
+
 @app.route('/analyze_cv', methods=['GET', 'POST'])
 def analyze_cv():
     """Analizador de CV con IA - Paso 1: Subir archivo (usando archivos temporales)"""
@@ -1613,19 +1624,33 @@ def analyze_cv():
                     # LOGGING DETALLADO DE SESIÓN
                     print(f"[DEBUG CV] Guardando en sesión - Usuario: {user_id}, Archivo: {filename}")
                     
-                    # Guardar el contenido del CV en la sesión para el siguiente paso
-                    session['cv_content'] = text_content
-                    session['cv_filename'] = filename
+                    # Generar ID único para el CV temporal
+                    import uuid
+                    cv_temp_id = str(uuid.uuid4())
                     
-                    # Verificar que se guardó correctamente
-                    if 'cv_content' in session and session['cv_content']:
-                        add_console_log('INFO', f'CV guardado en sesión exitosamente - {len(session["cv_content"])} chars para {username}', 'CV')
-                        print(f"[DEBUG CV] ✅ Sesión actualizada correctamente")
-                        print(f"[DEBUG CV] Contenido en sesión: {len(session['cv_content'])} caracteres")
-                        print(f"[DEBUG CV] Archivo en sesión: {session.get('cv_filename', 'NO_FILENAME')}")
-                    else:
-                        add_console_log('ERROR', f'FALLO CRÍTICO: CV no se guardó en sesión para {username}', 'CV')
-                        print(f"[DEBUG CV] ❌ ERROR CRÍTICO: No se guardó en sesión")
+                    # Guardar CV temporalmente en el servidor
+                    temp_dir = os.path.join(os.getcwd(), 'temp')
+                    os.makedirs(temp_dir, exist_ok=True)
+                    
+                    temp_cv_path = os.path.join(temp_dir, f'cv_{cv_temp_id}.txt')
+                    
+                    try:
+                        with open(temp_cv_path, 'w', encoding='utf-8') as f:
+                            f.write(text_content)
+                        
+                        # Guardar solo el ID y filename en sesión
+                        session['cv_temp_id'] = cv_temp_id
+                        session['cv_filename'] = filename
+                        
+                        add_console_log('INFO', f'CV guardado temporalmente - {len(text_content)} chars para {username}', 'CV')
+                        print(f"[DEBUG CV] ✅ CV guardado temporalmente")
+                        print(f"[DEBUG CV] ID temporal: {cv_temp_id}")
+                        print(f"[DEBUG CV] Contenido: {len(text_content)} caracteres")
+                        print(f"[DEBUG CV] Archivo: {filename}")
+                        
+                    except Exception as e:
+                        add_console_log('ERROR', f'Error guardando CV temporal para {username}: {str(e)}', 'CV')
+                        print(f"[DEBUG CV] ❌ Error guardando temporalmente: {str(e)}")
                         flash('Error interno: No se pudo procesar el CV', 'error')
                         return redirect(request.url)
                     
@@ -1734,20 +1759,40 @@ def select_ai_provider():
     print(f"[DEBUG AI_SELECT] Verificando contenido de sesión...")
     print(f"[DEBUG AI_SELECT] Claves en sesión: {list(session.keys())}")
     
-    if 'cv_content' not in session:
-        print(f"[DEBUG AI_SELECT] ❌ ERROR CRÍTICO: cv_content no está en sesión")
+    if 'cv_temp_id' not in session:
+        print(f"[DEBUG AI_SELECT] ❌ ERROR CRÍTICO: cv_temp_id no está en sesión")
         print(f"[DEBUG AI_SELECT] Sesión actual: {dict(session)}")
-        add_console_log('ERROR', f'FALLO CRÍTICO: cv_content perdido en sesión para {username}', 'CV')
+        add_console_log('ERROR', f'FALLO CRÍTICO: cv_temp_id perdido en sesión para {username}', 'CV')
         flash('Primero debes subir un CV', 'error')
         return redirect(url_for('analyze_cv'))
     
     # VERIFICACIONES ADICIONALES
-    cv_content = session.get('cv_content')
+    cv_temp_id = session.get('cv_temp_id')
     cv_filename = session.get('cv_filename', 'NO_FILENAME')
+    
+    # Cargar CV desde archivo temporal
+    temp_cv_path = os.path.join(os.getcwd(), 'temp', f'cv_{cv_temp_id}.txt')
+    
+    try:
+        with open(temp_cv_path, 'r', encoding='utf-8') as f:
+            cv_content = f.read()
+    except FileNotFoundError:
+        print(f"[DEBUG AI_SELECT] ❌ ERROR: Archivo temporal no encontrado")
+        add_console_log('ERROR', f'Archivo temporal CV no encontrado para {username}', 'CV')
+        cleanup_cv_temp_file(cv_temp_id)
+        flash('El contenido del CV se perdió. Por favor, sube el archivo nuevamente.', 'error')
+        return redirect(url_for('analyze_cv'))
+    except Exception as e:
+        print(f"[DEBUG AI_SELECT] ❌ ERROR: Error leyendo archivo temporal: {str(e)}")
+        add_console_log('ERROR', f'Error leyendo CV temporal para {username}: {str(e)}', 'CV')
+        cleanup_cv_temp_file(cv_temp_id)
+        flash('Error interno al procesar el CV. Por favor, sube el archivo nuevamente.', 'error')
+        return redirect(url_for('analyze_cv'))
     
     if not cv_content:
         print(f"[DEBUG AI_SELECT] ❌ ERROR: cv_content está vacío")
         add_console_log('ERROR', f'cv_content vacío en select_ai_provider para {username}', 'CV')
+        cleanup_cv_temp_file(cv_temp_id)
         flash('El contenido del CV se perdió. Por favor, sube el archivo nuevamente.', 'error')
         return redirect(url_for('analyze_cv'))
     
@@ -1767,7 +1812,7 @@ def select_analysis_type(ai_provider):
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
-    if 'cv_content' not in session:
+    if 'cv_temp_id' not in session:
         flash('Primero debes subir un CV', 'error')
         return redirect(url_for('analyze_cv'))
     
@@ -1787,14 +1832,29 @@ def perform_analysis(analysis_type):
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
-    if 'cv_content' not in session or 'selected_ai' not in session:
+    if 'cv_temp_id' not in session or 'selected_ai' not in session:
         flash('Sesión expirada. Reinicia el proceso', 'error')
         return redirect(url_for('analyze_cv'))
     
     username = session.get('username', 'unknown')
-    cv_content = session['cv_content']
+    cv_temp_id = session.get('cv_temp_id')
     filename = session['cv_filename']
     ai_provider = session['selected_ai']
+    
+    # Cargar CV desde archivo temporal
+    temp_cv_path = os.path.join(os.getcwd(), 'temp', f'cv_{cv_temp_id}.txt')
+    
+    try:
+        with open(temp_cv_path, 'r', encoding='utf-8') as f:
+            cv_content = f.read()
+    except FileNotFoundError:
+        cleanup_cv_temp_file(cv_temp_id)
+        flash('El contenido del CV se perdió. Por favor, sube el archivo nuevamente.', 'error')
+        return redirect(url_for('analyze_cv'))
+    except Exception as e:
+        cleanup_cv_temp_file(cv_temp_id)
+        flash('Error interno al procesar el CV. Por favor, sube el archivo nuevamente.', 'error')
+        return redirect(url_for('analyze_cv'))
     
     # Validar tipo de análisis
     valid_analysis_types = [
@@ -1824,10 +1884,13 @@ def perform_analysis(analysis_type):
         save_cv_analysis(session['user_id'], filename, cv_content, analysis)
         add_console_log('INFO', f'Análisis CV completado exitosamente: {filename} por {username}', 'CV')
         
-        # Limpiar sesión
-        session.pop('cv_content', None)
+        # Limpiar sesión y archivo temporal
+        cv_temp_id = session.pop('cv_temp_id', None)
         session.pop('cv_filename', None)
         session.pop('selected_ai', None)
+        
+        # Eliminar archivo temporal
+        cleanup_cv_temp_file(cv_temp_id)
         
         return render_template('cv_analysis_result.html', analysis=analysis, analysis_type=analysis_type, ai_provider=ai_provider)
         

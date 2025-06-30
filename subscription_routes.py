@@ -307,7 +307,7 @@ def my_subscription():
     user_usage = get_complete_user_usage(session['user_id'])
     
     # Si es administrador y no tiene suscripción, crear una virtual para la vista
-    is_admin = user_role and len(user_role) > 0 and user_role[0] == 'admin'
+    is_admin = user_role and user_role.get('role') == 'admin' if user_role else False
     if is_admin and not user_subscription:
         from datetime import datetime
         user_subscription = {

@@ -189,7 +189,7 @@ def get_user_subscription(user_id):
         cursor.execute("SELECT role FROM users WHERE id = %s", (user_id,))
         user_role = cursor.fetchone()
         
-        if user_role and user_role[0] == 'admin':
+        if user_role and user_role.get('role') == 'admin':
             # Los administradores no necesitan suscripción, tienen acceso completo
             cursor.close()
             connection.close()
@@ -228,7 +228,7 @@ def get_user_usage(user_id, resource_type):
         cursor.execute("SELECT role FROM users WHERE id = %s", (user_id,))
         user_role = cursor.fetchone()
         
-        if user_role and user_role[0] == 'admin':
+        if user_role and user_role.get('role') == 'admin':
             # Los administradores tienen uso ilimitado
             cursor.close()
             connection.close()
