@@ -214,29 +214,42 @@ def generate_pdf_with_reportlab(html_content, title):
         story.append(Spacer(1, 12))
         
         # Procesar el contenido
+        print(f"DEBUG: HTML content: {html_content[:500]}...")  # Debug
+        
         content_div = soup.find('div', class_='content')
         if content_div:
-            # Obtener el HTML interno y procesarlo
-            content_html = str(content_div)
-            # Reemplazar <br> con saltos de línea para ReportLab
-            content_html = content_html.replace('<br>', '<br/>')
-            content_html = content_html.replace('<br/><br/>', '<br/><br/>')
+            # Buscar todos los párrafos dentro del div de contenido
+            paragraphs = content_div.find_all('p')
+            print(f"DEBUG: Found {len(paragraphs)} paragraphs")  # Debug
             
-            # Dividir por <br/> para crear párrafos separados
-            paragraphs = content_html.split('<br/>')
-            
-            for para_text in paragraphs:
-                # Limpiar el texto de tags HTML
-                clean_text = BeautifulSoup(para_text, 'html.parser').get_text().strip()
-                if clean_text:
-                    story.append(Paragraph(clean_text, styles['Normal']))
-                    story.append(Spacer(1, 6))
+            if paragraphs:
+                for p in paragraphs:
+                    para_text = p.get_text().strip()
+                    print(f"DEBUG: Paragraph text: {para_text[:100]}...")  # Debug
+                    if para_text:
+                        story.append(Paragraph(para_text, styles['Normal']))
+                        story.append(Spacer(1, 12))
+            else:
+                # Si no hay párrafos, obtener todo el texto del div
+                content_text = content_div.get_text().strip()
+                print(f"DEBUG: Content text fallback: {content_text[:200]}...")  # Debug
+                if content_text:
+                    # Dividir por saltos de línea dobles para párrafos
+                    paragraphs_text = content_text.split('\n\n')
+                    for para in paragraphs_text:
+                        para = para.strip().replace('\n', ' ')  # Reemplazar saltos simples con espacios
+                        if para:
+                            story.append(Paragraph(para, styles['Normal']))
+                            story.append(Spacer(1, 12))
+                else:
+                    story.append(Paragraph("Error: No se pudo extraer el contenido de la carta.", styles['Normal']))
         else:
             # Fallback: procesar todos los elementos
-            for element in soup.find_all(['h2', 'h3', 'p', 'div']):
+            print("DEBUG: Using fallback processing")  # Debug
+            for element in soup.find_all(['h1', 'h2', 'h3', 'p', 'div']):
                 text = element.get_text().strip()
-                if text:
-                    if element.name in ['h2', 'h3']:
+                if text and text not in ['Carta de Presentación', 'Cover Letter', 'Carta de Apresentação', 'Anschreiben', 'Lettre de Motivation']:  # Evitar duplicar títulos
+                    if element.name in ['h1', 'h2', 'h3']:
                         story.append(Paragraph(text, heading_style))
                     else:
                         story.append(Paragraph(text, styles['Normal']))
@@ -7341,6 +7354,7 @@ def generate_cover_letter():
             return jsonify({'success': False, 'message': 'No se pudo extraer texto del CV'})
         
         # Generar carta de presentación con IA
+        print(f"DEBUG: Generating cover letter for {job_title} at {company_name}")  # Debug
         cover_letter = generate_cover_letter_with_ai(
             cv_text=cv_text,
             job_title=job_title,
@@ -7348,6 +7362,9 @@ def generate_cover_letter():
             job_description=job_description,
             language=language
         )
+        
+        print(f"DEBUG: Generated cover letter length: {len(cover_letter) if cover_letter else 0}")  # Debug
+        print(f"DEBUG: Cover letter preview: {cover_letter[:200] if cover_letter else 'None'}...")  # Debug
         
         if not cover_letter:
             return jsonify({'success': False, 'message': 'Error generando la carta de presentación'})
@@ -7410,38 +7427,72 @@ def download_cover_letter(cover_letter_id):
             flash('Carta de presentación no encontrada', 'error')
             return redirect(url_for('cover_letter_generator'))
         
-        job_title, company_name, content, language, created_at = cover_letter_data
+        # Extraer datos del diccionario (RealDictCursor devuelve un diccionario)
+        job_title = cover_letter_data['job_title']
+        company_name = cover_letter_data['company_name']
+        content = cover_letter_data['content']
+        language = cover_letter_data['language']
+        created_at = cover_letter_data['created_at']
+        
+        # Configuración de idiomas para el PDF
+        language_config = {
+            'es': {'title': 'Carta de Presentación', 'closing': 'Atentamente'},
+            'en': {'title': 'Cover Letter', 'closing': 'Sincerely'},
+            'pt': {'title': 'Carta de Apresentação', 'closing': 'Atenciosamente'},
+            'de': {'title': 'Anschreiben', 'closing': 'Mit freundlichen Grüßen'},
+            'fr': {'title': 'Lettre de Motivation', 'closing': 'Cordialement'}
+        }
+        
+        lang_config = language_config.get(language, language_config['es'])
         
         # Generar PDF
         # Procesar el contenido para preservar los saltos de línea
-        formatted_content = content.replace('\n', '<br>').replace('\r\n', '<br>')
+        # Dividir el contenido en párrafos y formatear cada uno
+        paragraphs = content.split('\n')
+        formatted_paragraphs = []
+        
+        for para in paragraphs:
+            para = para.strip()
+            if para:  # Solo agregar párrafos no vacíos
+                formatted_paragraphs.append(f'<p>{para}</p>')
+        
+        formatted_content = '\n'.join(formatted_paragraphs)
+        
+        print(f"DEBUG: Language: {language}")  # Debug
+        print(f"DEBUG: Original content: {content[:200]}...")  # Debug
+        print(f"DEBUG: Formatted content: {formatted_content[:200]}...")  # Debug
         
         html_content = f"""
+        <!DOCTYPE html>
         <html>
         <head>
             <meta charset="UTF-8">
             <style>
-                body {{ font-family: Arial, sans-serif; line-height: 1.6; margin: 40px; }}
-                .header {{ text-align: center; margin-bottom: 30px; }}
-                .content {{ text-align: justify; }}
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; margin: 40px; color: #333; }}
+                .header {{ text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }}
+                .content {{ text-align: justify; margin-bottom: 30px; }}
+                .content p {{ margin-bottom: 15px; }}
                 .signature {{ margin-top: 30px; }}
             </style>
         </head>
         <body>
             <div class="header">
-                <h1>Carta de Presentación</h1>
+                <h1>{lang_config['title']}</h1>
                 <p><strong>{job_title}</strong> - {company_name}</p>
             </div>
             <div class="content">
                 {formatted_content}
             </div>
             <div class="signature">
-                <p>Atentamente,<br>
+                <p>{lang_config['closing']},<br>
                 {session.get('username', 'Candidato')}</p>
             </div>
         </body>
         </html>
         """
+        
+        # Debug: Imprimir el HTML completo
+        print(f"DEBUG: Complete HTML: {html_content}")
         
         # Generar PDF usando ReportLab
         pdf_content = generate_pdf_with_reportlab(html_content, f"Carta_{job_title}_{company_name}")
@@ -7533,6 +7584,7 @@ Formato: Solo el contenido de la carta, sin encabezados adicionales.
 """
         
         if OPENAI_CLIENT:
+            print(f"DEBUG: Calling OpenAI API for cover letter generation")  # Debug
             response = OPENAI_CLIENT.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
@@ -7543,8 +7595,12 @@ Formato: Solo el contenido de la carta, sin encabezados adicionales.
                 temperature=0.7
             )
             
-            return response.choices[0].message.content.strip()
+            generated_content = response.choices[0].message.content.strip()
+            print(f"DEBUG: OpenAI response length: {len(generated_content)}")  # Debug
+            print(f"DEBUG: OpenAI response preview: {generated_content[:200]}...")  # Debug
+            return generated_content
         else:
+            print(f"DEBUG: OpenAI client not available")  # Debug
             return None
             
     except Exception as e:
