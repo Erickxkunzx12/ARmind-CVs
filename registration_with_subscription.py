@@ -284,12 +284,16 @@ class RegistrationWithSubscription:
             
             if payment_method == 'webpay':
                 # Inicializar transacción con WebPay
-                payment_url = self.webpay_gateway.create_transaction(
+                result = self.webpay_gateway.create_transaction(
                     amount=amount,
                     order_id=f"ORDER_{user_id}_{secrets.token_hex(4).upper()}",
                     return_url=return_url
                 )
-                return payment_url
+                if result and 'error' not in result:
+                    return result.get('url') + '?token_ws=' + result.get('token')
+                else:
+                    logger.error(f"Error en Webpay: {result.get('error', 'Error desconocido')}")
+                    return None
                 
             elif payment_method == 'paypal':
                 # Inicializar transacción con PayPal
@@ -636,46 +640,84 @@ class RegistrationWithSubscription:
             message["From"] = sender_email
             message["To"] = email
             
-            # Contenido del email
+            # Contenido del email con diseño mejorado y logo de ARMind
             html_content = f"""
+            <!DOCTYPE html>
             <html>
-                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                        <h2 style="color: #007bff;">¡Bienvenido a ARMind CVs, {username}!</h2>
-                        
-                        <p>Gracias por registrarte en nuestra plataforma. Tu cuenta ha sido creada exitosamente.</p>
-                        
-                        <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
-                            <h3 style="margin-top: 0;">Próximos pasos:</h3>
-                            <ol>
-                                <li>Verifica tu email haciendo clic en el enlace de abajo</li>
-                                <li>Completa tu perfil</li>
-                                <li>¡Comienza a crear CVs profesionales!</li>
-                            </ol>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Verificación de Email - ARMind CVs</title>
+            </head>
+            <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh;">
+                <div style="max-width: 600px; margin: 0 auto; background-color: white; border-radius: 15px; margin-top: 40px; margin-bottom: 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); overflow: hidden;">
+                    <!-- Header con logo -->
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px; text-align: center;">
+                        <!-- Logo ARMind SVG -->
+                        <div style="margin-bottom: 20px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="120" height="36" viewBox="0 0 1693.32 507.98" style="fill: white;">
+                                <text x="50" y="300" font-family="Montserrat, Arial, sans-serif" font-size="200" font-weight="bold" fill="white">ARMind</text>
+                            </svg>
+                        </div>
+                        <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 300;">¡Bienvenido a ARMind CVs!</h1>
+                        <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">Hola {username}, tu cuenta ha sido creada exitosamente</p>
+                    </div>
+                    
+                    <!-- Contenido principal -->
+                    <div style="padding: 40px 30px;">
+                        <div style="text-align: center; margin-bottom: 30px;">
+                            <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
+                                <svg width="40" height="40" fill="white" viewBox="0 0 24 24">
+                                    <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1H5C3.9 1 3 1.9 3 3V21C3 22.1 3.9 23 5 23H19C20.1 23 21 22.1 21 21V9M19 9H14V4H19V9Z"/>
+                                </svg>
+                            </div>
+                            <h2 style="color: #333; margin: 0 0 10px 0; font-size: 24px; font-weight: 600;">Verifica tu cuenta</h2>
+                            <p style="color: #666; font-size: 16px; line-height: 1.6; margin: 0;">Para completar tu registro y comenzar a crear CVs profesionales, necesitas verificar tu dirección de email.</p>
                         </div>
                         
-                        <div style="text-align: center; margin: 30px 0;">
-                            <a href="http://localhost:5000/verify_email/{verification_token}" style="background: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
-                                Verificar Email
+                        <!-- Pasos a seguir -->
+                        <div style="background: #f8f9fa; border-radius: 10px; padding: 25px; margin: 30px 0;">
+                            <h3 style="color: #333; margin: 0 0 20px 0; font-size: 18px; font-weight: 600;">Próximos pasos:</h3>
+                            <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                                <div style="width: 24px; height: 24px; background: #667eea; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; margin-right: 15px;">1</div>
+                                <span style="color: #555; font-size: 14px;">Verifica tu email haciendo clic en el botón de abajo</span>
+                            </div>
+                            <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                                <div style="width: 24px; height: 24px; background: #667eea; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; margin-right: 15px;">2</div>
+                                <span style="color: #555; font-size: 14px;">Completa tu perfil profesional</span>
+                            </div>
+                            <div style="display: flex; align-items: center;">
+                                <div style="width: 24px; height: 24px; background: #667eea; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; margin-right: 15px;">3</div>
+                                <span style="color: #555; font-size: 14px;">¡Comienza a crear CVs profesionales!</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Botón de verificación -->
+                        <div style="text-align: center; margin: 40px 0;">
+                            <a href="http://localhost:5000/verify_email/{verification_token}" 
+                               style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 50px; font-weight: 600; display: inline-block; font-size: 16px; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); transition: all 0.3s ease;">
+                                ✉️ Verificar Email
                             </a>
                         </div>
                         
-                        <p style="color: #666; font-size: 14px;">
-                            Si el botón no funciona, copia y pega este enlace en tu navegador:<br>
-                            <a href="http://localhost:5000/verify_email/{verification_token}">http://localhost:5000/verify_email/{verification_token}</a>
-                        </p>
+                        <!-- Enlace alternativo -->
+                        <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 20px; margin: 30px 0;">
+                            <p style="color: #856404; font-size: 14px; margin: 0 0 10px 0; font-weight: 600;">Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
+                            <p style="color: #856404; font-size: 12px; word-break: break-all; margin: 0; background: white; padding: 10px; border-radius: 4px; border: 1px solid #ffeaa7;">
+                                http://localhost:5000/verify_email/{verification_token}
+                            </p>
+                        </div>
                         
-                        <p style="color: #666; font-size: 14px;">
-                            Si no solicitaste esta cuenta, puedes ignorar este email.
-                        </p>
-                        
-                        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-                        
-                        <p style="color: #666; font-size: 12px; text-align: center;">
-                            © 2024 ARMind CVs. Todos los derechos reservados.
-                        </p>
+                        <p style="color: #999; font-size: 14px; text-align: center; margin: 30px 0 0 0;">Si no solicitaste esta cuenta, puedes ignorar este email.</p>
                     </div>
-                </body>
+                    
+                    <!-- Footer -->
+                    <div style="background: #f8f9fa; padding: 25px; text-align: center; border-top: 1px solid #e9ecef;">
+                        <p style="color: #6c757d; font-size: 12px; margin: 0;">© 2024 ARMind CVs. Todos los derechos reservados.</p>
+                        <p style="color: #6c757d; font-size: 12px; margin: 5px 0 0 0;">Creando el futuro de los CVs profesionales</p>
+                    </div>
+                </div>
+            </body>
             </html>
             """
             

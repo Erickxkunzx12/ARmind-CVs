@@ -589,6 +589,7 @@ def init_database():
                 email VARCHAR(255) UNIQUE NOT NULL,
                 password_hash VARCHAR(255) NOT NULL,
                 email_verified BOOLEAN DEFAULT FALSE,
+                is_verified BOOLEAN DEFAULT FALSE,
                 verification_token VARCHAR(255),
                 reset_token VARCHAR(255),
                 reset_token_expires TIMESTAMP,

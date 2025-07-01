@@ -289,7 +289,10 @@
                                                 <input type="radio" id="webpay" name="payment_method" value="webpay" required>
                                                 <label for="webpay" class="payment-label">
                                                     <div class="payment-card">
-                                                        <img src="https://www.webpay.cl/wp-content/uploads/2019/06/logo-webpay-plus.png" alt="WebPay" class="payment-logo">
+                                                        <!-- Logo WebPay oficial -->
+                                                        <div class="payment-logo-container">
+                                                            <img src="{{ url_for('static', filename='img/logo_webpay_plus.png') }}" alt="WebPay Plus" style="height: 40px; width: auto;">
+                                                        </div>
                                                         <div class="payment-info">
                                                             <h6>WebPay Plus</h6>
                                                             <small class="text-muted">Tarjetas de crédito y débito chilenas</small>
@@ -298,14 +301,14 @@
                                                 </label>
                                             </div>
                                             
-                                            <div class="payment-option" data-payment="paypal">
-                                                <input type="radio" id="paypal" name="payment_method" value="paypal" required>
-                                                <label for="paypal" class="payment-label">
-                                                    <div class="payment-card">
+                                            <div class="payment-option payment-disabled" data-payment="paypal">
+                                                <input type="radio" id="paypal" name="payment_method" value="paypal" disabled>
+                                                <label for="paypal" class="payment-label payment-label-disabled">
+                                                    <div class="payment-card payment-card-disabled">
                                                         <img src="https://www.paypalobjects.com/webstatic/mktg/Logo/pp-logo-200px.png" alt="PayPal" class="payment-logo">
                                                         <div class="payment-info">
-                                                            <h6>PayPal</h6>
-                                                            <small class="text-muted">Pago seguro internacional</small>
+                                                            <h6>PayPal <span class="badge bg-warning text-dark ms-2">Próximamente</span></h6>
+                                                            <small class="text-muted">Pago seguro internacional (En desarrollo)</small>
                                                         </div>
                                                     </div>
                                                 </label>
@@ -485,6 +488,27 @@
 
 .payment-option {
     position: relative;
+}
+
+.payment-disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.payment-label-disabled {
+    cursor: not-allowed !important;
+}
+
+.payment-card-disabled {
+    background-color: #f8f9fa !important;
+    border-color: #dee2e6 !important;
+}
+
+.payment-logo-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 15px;
 }
 
 .payment-option input[type="radio"] {
