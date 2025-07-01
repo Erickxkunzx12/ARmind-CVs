@@ -2,6 +2,41 @@
 
 {% block title %}Mi Suscripción - ARMindCV{% endblock %}
 
+{% block extra_js %}
+<script>
+// Script específico para my_subscription.html
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        // Verificar que todas las variables necesarias estén definidas
+        console.log('Inicializando página de suscripción...');
+        
+        // Manejar errores específicos de esta página
+        window.addEventListener('error', function(e) {
+            if (e.message && e.message.includes('Cannot read properties of undefined')) {
+                console.warn('Error de propiedad indefinida manejado:', e.message);
+                e.preventDefault();
+                return false;
+            }
+        });
+        
+        // Verificar elementos del DOM
+        const progressBars = document.querySelectorAll('.progress-bar');
+        progressBars.forEach(function(bar) {
+            const width = bar.style.width;
+            if (!width || width === 'NaN%') {
+                bar.style.width = '0%';
+            }
+        });
+        
+        console.log('Página de suscripción inicializada correctamente');
+        
+    } catch (error) {
+        console.error('Error en la inicialización de my_subscription:', error);
+    }
+});
+</script>
+{% endblock %}
+
 {% block content %}
 <div class="container">
     <!-- Header Section -->
@@ -22,7 +57,7 @@
             <div class="card border-0 shadow-lg">
                 <div class="card-header bg-primary text-white text-center py-4">
                     <h3 class="mb-2">
-                        {% if current_user.role == 'admin' %}
+                        {% if current_user and current_user.role == 'admin' %}
                         <i class="fas fa-shield-alt me-2"></i>
                         Administrador
                         {% else %}
@@ -63,7 +98,7 @@
                                 <li class="mb-2">
                                     <i class="fas fa-tag text-info me-2"></i>
                                     <strong>Precio:</strong> 
-                                    {% if current_user.role == 'admin' %}
+                                    {% if current_user and current_user.role == 'admin' %}
                                         Acceso administrativo
                                     {% elif subscription_plans[user_subscription.plan_type].price == 0 %}
                                         Gratis
@@ -140,7 +175,7 @@
                         <strong>Acceso ilimitado</strong> como administrador
                     </p>
                     {% else %}
-                    {% set analysis_limit = subscription_plans[user_subscription.plan_type].limits.cv_analysis %}
+                    {% set analysis_limit = subscription_plans.get(user_subscription.plan_type, {}).get('limits', {}).get('cv_analysis', 0) %}
                     {% set analysis_used = user_usage.cv_analysis_count %}
                     {% set analysis_percentage = (analysis_used / analysis_limit * 100) if analysis_limit > 0 else 0 %}
                     
@@ -186,7 +221,7 @@
                         <strong>Acceso ilimitado</strong> como administrador
                     </p>
                     {% else %}
-                    {% set creation_limit = subscription_plans[user_subscription.plan_type].limits.cv_creation %}
+                    {% set creation_limit = subscription_plans.get(user_subscription.plan_type, {}).get('limits', {}).get('cv_creation', 0) %}
                     {% set creation_used = user_usage.cv_creation_count %}
                     {% set creation_percentage = (creation_used / creation_limit * 100) if creation_limit > 0 else 0 %}
                     
@@ -227,13 +262,13 @@
                             <ul class="list-unstyled">
                                 <li class="mb-3">
                                     <i class="fas fa-check text-success me-2"></i>
-                                    <strong>{{ subscription_plans[user_subscription.plan_type].limits.cv_analysis }}</strong> análisis de CV mensuales
+                                    <strong>{{ subscription_plans.get(user_subscription.plan_type, {}).get('limits', {}).get('cv_analysis', 0) }}</strong> análisis de CV mensuales
                                 </li>
                                 <li class="mb-3">
                                     <i class="fas fa-check text-success me-2"></i>
-                                    <strong>{{ subscription_plans[user_subscription.plan_type].limits.cv_creation }}</strong> creaciones de CV mensuales
+                                    <strong>{{ subscription_plans.get(user_subscription.plan_type, {}).get('limits', {}).get('cv_creation', 0) }}</strong> creaciones de CV mensuales
                                 </li>
-                                {% if subscription_plans[user_subscription.plan_type].features.ai_analysis %}
+                                {% if subscription_plans.get(user_subscription.plan_type, {}).get('features', {}).get('ai_analysis', False) %}
                                 <li class="mb-3">
                                     <i class="fas fa-check text-success me-2"></i>
                                     Análisis con IA avanzada
@@ -243,19 +278,19 @@
                         </div>
                         <div class="col-md-6">
                             <ul class="list-unstyled">
-                                {% if subscription_plans[user_subscription.plan_type].features.cv_templates %}
+                                {% if subscription_plans.get(user_subscription.plan_type, {}).get('features', {}).get('cv_templates', False) %}
                                 <li class="mb-3">
                                     <i class="fas fa-check text-success me-2"></i>
                                     Plantillas premium de CV
                                 </li>
                                 {% endif %}
-                                {% if subscription_plans[user_subscription.plan_type].features.priority_support %}
+                                {% if subscription_plans.get(user_subscription.plan_type, {}).get('features', {}).get('priority_support', False) %}
                                 <li class="mb-3">
                                     <i class="fas fa-check text-success me-2"></i>
                                     Soporte prioritario
                                 </li>
                                 {% endif %}
-                                {% if subscription_plans[user_subscription.plan_type].features.export_formats %}
+                                {% if subscription_plans.get(user_subscription.plan_type, {}).get('features', {}).get('export_formats', False) %}
                                 <li class="mb-3">
                                     <i class="fas fa-check text-success me-2"></i>
                                     Múltiples formatos de exportación

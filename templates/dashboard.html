@@ -808,42 +808,42 @@ function saveCardEdit() {
     });
 }
 
-// Función para actualizar contenido del consejo del día dinámicamente
-function updateTipContent(elementId, data) {
-    const tipIndex = elementId.split('_')[2];
-    const carouselItems = document.querySelectorAll('#tipsCarousel .carousel-item');
-    const targetItem = carouselItems[tipIndex - 1];
-    
-    if (targetItem) {
-        // Actualizar icono
-        if (data.icon) {
-            const iconElement = targetItem.querySelector('i');
-            if (iconElement) {
-                iconElement.className = data.icon + ' fa-2x mb-3';
-                if (data.icon_color) {
-                    const colorClass = data.icon_color.startsWith('text-') ? data.icon_color : 'text-' + data.icon_color;
-                    iconElement.className += ' ' + colorClass;
-                }
-            }
-        }
-        
-        // Actualizar título
-        if (data.title) {
-            const titleElement = targetItem.querySelector('h6');
-            if (titleElement) {
-                titleElement.textContent = data.title;
-            }
-        }
-        
-        // Actualizar descripción
-        if (data.description) {
-            const descElement = targetItem.querySelector('p.small');
-            if (descElement) {
-                descElement.textContent = data.description;
-            }
-        }
-    }
-}
+// Función para actualizar contenido del consejo del día dinámicamente - Comentada porque tipsCarousel no existe
+// function updateTipContent(elementId, data) {
+//     const tipIndex = elementId.split('_')[2];
+//     const carouselItems = document.querySelectorAll('#tipsCarousel .carousel-item');
+//     const targetItem = carouselItems[tipIndex - 1];
+//     
+//     if (targetItem) {
+//         // Actualizar icono
+//         if (data.icon) {
+//             const iconElement = targetItem.querySelector('i');
+//             if (iconElement) {
+//                 iconElement.className = data.icon + ' fa-2x mb-3';
+//                 if (data.icon_color) {
+//                     const colorClass = data.icon_color.startsWith('text-') ? data.icon_color : 'text-' + data.icon_color;
+//                     iconElement.className += ' ' + colorClass;
+//                 }
+//             }
+//         }
+//         
+//         // Actualizar título
+//         if (data.title) {
+//             const titleElement = targetItem.querySelector('h6');
+//             if (titleElement) {
+//                 titleElement.textContent = data.title;
+//             }
+//         }
+//         
+//         // Actualizar descripción
+//         if (data.description) {
+//             const descElement = targetItem.querySelector('p.small');
+//             if (descElement) {
+//                 descElement.textContent = data.description;
+//             }
+//         }
+//     }
+// }
 
 // Función para mostrar mensaje de éxito
 function showSuccessMessage(message) {
@@ -964,11 +964,11 @@ function showSuccessMessage(message) {
 {% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Auto-rotate tips carousel
-        const tipsCarousel = new bootstrap.Carousel(document.getElementById('tipsCarousel'), {
-            interval: 5000,
-            wrap: true
-        });
+        // Auto-rotate tips carousel - Comentado porque el elemento tipsCarousel no existe
+        // const tipsCarousel = new bootstrap.Carousel(document.getElementById('tipsCarousel'), {
+        //     interval: 5000,
+        //     wrap: true
+        // });
         
         // Add hover effects to cards
         const cards = document.querySelectorAll('.hover-card');

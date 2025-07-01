@@ -658,8 +658,14 @@
         // Manejador global de errores JavaScript
         window.addEventListener('error', function(e) {
             // Manejar errores específicos conocidos
-            if (e.filename && e.filename.includes('injection-topics.js')) {
-                console.warn('Script injection-topics.js no encontrado - error ignorado');
+            if (e.filename && (e.filename.includes('injection-topics.js') || e.filename.includes('dashboard:1140'))) {
+                console.warn('Script externo no encontrado - error ignorado:', e.filename);
+                e.preventDefault();
+                return false;
+            }
+            
+            // Ignorar errores de extensiones del navegador
+            if (e.filename && (e.filename.includes('extension://') || e.filename.includes('chrome-extension://'))) {
                 e.preventDefault();
                 return false;
             }
@@ -714,12 +720,22 @@
         // Initialize tooltips when DOM is ready
         document.addEventListener('DOMContentLoaded', function() {
             try {
+                // Verificar que jQuery esté disponible
+                if (typeof $ === 'undefined') {
+                    console.warn('jQuery no está disponible');
+                }
+                
                 // Inicializar tooltips si Bootstrap está disponible
                 if (typeof bootstrap !== 'undefined') {
                     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
                     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
                         return new bootstrap.Tooltip(tooltipTriggerEl);
                     });
+                }
+                
+                // Verificar que todas las variables globales necesarias estén definidas
+                if (typeof window.subscription_plans === 'undefined') {
+                    window.subscription_plans = {};
                 }
                 
                 console.log('Aplicación inicializada correctamente');
